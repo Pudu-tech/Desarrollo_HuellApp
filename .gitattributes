@@ -1,0 +1,17 @@
+# ============================================================
+# HuellAPP - Git Attributes
+#
+# Normaliza saltos de línea entre distintos sistemas
+# operativos utilizados por el equipo de desarrollo.
+#
+# Git almacenará los archivos de texto utilizando LF,
+# evitando diferencias innecesarias entre Windows y Linux.
+# ============================================================
+
+* text=auto eol=lf
+
+# Scripts ejecutados específicamente en Windows pueden
+# conservar CRLF para mantener compatibilidad.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

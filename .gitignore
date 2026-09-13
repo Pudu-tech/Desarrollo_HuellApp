@@ -1,0 +1,241 @@
+# ============================================================
+# HuellAPP - .gitignore
+#
+# Objetivo:
+#   Evitar que Git versione archivos generados automáticamente,
+#   configuraciones locales, entornos de desarrollo, logs,
+#   dependencias y, especialmente, información sensible.
+#
+# Seguridad:
+#   Nunca deben almacenarse en el repositorio credenciales,
+#   contraseñas, tokens, JWT, API keys, claves de Supabase,
+#   secretos de servicios externos ni archivos .env reales.
+#
+# Nota:
+#   .env.example SÍ se versiona porque sirve como plantilla
+#   de configuración para otros ambientes y desarrolladores.
+# ============================================================
+
+
+# ------------------------------------------------------------
+# Variables de entorno y secretos
+# ------------------------------------------------------------
+#
+# Ignora cualquier archivo .env real utilizado por:
+# - FastAPI
+# - React / Vite
+# - Supabase
+# - Brevo
+# - WhatsApp u otros servicios externos
+#
+# Ejemplos ignorados:
+#   .env
+#   .env.local
+#   .env.development
+#   .env.production
+#
+# La plantilla .env.example queda expresamente permitida.
+# ------------------------------------------------------------
+
+.env
+.env.*
+
+!.env.example
+
+
+# ------------------------------------------------------------
+# Python
+# ------------------------------------------------------------
+#
+# Archivos generados automáticamente por el intérprete
+# y cachés de módulos Python.
+# ------------------------------------------------------------
+
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+
+# ------------------------------------------------------------
+# Entornos virtuales de Python
+# ------------------------------------------------------------
+#
+# Los entornos virtuales pueden contener miles de archivos y
+# dependencias instaladas localmente. Deben reconstruirse usando
+# requirements.txt y nunca versionarse.
+# ------------------------------------------------------------
+
+.venv/
+venv/
+env/
+
+
+# ------------------------------------------------------------
+# Cachés y herramientas Python
+# ------------------------------------------------------------
+#
+# Directorios generados por herramientas de testing,
+# análisis estático y compilación.
+# ------------------------------------------------------------
+
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+
+# ------------------------------------------------------------
+# Archivos temporales de pruebas
+# ------------------------------------------------------------
+#
+# Scripts creados únicamente para pruebas locales y que no
+# forman parte de la aplicación HuellAPP.
+# ------------------------------------------------------------
+
+test_login.py
+
+
+# ------------------------------------------------------------
+# Frontend / Node.js / React
+# ------------------------------------------------------------
+#
+# Estas reglas serán utilizadas por el frontend React +
+# TypeScript de HuellAPP.
+#
+# node_modules:
+#   Dependencias instaladas localmente mediante npm.
+#
+# dist / build:
+#   Artefactos generados al compilar la aplicación.
+# ------------------------------------------------------------
+
+node_modules/
+dist/
+build/
+
+
+# ------------------------------------------------------------
+# Cachés de herramientas frontend
+# ------------------------------------------------------------
+#
+# Directorios generados por bundlers o herramientas de
+# desarrollo que no deben versionarse.
+# ------------------------------------------------------------
+
+.vite/
+.cache/
+
+
+# ------------------------------------------------------------
+# Archivos locales de npm
+# ------------------------------------------------------------
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+
+# ------------------------------------------------------------
+# IDE / editores
+# ------------------------------------------------------------
+#
+# Configuraciones personales de Visual Studio Code,
+# IntelliJ, PyCharm u otros IDE.
+#
+# Si en el futuro el equipo decide compartir configuraciones
+# específicas de VS Code, se puede versionar selectivamente
+# parte de .vscode.
+# ------------------------------------------------------------
+
+.vscode/
+.idea/
+
+
+# ------------------------------------------------------------
+# Sistema operativo
+# ------------------------------------------------------------
+#
+# Archivos auxiliares creados automáticamente por macOS
+# y Windows.
+# ------------------------------------------------------------
+
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+
+# ------------------------------------------------------------
+# Logs
+# ------------------------------------------------------------
+#
+# Los archivos de registro pueden crecer rápidamente y
+# eventualmente contener información sensible de ejecución.
+# ------------------------------------------------------------
+
+*.log
+logs/
+
+
+# ------------------------------------------------------------
+# Archivos temporales y respaldos
+# ------------------------------------------------------------
+#
+# Archivos generados por editores, procesos temporales
+# o copias de seguridad locales.
+# ------------------------------------------------------------
+
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+*~
+
+
+# ------------------------------------------------------------
+# Python packaging / builds
+# ------------------------------------------------------------
+#
+# Artefactos creados al empaquetar proyectos Python.
+# ------------------------------------------------------------
+
+*.egg-info/
+.eggs/
+wheels/
+pip-wheel-metadata/
+
+
+# ------------------------------------------------------------
+# Supabase local
+# ------------------------------------------------------------
+#
+# Configuración temporal generada por Supabase CLI al trabajar
+# con una instancia local.
+#
+# IMPORTANTE:
+# Las migraciones y seeds dentro de supabase/migrations y
+# supabase/seeds SÍ deben versionarse.
+# ------------------------------------------------------------
+
+supabase/.temp/
+
+
+# ============================================================
+# ARCHIVOS QUE SÍ DEBEN VERSIONARSE
+#
+# Aunque algunos puedan parecer archivos de configuración,
+# HuellAPP debe mantener bajo Git al menos:
+#
+#   backend/requirements.txt
+#   backend/.env.example
+#   supabase/migrations/
+#   supabase/seeds/
+#   docs/
+#   README.md
+#
+# Las reglas anteriores no deben excluir estos archivos.
+# ============================================================

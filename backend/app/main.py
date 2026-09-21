@@ -25,6 +25,7 @@ from app.core.config import get_settings
 from app.middleware.request_id import RequestIdMiddleware
 from app.api.cursos import router as cursos_router
 from app.api.salas import router as salas_router
+from app.api.asignaciones import router as asignaciones_router
 
 settings = get_settings()
 
@@ -68,6 +69,9 @@ app.include_router(cursos_router)
 
 # Registrar endpoints del módulo de salas.
 app.include_router(salas_router)
+
+# Registrar endpoints del módulo de asignaciones.
+app.include_router(asignaciones_router)
 
 @app.get("/", tags=["Root"])
 async def root() -> dict[str, str]:

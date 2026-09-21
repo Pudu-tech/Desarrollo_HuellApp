@@ -12,7 +12,6 @@ SECURITY:
 - Las operaciones sensibles quedan registradas en auditoría.
 """
 
-from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -34,6 +33,71 @@ router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
+
+
+def _request_rpc_context(request: Request) -> dict:
+    """
+    Construye metadatos comunes enviados a las RPC de escritura.
+
+    El actor nunca se obtiene desde el frontend; únicamente se propagan
+    identificadores y metadatos de la solicitud autenticada actual.
+    """
+
+    request_id_raw = getattr(
+        request.state,
+        "request_id",
+        None,
+    )
+
+    return {
+        "request_id": (
+            str(request_id_raw)
+            if request_id_raw is not None
+            else None
+        ),
+        "ip_address": (
+            request.client.host
+            if request.client
+            else None
+        ),
+        "user_agent": request.headers.get("user-agent"),
+    }
+
+
+def _get_user_result(
+    supabase,
+    *,
+    user_id: UUID,
+) -> UserListItem:
+    """
+    Recupera el contrato público de un usuario no eliminado.
+    """
+
+    response = (
+        supabase.table("usuarios")
+        .select(
+            """
+            id,
+            rut,
+            nombres,
+            apellido_paterno,
+            apellido_materno,
+            email,
+            telefono,
+            activo,
+            roles(
+                codigo,
+                nombre
+            )
+            """
+        )
+        .eq("id", str(user_id))
+        .is_("deleted_at", "null")
+        .single()
+        .execute()
+    )
+
+    return UserListItem.model_validate(response.data)
 
 
 # ============================================================
@@ -443,21 +507,11 @@ async def create_user(
     "/{user_id}",
     response_model=UserListItem,
     responses={
-        400: {
-            "description": "No se enviaron campos válidos para actualizar.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No autorizado para modificar este usuario.",
-        },
-        404: {
-            "description": "Usuario no encontrado.",
-        },
-        500: {
-            "description": "Error interno al actualizar el usuario.",
-        },
+        400: {"description": "No se enviaron campos válidos para actualizar."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No autorizado para modificar este usuario."},
+        404: {"description": "Usuario no encontrado."},
+        500: {"description": "Error interno al actualizar el usuario."},
     },
 )
 async def update_user(
@@ -469,156 +523,66 @@ async def update_user(
     ),
 ) -> UserListItem:
     """
-    Actualiza datos básicos del usuario.
-
-    No modifica:
-        - rol
-        - correo
-        - contraseña
-        - estado
+    Actualiza datos básicos y auditoría dentro de una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        target_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                deleted_at,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .maybe_single()
-            .execute()
-        )
+        cambios = payload.model_dump(exclude_unset=True)
 
-        if not target_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_user = target_response.data
-
-        if target_user.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_role = target_user.get("roles")
-
-        if not target_role:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No fue posible determinar el rol del usuario.",
-            )
-
-        if (
-            current_user.role_code == "DIRECTIVA"
-            and target_role["codigo"] == "SUPERADMIN"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="DIRECTIVA no puede modificar usuarios SUPERADMIN.",
-            )
-
-        update_data = payload.model_dump(exclude_unset=True)
-
-        if not update_data:
+        if not cambios:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se enviaron campos para actualizar.",
             )
 
-        update_data["updated_by"] = str(current_user.id)
+        context = _request_rpc_context(request)
 
-        update_response = (
-            supabase.table("usuarios")
-            .update(update_data)
-            .eq("id", str(user_id))
-            .execute()
-        )
+        response = supabase.rpc(
+            "actualizar_usuario_atomico",
+            {
+                "p_user_id": str(user_id),
+                "p_cambios": cambios,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible actualizar el usuario."
-            )
+        resultado = response.data
 
-        updated_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                roles(
-                    codigo,
-                    nombre
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de actualización de usuario.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "USER_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado.",
                 )
-                """
-            )
-            .eq("id", str(user_id))
-            .single()
-            .execute()
-        )
 
-        updated_user = UserListItem.model_validate(
-            updated_response.data
-        )
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN", "FORBIDDEN_SUPERADMIN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No autorizado para modificar este usuario.",
+                )
 
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="UPDATE_USER",
-            entity_type="USER",
-            entity_id=updated_user.id,
-            old_values={
-                "rut": target_user.get("rut"),
-                "nombres": target_user.get("nombres"),
-                "apellido_paterno": target_user.get(
-                    "apellido_paterno"
-                ),
-                "apellido_materno": target_user.get(
-                    "apellido_materno"
-                ),
-                "email": target_user.get("email"),
-                "telefono": target_user.get("telefono"),
-                "activo": target_user.get("activo"),
-                "role_code": target_role.get("codigo"),
-            },
-            new_values={
-                "rut": updated_user.rut,
-                "nombres": updated_user.nombres,
-                "apellido_paterno": updated_user.apellido_paterno,
-                "apellido_materno": updated_user.apellido_materno,
-                "email": str(updated_user.email),
-                "telefono": updated_user.telefono,
-                "activo": updated_user.activo,
-                "role_code": updated_user.roles.codigo,
-            },
-            description="Actualización de datos de usuario.",
-        )
+            if error_code in {"NO_CHANGES", "INVALID_FIELDS", "INVALID_REQUIRED_FIELD"}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos enviados para actualizar no son válidos.",
+                )
 
-        return updated_user
+            raise RuntimeError("No fue posible actualizar el usuario.")
+
+        return _get_user_result(
+            supabase,
+            user_id=user_id,
+        )
 
     except HTTPException:
         raise
@@ -630,6 +594,7 @@ async def update_user(
         )
 
 
+
 # ============================================================
 # CAMBIO DE ROL
 # ============================================================
@@ -639,21 +604,11 @@ async def update_user(
     "/{user_id}/role",
     response_model=UserListItem,
     responses={
-        400: {
-            "description": "Rol solicitado inválido.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No autorizado para cambiar el rol.",
-        },
-        404: {
-            "description": "Usuario o rol no encontrado.",
-        },
-        500: {
-            "description": "Error interno al cambiar el rol.",
-        },
+        400: {"description": "Rol solicitado inválido."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No autorizado para cambiar el rol."},
+        404: {"description": "Usuario o rol no encontrado."},
+        500: {"description": "Error interno al cambiar el rol."},
     },
 )
 async def update_user_role(
@@ -665,156 +620,64 @@ async def update_user_role(
     ),
 ) -> UserListItem:
     """
-    Cambia el rol de un usuario.
-
-    Reglas:
-        - SUPERADMIN puede asignar cualquier rol.
-        - DIRECTIVA no puede administrar ni asignar SUPERADMIN.
+    Cambia el rol y registra auditoría dentro de una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        target_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                deleted_at,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .maybe_single()
-            .execute()
-        )
+        context = _request_rpc_context(request)
 
-        if not target_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_user = target_response.data
-
-        if target_user.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_role = target_user.get("roles")
-
-        if not target_role:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No fue posible determinar el rol actual.",
-            )
-
-        if (
-            current_user.role_code == "DIRECTIVA"
-            and target_role["codigo"] == "SUPERADMIN"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="DIRECTIVA no puede modificar usuarios SUPERADMIN.",
-            )
-
-        new_role_response = (
-            supabase.table("roles")
-            .select("id,codigo,nombre")
-            .eq("codigo", payload.role_code)
-            .eq("activo", True)
-            .maybe_single()
-            .execute()
-        )
-
-        if not new_role_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="El rol solicitado no existe o está inactivo.",
-            )
-
-        new_role = new_role_response.data
-
-        if (
-            current_user.role_code == "DIRECTIVA"
-            and new_role["codigo"] == "SUPERADMIN"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="DIRECTIVA no puede asignar el rol SUPERADMIN.",
-            )
-
-        if target_role["codigo"] == new_role["codigo"]:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El usuario ya posee el rol solicitado.",
-            )
-
-        update_response = (
-            supabase.table("usuarios")
-            .update(
-                {
-                    "rol_id": new_role["id"],
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(user_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible cambiar el rol."
-            )
-
-        updated_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .single()
-            .execute()
-        )
-
-        updated_user = UserListItem.model_validate(
-            updated_response.data
-        )
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="CHANGE_USER_ROLE",
-            entity_type="USER",
-            entity_id=updated_user.id,
-            old_values={
-                "role_code": target_role["codigo"],
+        response = supabase.rpc(
+            "cambiar_rol_usuario_atomico",
+            {
+                "p_user_id": str(user_id),
+                "p_role_code": payload.role_code,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "role_code": updated_user.roles.codigo,
-            },
-            description="Cambio de rol de usuario.",
-        )
+        ).execute()
 
-        return updated_user
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de cambio de rol.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "USER_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado.",
+                )
+
+            if error_code == "ROLE_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="El rol solicitado no existe o está inactivo.",
+                )
+
+            if error_code == "SAME_ROLE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El usuario ya posee el rol solicitado.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN", "FORBIDDEN_SUPERADMIN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No autorizado para cambiar el rol.",
+                )
+
+            raise RuntimeError("No fue posible cambiar el rol.")
+
+        return _get_user_result(
+            supabase,
+            user_id=user_id,
+        )
 
     except HTTPException:
         raise
@@ -826,6 +689,7 @@ async def update_user_role(
         )
 
 
+
 # ============================================================
 # ACTIVACIÓN
 # ============================================================
@@ -835,21 +699,11 @@ async def update_user_role(
     "/{user_id}/activate",
     response_model=UserListItem,
     responses={
-        400: {
-            "description": "El usuario ya se encuentra activo.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No autorizado para activar este usuario.",
-        },
-        404: {
-            "description": "Usuario no encontrado.",
-        },
-        500: {
-            "description": "Error interno al activar el usuario.",
-        },
+        400: {"description": "El usuario ya se encuentra activo."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No autorizado para activar este usuario."},
+        404: {"description": "Usuario no encontrado."},
+        500: {"description": "Error interno al activar el usuario."},
     },
 )
 async def activate_user(
@@ -860,127 +714,57 @@ async def activate_user(
     ),
 ) -> UserListItem:
     """
-    Activa un usuario existente.
+    Activa un usuario y registra auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        target_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                activo,
-                deleted_at,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .maybe_single()
-            .execute()
-        )
+        context = _request_rpc_context(request)
 
-        if not target_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_user = target_response.data
-
-        if target_user.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_role = target_user.get("roles")
-
-        if not target_role:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No fue posible determinar el rol.",
-            )
-
-        if (
-            current_user.role_code == "DIRECTIVA"
-            and target_role["codigo"] == "SUPERADMIN"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="DIRECTIVA no puede administrar usuarios SUPERADMIN.",
-            )
-
-        if target_user["activo"] is True:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El usuario ya se encuentra activo.",
-            )
-
-        update_response = (
-            supabase.table("usuarios")
-            .update(
-                {
-                    "activo": True,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(user_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible activar el usuario."
-            )
-
-        updated_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .single()
-            .execute()
-        )
-
-        updated_user = UserListItem.model_validate(
-            updated_response.data
-        )
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="ACTIVATE_USER",
-            entity_type="USER",
-            entity_id=updated_user.id,
-            old_values={
-                "activo": False,
+        response = supabase.rpc(
+            "activar_usuario_atomico",
+            {
+                "p_user_id": str(user_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": True,
-            },
-            description="Activación de usuario.",
-        )
+        ).execute()
 
-        return updated_user
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de activación de usuario.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "USER_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado.",
+                )
+
+            if error_code == "ALREADY_ACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El usuario ya se encuentra activo.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN", "FORBIDDEN_SUPERADMIN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No autorizado para activar este usuario.",
+                )
+
+            raise RuntimeError("No fue posible activar el usuario.")
+
+        return _get_user_result(
+            supabase,
+            user_id=user_id,
+        )
 
     except HTTPException:
         raise
@@ -992,6 +776,7 @@ async def activate_user(
         )
 
 
+
 # ============================================================
 # DESACTIVACIÓN
 # ============================================================
@@ -1001,21 +786,11 @@ async def activate_user(
     "/{user_id}/deactivate",
     response_model=UserListItem,
     responses={
-        400: {
-            "description": "El usuario ya se encuentra inactivo.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No autorizado para desactivar este usuario.",
-        },
-        404: {
-            "description": "Usuario no encontrado.",
-        },
-        500: {
-            "description": "Error interno al desactivar el usuario.",
-        },
+        400: {"description": "El usuario ya se encuentra inactivo."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No autorizado para desactivar este usuario."},
+        404: {"description": "Usuario no encontrado."},
+        500: {"description": "Error interno al desactivar el usuario."},
     },
 )
 async def deactivate_user(
@@ -1026,127 +801,57 @@ async def deactivate_user(
     ),
 ) -> UserListItem:
     """
-    Desactiva un usuario existente.
+    Desactiva un usuario y registra auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        target_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                activo,
-                deleted_at,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .maybe_single()
-            .execute()
-        )
+        context = _request_rpc_context(request)
 
-        if not target_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_user = target_response.data
-
-        if target_user.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_role = target_user.get("roles")
-
-        if not target_role:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No fue posible determinar el rol.",
-            )
-
-        if (
-            current_user.role_code == "DIRECTIVA"
-            and target_role["codigo"] == "SUPERADMIN"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="DIRECTIVA no puede administrar usuarios SUPERADMIN.",
-            )
-
-        if target_user["activo"] is False:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El usuario ya se encuentra inactivo.",
-            )
-
-        update_response = (
-            supabase.table("usuarios")
-            .update(
-                {
-                    "activo": False,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(user_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible desactivar el usuario."
-            )
-
-        updated_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", str(user_id))
-            .single()
-            .execute()
-        )
-
-        updated_user = UserListItem.model_validate(
-            updated_response.data
-        )
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="DEACTIVATE_USER",
-            entity_type="USER",
-            entity_id=updated_user.id,
-            old_values={
-                "activo": True,
+        response = supabase.rpc(
+            "desactivar_usuario_atomico",
+            {
+                "p_user_id": str(user_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": False,
-            },
-            description="Desactivación de usuario.",
-        )
+        ).execute()
 
-        return updated_user
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de desactivación de usuario.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "USER_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado.",
+                )
+
+            if error_code == "ALREADY_INACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El usuario ya se encuentra inactivo.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN", "FORBIDDEN_SUPERADMIN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No autorizado para desactivar este usuario.",
+                )
+
+            raise RuntimeError("No fue posible desactivar el usuario.")
+
+        return _get_user_result(
+            supabase,
+            user_id=user_id,
+        )
 
     except HTTPException:
         raise
@@ -1158,6 +863,7 @@ async def deactivate_user(
         )
 
 
+
 # ============================================================
 # BORRADO LÓGICO
 # ============================================================
@@ -1167,21 +873,11 @@ async def deactivate_user(
     "/{user_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     responses={
-        400: {
-            "description": "Operación no permitida.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No autorizado para eliminar este usuario.",
-        },
-        404: {
-            "description": "Usuario no encontrado.",
-        },
-        500: {
-            "description": "Error interno al eliminar el usuario.",
-        },
+        400: {"description": "Operación no permitida."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No autorizado para eliminar este usuario."},
+        404: {"description": "Usuario no encontrado."},
+        500: {"description": "Error interno al eliminar el usuario."},
     },
 )
 async def delete_user(
@@ -1192,145 +888,54 @@ async def delete_user(
     ),
 ) -> None:
     """
-    Realiza el borrado lógico de un usuario.
+    Realiza borrado lógico y auditoría dentro de una sola transacción.
 
-    Reglas:
-        - DIRECTIVA no puede eliminar SUPERADMIN.
-        - Un usuario no puede eliminarse a sí mismo.
-        - La identidad de Supabase Auth se conserva.
+    La identidad de Supabase Auth se conserva.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. Impedir autoeliminación.
-        # --------------------------------------------------------
-        if user_id == current_user.id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No puede eliminar su propio usuario.",
-            )
+        context = _request_rpc_context(request)
 
-        # --------------------------------------------------------
-        # 2. Obtener estado anterior.
-        # --------------------------------------------------------
-        target_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                deleted_at,
-                roles(
-                    codigo,
-                    nombre
+        response = supabase.rpc(
+            "eliminar_usuario_atomico",
+            {
+                "p_user_id": str(user_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
+
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de borrado lógico.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "USER_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado.",
                 )
-                """
-            )
-            .eq("id", str(user_id))
-            .maybe_single()
-            .execute()
-        )
 
-        if not target_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
+            if error_code == "SELF_DELETE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No puede eliminar su propio usuario.",
+                )
 
-        target_user = target_response.data
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN", "FORBIDDEN_SUPERADMIN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No autorizado para eliminar este usuario.",
+                )
 
-        if target_user.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Usuario no encontrado.",
-            )
-
-        target_role = target_user.get("roles")
-
-        if not target_role:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="No fue posible determinar el rol.",
-            )
-
-        if (
-            current_user.role_code == "DIRECTIVA"
-            and target_role["codigo"] == "SUPERADMIN"
-        ):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="DIRECTIVA no puede eliminar usuarios SUPERADMIN.",
-            )
-
-        # --------------------------------------------------------
-        # 3. Generar timestamp una sola vez.
-        #
-        # Así el valor registrado en DB y auditoría coincide.
-        # --------------------------------------------------------
-        deleted_at = datetime.now(
-            timezone.utc
-        ).isoformat()
-
-        # --------------------------------------------------------
-        # 4. Borrado lógico.
-        # --------------------------------------------------------
-        delete_response = (
-            supabase.table("usuarios")
-            .update(
-                {
-                    "activo": False,
-                    "deleted_at": deleted_at,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(user_id))
-            .execute()
-        )
-
-        if not delete_response.data:
-            raise RuntimeError(
-                "No fue posible realizar el borrado lógico."
-            )
-
-        # --------------------------------------------------------
-        # 5. Auditoría.
-        # --------------------------------------------------------
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="DELETE_USER",
-            entity_type="USER",
-            entity_id=user_id,
-            old_values={
-                "rut": target_user.get("rut"),
-                "nombres": target_user.get("nombres"),
-                "apellido_paterno": target_user.get(
-                    "apellido_paterno"
-                ),
-                "apellido_materno": target_user.get(
-                    "apellido_materno"
-                ),
-                "email": target_user.get("email"),
-                "telefono": target_user.get("telefono"),
-                "activo": target_user.get("activo"),
-                "deleted_at": None,
-                "role_code": target_role.get("codigo"),
-            },
-            new_values={
-                "activo": False,
-                "deleted_at": deleted_at,
-                "role_code": target_role.get("codigo"),
-            },
-            description="Borrado lógico de usuario.",
-        )
+            raise RuntimeError("No fue posible realizar el borrado lógico.")
 
         return None
 
@@ -1342,3 +947,4 @@ async def delete_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible eliminar el usuario.",
         )
+

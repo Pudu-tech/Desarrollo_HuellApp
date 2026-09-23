@@ -29,7 +29,6 @@ from app.schemas.salas import (
     SalaListItem,
     SalaUpdate,
 )
-from app.services.audit import write_audit_log
 
 
 router = APIRouter(
@@ -60,24 +59,51 @@ updated_at
 # ============================================================
 
 
-def _sala_a_auditoria(
-    sala: SalaListItem,
-) -> dict:
+def _request_rpc_context(request: Request) -> dict:
     """
-    Convierte una sala a un diccionario serializable para auditoría.
+    Construye los metadatos comunes para las RPC de escritura.
     """
 
+    request_id_raw = getattr(request.state, "request_id", None)
+
     return {
-        "id": str(sala.id),
-        "colegio_id": str(sala.colegio_id),
-        "nombre": sala.nombre,
-        "descripcion": sala.descripcion,
-        "capacidad": sala.capacidad,
-        "ubicacion": sala.ubicacion,
-        "activo": sala.activo,
-        "created_at": sala.created_at.isoformat(),
-        "updated_at": sala.updated_at.isoformat(),
+        "request_id": (
+            str(request_id_raw)
+            if request_id_raw is not None
+            else None
+        ),
+        "ip_address": (
+            request.client.host
+            if request.client
+            else None
+        ),
+        "user_agent": request.headers.get("user-agent"),
     }
+
+
+def _obtener_sala_resultado(
+    supabase,
+    *,
+    sala_id: UUID,
+) -> SalaListItem:
+    """
+    Recupera una sala no eliminada usando el contrato público.
+    """
+
+    response = (
+        supabase.table("salas")
+        .select(SALA_SELECT)
+        .eq("id", str(sala_id))
+        .is_("deleted_at", "null")
+        .single()
+        .execute()
+    )
+
+    return SalaListItem.model_validate(response.data)
+
+
+
+
 
 
 def _payload_a_dict(
@@ -135,52 +161,6 @@ def _obtener_colegio_activo(
     return response.data
 
 
-def _validar_duplicado_sala(
-    supabase,
-    *,
-    colegio_id: UUID,
-    nombre: str,
-    sala_id_excluir: UUID | None = None,
-) -> None:
-    """
-    Valida la unicidad lógica de una sala por:
-
-        colegio_id + nombre
-
-    La base también posee la constraint:
-        uq_sala_colegio_nombre
-
-    Esta validación entrega un mensaje HTTP más claro.
-    """
-
-    query = (
-        supabase.table("salas")
-        .select("id")
-        .eq("colegio_id", str(colegio_id))
-        .eq("nombre", nombre)
-        .is_("deleted_at", "null")
-    )
-
-    if sala_id_excluir is not None:
-        query = query.neq(
-            "id",
-            str(sala_id_excluir),
-        )
-
-    response = (
-        query
-        .limit(1)
-        .execute()
-    )
-
-    if response.data:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Ya existe una sala con el mismo nombre "
-                "en el colegio seleccionado."
-            ),
-        )
 
 
 # ============================================================
@@ -335,24 +315,16 @@ async def obtener_sala(
     response_model=SalaListItem,
     status_code=status.HTTP_201_CREATED,
     responses={
-        400: {
-            "description": "Datos o relaciones inválidas.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso CREATE_ROOM.",
-        },
+        400: {"description": "Datos o relaciones inválidas."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso CREATE_ROOM."},
         409: {
             "description": (
                 "Ya existe una sala con el mismo nombre "
                 "en el colegio."
             ),
         },
-        500: {
-            "description": "Error interno al crear la sala.",
-        },
+        500: {"description": "Error interno al crear la sala."},
     },
 )
 async def crear_sala(
@@ -363,91 +335,82 @@ async def crear_sala(
     ),
 ) -> SalaListItem:
     """
-    Crea una sala asociada a un colegio.
-
-    Reglas:
-    - el colegio debe existir y estar activo;
-    - no puede existir otra sala con el mismo nombre
-      dentro del mismo colegio.
+    Crea una sala y registra su auditoría en una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. VALIDAR COLEGIO
-        # --------------------------------------------------------
-
+        # Se conserva la validación previa para entregar errores claros.
+        # PostgreSQL vuelve a validar la relación antes de escribir.
         _obtener_colegio_activo(
             supabase,
             colegio_id=payload.colegio_id,
         )
 
-        # --------------------------------------------------------
-        # 2. VALIDAR DUPLICADO
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        _validar_duplicado_sala(
-            supabase,
-            colegio_id=payload.colegio_id,
-            nombre=payload.nombre,
-        )
+        response = supabase.rpc(
+            "crear_sala_atomica",
+            {
+                "p_colegio_id": str(payload.colegio_id),
+                "p_nombre": payload.nombre,
+                "p_descripcion": payload.descripcion,
+                "p_capacidad": payload.capacidad,
+                "p_ubicacion": payload.ubicacion,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        # --------------------------------------------------------
-        # 3. CREAR SALA
-        # --------------------------------------------------------
+        resultado = response.data
 
-        insert_data = _payload_a_dict(payload)
-
-        insert_data["activo"] = True
-        insert_data["created_by"] = str(current_user.id)
-        insert_data["updated_by"] = str(current_user.id)
-
-        insert_response = (
-            supabase.table("salas")
-            .insert(insert_data)
-            .execute()
-        )
-
-        if not insert_response.data:
+        if not isinstance(resultado, dict):
             raise RuntimeError(
-                "No se creó la sala."
+                "La RPC de creación de sala devolvió una respuesta inválida."
             )
 
-        sala_id = insert_response.data[0]["id"]
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
 
-        # --------------------------------------------------------
-        # 4. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
+            if error_code == "ROOM_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Ya existe una sala con el mismo nombre "
+                        "en el colegio seleccionado."
+                    ),
+                )
 
-        created_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT)
-            .eq("id", sala_id)
-            .single()
-            .execute()
+            if error_code in {
+                "SCHOOL_NOT_ACTIVE",
+                "INVALID_NAME",
+                "INVALID_CAPACITY",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos o relaciones de la sala no son válidos.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para crear salas.",
+                )
+
+            raise RuntimeError("No fue posible crear la sala.")
+
+        sala_id = resultado.get("sala_id")
+
+        if not sala_id:
+            raise RuntimeError("La RPC no devolvió la sala creada.")
+
+        return _obtener_sala_resultado(
+            supabase,
+            sala_id=UUID(str(sala_id)),
         )
-
-        sala = SalaListItem.model_validate(
-            created_response.data
-        )
-
-        # --------------------------------------------------------
-        # 5. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="CREATE_ROOM",
-            entity_type="ROOM",
-            entity_id=sala.id,
-            old_values=None,
-            new_values=_sala_a_auditoria(sala),
-            description="Creación de sala.",
-        )
-
-        return sala
 
     except HTTPException:
         raise
@@ -459,6 +422,7 @@ async def crear_sala(
         )
 
 
+
 # ============================================================
 # ACTUALIZAR SALA
 # ============================================================
@@ -468,27 +432,17 @@ async def crear_sala(
     "/{sala_id}",
     response_model=SalaListItem,
     responses={
-        400: {
-            "description": "Datos inválidos o sin cambios.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso UPDATE_ROOM.",
-        },
-        404: {
-            "description": "Sala no encontrada.",
-        },
+        400: {"description": "Datos inválidos o sin cambios."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso UPDATE_ROOM."},
+        404: {"description": "Sala no encontrada."},
         409: {
             "description": (
                 "Ya existe una sala con el mismo nombre "
                 "en el colegio."
             ),
         },
-        500: {
-            "description": "Error interno al actualizar la sala.",
-        },
+        500: {"description": "Error interno al actualizar la sala."},
     },
 )
 async def actualizar_sala(
@@ -500,145 +454,90 @@ async def actualizar_sala(
     ),
 ) -> SalaListItem:
     """
-    Modifica parcialmente una sala existente.
+    Actualiza una sala y su auditoría dentro de una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER ESTADO ACTUAL
-        # --------------------------------------------------------
+        cambios = _payload_a_dict(payload)
 
-        current_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT + ",deleted_at")
-            .eq("id", str(sala_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sala no encontrada.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sala no encontrada.",
-            )
-
-        sala_actual = SalaListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. OBTENER CAMPOS ENVIADOS
-        # --------------------------------------------------------
-
-        update_data = _payload_a_dict(payload)
-
-        if not update_data:
+        if not cambios:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se enviaron campos para actualizar.",
             )
 
-        # --------------------------------------------------------
-        # 3. CALCULAR ESTADO FINAL
-        # --------------------------------------------------------
-
-        colegio_final = UUID(
-            str(
-                update_data.get(
-                    "colegio_id",
-                    sala_actual.colegio_id,
-                )
-            )
-        )
-
-        nombre_final = update_data.get(
-            "nombre",
-            sala_actual.nombre,
-        )
-
-        # --------------------------------------------------------
-        # 4. VALIDAR COLEGIO SOLO SI CAMBIA
-        # --------------------------------------------------------
-
-        if "colegio_id" in update_data:
+        if "colegio_id" in cambios:
             _obtener_colegio_activo(
                 supabase,
-                colegio_id=colegio_final,
+                colegio_id=UUID(str(cambios["colegio_id"])),
             )
 
-        # --------------------------------------------------------
-        # 5. VALIDAR DUPLICADO FINAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        _validar_duplicado_sala(
-            supabase,
-            colegio_id=colegio_final,
-            nombre=nombre_final,
-            sala_id_excluir=sala_id,
-        )
+        response = supabase.rpc(
+            "actualizar_sala_atomica",
+            {
+                "p_sala_id": str(sala_id),
+                "p_cambios": cambios,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        # --------------------------------------------------------
-        # 6. ACTUALIZAR
-        # --------------------------------------------------------
+        resultado = response.data
 
-        update_data["updated_by"] = str(current_user.id)
-
-        update_response = (
-            supabase.table("salas")
-            .update(update_data)
-            .eq("id", str(sala_id))
-            .execute()
-        )
-
-        if not update_response.data:
+        if not isinstance(resultado, dict):
             raise RuntimeError(
-                "No fue posible actualizar la sala."
+                "La RPC de actualización de sala devolvió una respuesta inválida."
             )
 
-        # --------------------------------------------------------
-        # 7. CONSULTAR ESTADO POSTERIOR
-        # --------------------------------------------------------
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
 
-        updated_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT)
-            .eq("id", str(sala_id))
-            .single()
-            .execute()
+            if error_code == "ROOM_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Sala no encontrada.",
+                )
+
+            if error_code == "ROOM_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Ya existe una sala con el mismo nombre "
+                        "en el colegio seleccionado."
+                    ),
+                )
+
+            if error_code in {
+                "NO_CHANGES",
+                "INVALID_FIELDS",
+                "INVALID_DATA",
+                "INVALID_NAME",
+                "INVALID_CAPACITY",
+                "SCHOOL_NOT_ACTIVE",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos o relaciones de la sala no son válidos.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para actualizar salas.",
+                )
+
+            raise RuntimeError("No fue posible actualizar la sala.")
+
+        return _obtener_sala_resultado(
+            supabase,
+            sala_id=sala_id,
         )
-
-        sala_actualizada = SalaListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 8. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="UPDATE_ROOM",
-            entity_type="ROOM",
-            entity_id=sala_actualizada.id,
-            old_values=_sala_a_auditoria(
-                sala_actual
-            ),
-            new_values=_sala_a_auditoria(
-                sala_actualizada
-            ),
-            description="Actualización de sala.",
-        )
-
-        return sala_actualizada
 
     except HTTPException:
         raise
@@ -648,6 +547,7 @@ async def actualizar_sala(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible actualizar la sala.",
         )
+
 
 
 # ============================================================
@@ -664,23 +564,11 @@ async def actualizar_sala(
                 "La sala ya está activa o el colegio es inválido."
             ),
         },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso ACTIVATE_ROOM.",
-        },
-        404: {
-            "description": "Sala no encontrada.",
-        },
-        409: {
-            "description": (
-                "Existe otra sala con el mismo nombre."
-            ),
-        },
-        500: {
-            "description": "Error interno al activar la sala.",
-        },
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso ACTIVATE_ROOM."},
+        404: {"description": "Sala no encontrada."},
+        409: {"description": "Existe otra sala con el mismo nombre."},
+        500: {"description": "Error interno al activar la sala."},
     },
 )
 async def activar_sala(
@@ -691,127 +579,66 @@ async def activar_sala(
     ),
 ) -> SalaListItem:
     """
-    Reactiva una sala previamente desactivada.
+    Activa una sala y registra su auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER SALA ACTUAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        current_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT + ",deleted_at")
-            .eq("id", str(sala_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sala no encontrada.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sala no encontrada.",
-            )
-
-        sala_actual = SalaListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR ESTADO
-        # --------------------------------------------------------
-
-        if sala_actual.activo is True:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="La sala ya se encuentra activa.",
-            )
-
-        # --------------------------------------------------------
-        # 3. VALIDAR COLEGIO
-        # --------------------------------------------------------
-
-        _obtener_colegio_activo(
-            supabase,
-            colegio_id=sala_actual.colegio_id,
-        )
-
-        # --------------------------------------------------------
-        # 4. VALIDAR DUPLICADO
-        # --------------------------------------------------------
-
-        _validar_duplicado_sala(
-            supabase,
-            colegio_id=sala_actual.colegio_id,
-            nombre=sala_actual.nombre,
-            sala_id_excluir=sala_id,
-        )
-
-        # --------------------------------------------------------
-        # 5. ACTIVAR
-        # --------------------------------------------------------
-
-        update_response = (
-            supabase.table("salas")
-            .update(
-                {
-                    "activo": True,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(sala_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible activar la sala."
-            )
-
-        # --------------------------------------------------------
-        # 6. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
-
-        updated_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT)
-            .eq("id", str(sala_id))
-            .single()
-            .execute()
-        )
-
-        sala_actualizada = SalaListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 7. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="ACTIVATE_ROOM",
-            entity_type="ROOM",
-            entity_id=sala_actualizada.id,
-            old_values={
-                "activo": False,
+        response = supabase.rpc(
+            "activar_sala_atomica",
+            {
+                "p_sala_id": str(sala_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": True,
-            },
-            description="Activación de sala.",
-        )
+        ).execute()
 
-        return sala_actualizada
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de activación de sala.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "ROOM_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Sala no encontrada.",
+                )
+
+            if error_code in {"ALREADY_ACTIVE", "SCHOOL_NOT_ACTIVE"}:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "La sala ya está activa o el colegio "
+                        "asociado no se encuentra activo."
+                    ),
+                )
+
+            if error_code == "ROOM_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Existe otra sala con el mismo nombre.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para activar salas.",
+                )
+
+            raise RuntimeError("No fue posible activar la sala.")
+
+        return _obtener_sala_resultado(
+            supabase,
+            sala_id=sala_id,
+        )
 
     except HTTPException:
         raise
@@ -823,6 +650,7 @@ async def activar_sala(
         )
 
 
+
 # ============================================================
 # DESACTIVAR SALA
 # ============================================================
@@ -832,21 +660,11 @@ async def activar_sala(
     "/{sala_id}/deactivate",
     response_model=SalaListItem,
     responses={
-        400: {
-            "description": "La sala ya se encuentra inactiva.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso DEACTIVATE_ROOM.",
-        },
-        404: {
-            "description": "Sala no encontrada.",
-        },
-        500: {
-            "description": "Error interno al desactivar la sala.",
-        },
+        400: {"description": "La sala ya se encuentra inactiva."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso DEACTIVATE_ROOM."},
+        404: {"description": "Sala no encontrada."},
+        500: {"description": "Error interno al desactivar la sala."},
     },
 )
 async def desactivar_sala(
@@ -857,109 +675,57 @@ async def desactivar_sala(
     ),
 ) -> SalaListItem:
     """
-    Desactiva una sala.
-
-    La operación no elimina físicamente el registro.
+    Desactiva una sala y registra su auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER SALA ACTUAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        current_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT + ",deleted_at")
-            .eq("id", str(sala_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sala no encontrada.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sala no encontrada.",
-            )
-
-        sala_actual = SalaListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR ESTADO
-        # --------------------------------------------------------
-
-        if sala_actual.activo is False:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="La sala ya se encuentra inactiva.",
-            )
-
-        # --------------------------------------------------------
-        # 3. DESACTIVAR
-        # --------------------------------------------------------
-
-        update_response = (
-            supabase.table("salas")
-            .update(
-                {
-                    "activo": False,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(sala_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible desactivar la sala."
-            )
-
-        # --------------------------------------------------------
-        # 4. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
-
-        updated_response = (
-            supabase.table("salas")
-            .select(SALA_SELECT)
-            .eq("id", str(sala_id))
-            .single()
-            .execute()
-        )
-
-        sala_actualizada = SalaListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 5. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="DEACTIVATE_ROOM",
-            entity_type="ROOM",
-            entity_id=sala_actualizada.id,
-            old_values={
-                "activo": True,
+        response = supabase.rpc(
+            "desactivar_sala_atomica",
+            {
+                "p_sala_id": str(sala_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": False,
-            },
-            description="Desactivación de sala.",
-        )
+        ).execute()
 
-        return sala_actualizada
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de desactivación de sala.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "ROOM_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Sala no encontrada.",
+                )
+
+            if error_code == "ALREADY_INACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La sala ya se encuentra inactiva.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para desactivar salas.",
+                )
+
+            raise RuntimeError("No fue posible desactivar la sala.")
+
+        return _obtener_sala_resultado(
+            supabase,
+            sala_id=sala_id,
+        )
 
     except HTTPException:
         raise
@@ -969,3 +735,4 @@ async def desactivar_sala(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible desactivar la sala.",
         )
+

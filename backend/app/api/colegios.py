@@ -28,7 +28,6 @@ from app.schemas.colegios import (
     ColegioListItem,
     ColegioUpdate,
 )
-from app.services.audit import write_audit_log
 
 
 router = APIRouter(
@@ -68,48 +67,55 @@ activo
 # ============================================================
 
 
-def _colegio_a_auditoria(
-    colegio: ColegioListItem,
-) -> dict:
+def _request_rpc_context(request: Request) -> dict:
     """
-    Convierte un colegio a un diccionario seguro para auditoría.
+    Construye metadatos comunes para las RPC de escritura.
+    """
 
-    Los UUID se convierten a texto para asegurar que los valores
-    sean serializables correctamente como JSONB.
-    """
+    request_id_raw = getattr(
+        request.state,
+        "request_id",
+        None,
+    )
 
     return {
-        "id": str(colegio.id),
-        "rbd": colegio.rbd,
-        "nombre": colegio.nombre,
-        "descripcion": colegio.descripcion,
-        "tipo_dependencia_id": (
-            str(colegio.tipo_dependencia_id)
-            if colegio.tipo_dependencia_id
+        "request_id": (
+            str(request_id_raw)
+            if request_id_raw is not None
             else None
         ),
-        "direccion": colegio.direccion,
-        "numero": colegio.numero,
-        "complemento": colegio.complemento,
-        "comuna_id": str(colegio.comuna_id),
-        "region_id": str(colegio.region_id),
-        "codigo_postal": colegio.codigo_postal,
-        "telefono": colegio.telefono,
-        "email": (
-            str(colegio.email)
-            if colegio.email
+        "ip_address": (
+            request.client.host
+            if request.client
             else None
         ),
-        "sitio_web": colegio.sitio_web,
-        "nombre_contacto": colegio.nombre_contacto,
-        "telefono_contacto": colegio.telefono_contacto,
-        "email_contacto": (
-            str(colegio.email_contacto)
-            if colegio.email_contacto
-            else None
-        ),
-        "activo": colegio.activo,
+        "user_agent": request.headers.get("user-agent"),
     }
+
+
+def _obtener_colegio_resultado(
+    supabase,
+    *,
+    colegio_id: UUID,
+) -> ColegioListItem:
+    """
+    Recupera un colegio no eliminado usando el contrato público.
+    """
+
+    response = (
+        supabase.table("colegios")
+        .select(COLEGIO_SELECT)
+        .eq("id", str(colegio_id))
+        .is_("deleted_at", "null")
+        .single()
+        .execute()
+    )
+
+    return ColegioListItem.model_validate(response.data)
+
+
+
+
 
 
 def _payload_a_dict(
@@ -362,21 +368,11 @@ async def obtener_colegio(
     response_model=ColegioListItem,
     status_code=status.HTTP_201_CREATED,
     responses={
-        400: {
-            "description": "Datos o relaciones inválidas.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso CREATE_SCHOOL.",
-        },
-        409: {
-            "description": "El RBD ya se encuentra registrado.",
-        },
-        500: {
-            "description": "Error interno al crear el colegio.",
-        },
+        400: {"description": "Datos o relaciones inválidas."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso CREATE_SCHOOL."},
+        409: {"description": "El RBD ya se encuentra registrado."},
+        500: {"description": "Error interno al crear el colegio."},
     },
 )
 async def crear_colegio(
@@ -387,42 +383,13 @@ async def crear_colegio(
     ),
 ) -> ColegioListItem:
     """
-    Crea un colegio.
-
-    Validaciones:
-    - RBD único cuando se informa;
-    - región válida y activa;
-    - comuna válida y activa;
-    - comuna perteneciente a la región;
-    - dependencia válida y activa cuando se informa.
+    Crea un colegio y su auditoría dentro de una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. VALIDAR RBD
-        # --------------------------------------------------------
-
-        if payload.rbd is not None:
-            rbd_response = (
-                supabase.table("colegios")
-                .select("id")
-                .eq("rbd", payload.rbd)
-                .limit(1)
-                .execute()
-            )
-
-            if rbd_response.data:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="El RBD ya se encuentra registrado.",
-                )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR RELACIONES
-        # --------------------------------------------------------
-
+        # Mantiene las validaciones funcionales antes de abrir la escritura.
         _validar_relaciones_colegio(
             supabase,
             region_id=payload.region_id,
@@ -430,61 +397,65 @@ async def crear_colegio(
             tipo_dependencia_id=payload.tipo_dependencia_id,
         )
 
-        # --------------------------------------------------------
-        # 3. CREAR COLEGIO
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        insert_data = _payload_a_dict(payload)
+        response = supabase.rpc(
+            "crear_colegio_atomico",
+            {
+                "p_datos": _payload_a_dict(payload),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        insert_data["activo"] = True
-        insert_data["created_by"] = str(current_user.id)
-        insert_data["updated_by"] = str(current_user.id)
+        resultado = response.data
 
-        insert_response = (
-            supabase.table("colegios")
-            .insert(insert_data)
-            .execute()
-        )
-
-        if not insert_response.data:
+        if not isinstance(resultado, dict):
             raise RuntimeError(
-                "No se creó el colegio."
+                "La RPC de creación de colegio devolvió una respuesta inválida."
             )
 
-        colegio_id = insert_response.data[0]["id"]
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
 
-        # --------------------------------------------------------
-        # 4. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
+            if error_code == "RBD_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="El RBD ya se encuentra registrado.",
+                )
 
-        created_response = (
-            supabase.table("colegios")
-            .select(COLEGIO_SELECT)
-            .eq("id", colegio_id)
-            .single()
-            .execute()
+            if error_code in {
+                "REGION_NOT_FOUND",
+                "COMUNA_NOT_FOUND_OR_MISMATCH",
+                "DEPENDENCY_TYPE_NOT_FOUND",
+                "INVALID_DATA",
+                "INVALID_RELATION_ID",
+                "INVALID_REQUIRED_FIELD",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos o relaciones del colegio no son válidos.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para crear colegios.",
+                )
+
+            raise RuntimeError("No fue posible crear el colegio.")
+
+        colegio_id = resultado.get("colegio_id")
+
+        if not colegio_id:
+            raise RuntimeError("La RPC no devolvió el colegio creado.")
+
+        return _obtener_colegio_resultado(
+            supabase,
+            colegio_id=UUID(str(colegio_id)),
         )
-
-        colegio = ColegioListItem.model_validate(
-            created_response.data
-        )
-
-        # --------------------------------------------------------
-        # 5. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="CREATE_SCHOOL",
-            entity_type="SCHOOL",
-            entity_id=colegio.id,
-            old_values=None,
-            new_values=_colegio_a_auditoria(colegio),
-            description="Creación de colegio.",
-        )
-
-        return colegio
 
     except HTTPException:
         raise
@@ -496,6 +467,7 @@ async def crear_colegio(
         )
 
 
+
 # ============================================================
 # ACTUALIZAR COLEGIO
 # ============================================================
@@ -505,24 +477,12 @@ async def crear_colegio(
     "/{colegio_id}",
     response_model=ColegioListItem,
     responses={
-        400: {
-            "description": "Datos inválidos o sin cambios.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso UPDATE_SCHOOL.",
-        },
-        404: {
-            "description": "Colegio no encontrado.",
-        },
-        409: {
-            "description": "El RBD ya se encuentra registrado.",
-        },
-        500: {
-            "description": "Error interno al actualizar el colegio.",
-        },
+        400: {"description": "Datos inválidos o sin cambios."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso UPDATE_SCHOOL."},
+        404: {"description": "Colegio no encontrado."},
+        409: {"description": "El RBD ya se encuentra registrado."},
+        500: {"description": "Error interno al actualizar el colegio."},
     },
 )
 async def actualizar_colegio(
@@ -534,16 +494,12 @@ async def actualizar_colegio(
     ),
 ) -> ColegioListItem:
     """
-    Modifica los datos de un colegio existente.
+    Actualiza un colegio y su auditoría dentro de una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER ESTADO ACTUAL
-        # --------------------------------------------------------
-
         current_response = (
             supabase.table("colegios")
             .select(COLEGIO_SELECT + ",deleted_at")
@@ -552,13 +508,10 @@ async def actualizar_colegio(
             .execute()
         )
 
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Colegio no encontrado.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
+        if (
+            not current_response.data
+            or current_response.data.get("deleted_at") is not None
+        ):
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Colegio no encontrado.",
@@ -568,45 +521,13 @@ async def actualizar_colegio(
             current_response.data
         )
 
-        # --------------------------------------------------------
-        # 2. OBTENER CAMPOS ENVIADOS
-        # --------------------------------------------------------
+        cambios = _payload_a_dict(payload)
 
-        update_data = _payload_a_dict(payload)
-
-        if not update_data:
+        if not cambios:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se enviaron campos para actualizar.",
             )
-
-        # --------------------------------------------------------
-        # 3. VALIDAR RBD SI CAMBIA
-        # --------------------------------------------------------
-
-        if (
-            "rbd" in update_data
-            and update_data["rbd"] is not None
-            and update_data["rbd"] != colegio_actual.rbd
-        ):
-            rbd_response = (
-                supabase.table("colegios")
-                .select("id")
-                .eq("rbd", update_data["rbd"])
-                .neq("id", str(colegio_id))
-                .limit(1)
-                .execute()
-            )
-
-            if rbd_response.data:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail="El RBD ya se encuentra registrado.",
-                )
-
-        # --------------------------------------------------------
-        # 4. VALIDAR RELACIONES SOLO CUANDO CAMBIAN
-        # --------------------------------------------------------
 
         campos_relacionados = {
             "region_id",
@@ -614,33 +535,20 @@ async def actualizar_colegio(
             "tipo_dependencia_id",
         }
 
-        if campos_relacionados.intersection(update_data):
+        if campos_relacionados.intersection(cambios):
             region_final = UUID(
-                str(
-                    update_data.get(
-                        "region_id",
-                        colegio_actual.region_id,
-                    )
-                )
+                str(cambios.get("region_id", colegio_actual.region_id))
             )
-
             comuna_final = UUID(
-                str(
-                    update_data.get(
-                        "comuna_id",
-                        colegio_actual.comuna_id,
-                    )
-                )
+                str(cambios.get("comuna_id", colegio_actual.comuna_id))
             )
-
-            dependencia_final_raw = update_data.get(
+            dependencia_raw = cambios.get(
                 "tipo_dependencia_id",
                 colegio_actual.tipo_dependencia_id,
             )
-
             dependencia_final = (
-                UUID(str(dependencia_final_raw))
-                if dependencia_final_raw is not None
+                UUID(str(dependencia_raw))
+                if dependencia_raw is not None
                 else None
             )
 
@@ -651,60 +559,68 @@ async def actualizar_colegio(
                 tipo_dependencia_id=dependencia_final,
             )
 
-        # --------------------------------------------------------
-        # 5. ACTUALIZAR
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        update_data["updated_by"] = str(current_user.id)
+        response = supabase.rpc(
+            "actualizar_colegio_atomico",
+            {
+                "p_colegio_id": str(colegio_id),
+                "p_cambios": cambios,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        update_response = (
-            supabase.table("colegios")
-            .update(update_data)
-            .eq("id", str(colegio_id))
-            .execute()
-        )
+        resultado = response.data
 
-        if not update_response.data:
+        if not isinstance(resultado, dict):
             raise RuntimeError(
-                "No fue posible actualizar el colegio."
+                "La RPC de actualización de colegio devolvió una respuesta inválida."
             )
 
-        # --------------------------------------------------------
-        # 6. CONSULTAR ESTADO POSTERIOR
-        # --------------------------------------------------------
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
 
-        updated_response = (
-            supabase.table("colegios")
-            .select(COLEGIO_SELECT)
-            .eq("id", str(colegio_id))
-            .single()
-            .execute()
+            if error_code == "SCHOOL_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Colegio no encontrado.",
+                )
+
+            if error_code == "RBD_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="El RBD ya se encuentra registrado.",
+                )
+
+            if error_code in {
+                "NO_CHANGES",
+                "INVALID_FIELDS",
+                "INVALID_REQUIRED_FIELD",
+                "INVALID_RELATION_ID",
+                "REGION_NOT_FOUND",
+                "COMUNA_NOT_FOUND_OR_MISMATCH",
+                "DEPENDENCY_TYPE_NOT_FOUND",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos o relaciones del colegio no son válidos.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para actualizar colegios.",
+                )
+
+            raise RuntimeError("No fue posible actualizar el colegio.")
+
+        return _obtener_colegio_resultado(
+            supabase,
+            colegio_id=colegio_id,
         )
-
-        colegio_actualizado = ColegioListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 7. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="UPDATE_SCHOOL",
-            entity_type="SCHOOL",
-            entity_id=colegio_actualizado.id,
-            old_values=_colegio_a_auditoria(
-                colegio_actual
-            ),
-            new_values=_colegio_a_auditoria(
-                colegio_actualizado
-            ),
-            description="Actualización de colegio.",
-        )
-
-        return colegio_actualizado
 
     except HTTPException:
         raise
@@ -715,6 +631,7 @@ async def actualizar_colegio(
             detail="No fue posible actualizar el colegio.",
         )
 
+
 # ============================================================
 # ACTIVAR COLEGIO
 # ============================================================
@@ -724,21 +641,11 @@ async def actualizar_colegio(
     "/{colegio_id}/activate",
     response_model=ColegioListItem,
     responses={
-        400: {
-            "description": "El colegio ya se encuentra activo.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso ACTIVATE_SCHOOL.",
-        },
-        404: {
-            "description": "Colegio no encontrado.",
-        },
-        500: {
-            "description": "Error interno al activar el colegio.",
-        },
+        400: {"description": "El colegio ya se encuentra activo."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso ACTIVATE_SCHOOL."},
+        404: {"description": "Colegio no encontrado."},
+        500: {"description": "Error interno al activar el colegio."},
     },
 )
 async def activar_colegio(
@@ -749,109 +656,57 @@ async def activar_colegio(
     ),
 ) -> ColegioListItem:
     """
-    Reactiva un colegio previamente desactivado.
-
-    La operación no modifica otros datos del colegio.
+    Activa un colegio y registra auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER COLEGIO ACTUAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        current_response = (
-            supabase.table("colegios")
-            .select(COLEGIO_SELECT + ",deleted_at")
-            .eq("id", str(colegio_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Colegio no encontrado.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Colegio no encontrado.",
-            )
-
-        colegio_actual = ColegioListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR ESTADO
-        # --------------------------------------------------------
-
-        if colegio_actual.activo is True:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El colegio ya se encuentra activo.",
-            )
-
-        # --------------------------------------------------------
-        # 3. ACTIVAR
-        # --------------------------------------------------------
-
-        update_response = (
-            supabase.table("colegios")
-            .update(
-                {
-                    "activo": True,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(colegio_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible activar el colegio."
-            )
-
-        # --------------------------------------------------------
-        # 4. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
-
-        updated_response = (
-            supabase.table("colegios")
-            .select(COLEGIO_SELECT)
-            .eq("id", str(colegio_id))
-            .single()
-            .execute()
-        )
-
-        colegio_actualizado = ColegioListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 5. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="ACTIVATE_SCHOOL",
-            entity_type="SCHOOL",
-            entity_id=colegio_actualizado.id,
-            old_values={
-                "activo": False,
+        response = supabase.rpc(
+            "activar_colegio_atomico",
+            {
+                "p_colegio_id": str(colegio_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": True,
-            },
-            description="Activación de colegio.",
-        )
+        ).execute()
 
-        return colegio_actualizado
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de activación de colegio.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "SCHOOL_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Colegio no encontrado.",
+                )
+
+            if error_code == "ALREADY_ACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El colegio ya se encuentra activo.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para activar colegios.",
+                )
+
+            raise RuntimeError("No fue posible activar el colegio.")
+
+        return _obtener_colegio_resultado(
+            supabase,
+            colegio_id=colegio_id,
+        )
 
     except HTTPException:
         raise
@@ -865,6 +720,7 @@ async def activar_colegio(
 
 
 
+
 # ============================================================
 # DESACTIVAR COLEGIO
 # ============================================================
@@ -874,21 +730,11 @@ async def activar_colegio(
     "/{colegio_id}/deactivate",
     response_model=ColegioListItem,
     responses={
-        400: {
-            "description": "El colegio ya se encuentra inactivo.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso DEACTIVATE_SCHOOL.",
-        },
-        404: {
-            "description": "Colegio no encontrado.",
-        },
-        500: {
-            "description": "Error interno al desactivar el colegio.",
-        },
+        400: {"description": "El colegio ya se encuentra inactivo."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso DEACTIVATE_SCHOOL."},
+        404: {"description": "Colegio no encontrado."},
+        500: {"description": "Error interno al desactivar el colegio."},
     },
 )
 async def desactivar_colegio(
@@ -899,105 +745,57 @@ async def desactivar_colegio(
     ),
 ) -> ColegioListItem:
     """
-    Desactiva un colegio.
-
-    La operación no elimina físicamente el registro.
+    Desactiva un colegio y registra auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER COLEGIO ACTUAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        current_response = (
-            supabase.table("colegios")
-            .select(COLEGIO_SELECT + ",deleted_at")
-            .eq("id", str(colegio_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Colegio no encontrado.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Colegio no encontrado.",
-            )
-
-        colegio_actual = ColegioListItem.model_validate(
-            current_response.data
-        )
-
-        if colegio_actual.activo is False:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El colegio ya se encuentra inactivo.",
-            )
-
-        # --------------------------------------------------------
-        # 2. DESACTIVAR
-        # --------------------------------------------------------
-
-        update_response = (
-            supabase.table("colegios")
-            .update(
-                {
-                    "activo": False,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(colegio_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible desactivar el colegio."
-            )
-
-        # --------------------------------------------------------
-        # 3. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
-
-        updated_response = (
-            supabase.table("colegios")
-            .select(COLEGIO_SELECT)
-            .eq("id", str(colegio_id))
-            .single()
-            .execute()
-        )
-
-        colegio_actualizado = ColegioListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 4. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="DEACTIVATE_SCHOOL",
-            entity_type="SCHOOL",
-            entity_id=colegio_actualizado.id,
-            old_values={
-                "activo": True,
+        response = supabase.rpc(
+            "desactivar_colegio_atomico",
+            {
+                "p_colegio_id": str(colegio_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": False,
-            },
-            description="Desactivación de colegio.",
-        )
+        ).execute()
 
-        return colegio_actualizado
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de desactivación de colegio.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "SCHOOL_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Colegio no encontrado.",
+                )
+
+            if error_code == "ALREADY_INACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El colegio ya se encuentra inactivo.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para desactivar colegios.",
+                )
+
+            raise RuntimeError("No fue posible desactivar el colegio.")
+
+        return _obtener_colegio_resultado(
+            supabase,
+            colegio_id=colegio_id,
+        )
 
     except HTTPException:
         raise
@@ -1007,3 +805,4 @@ async def desactivar_colegio(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible desactivar el colegio.",
         )
+

@@ -30,11 +30,21 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_secret_key: str
 
+    # Se configura desde entorno para no hardcodear dominios de
+    # desarrollo, QA o producción dentro de la aplicación.
+    cors_origins: list[str] = ["http://localhost:5173"]
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
+
+    @property
+    def is_production(self) -> bool:
+        """Indica si la aplicación se está ejecutando en producción."""
+
+        return self.app_env.strip().lower() == "production"
 
 
 @lru_cache

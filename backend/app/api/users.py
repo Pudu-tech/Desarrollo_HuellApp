@@ -26,7 +26,6 @@ from app.schemas.users import (
     UserRoleUpdate,
     UserUpdate,
 )
-from app.services.audit import write_audit_log
 
 
 router = APIRouter(
@@ -285,22 +284,29 @@ async def create_user(
     ),
 ) -> UserCreateResponse:
     """
-    Crea un usuario en Supabase Auth y public.usuarios.
+    Crea un usuario mediante un flujo híbrido seguro.
 
-    Reglas:
-        - SUPERADMIN puede crear cualquier rol.
-        - DIRECTIVA no puede crear SUPERADMIN.
-        - RUT y correo deben ser únicos.
+    Supabase Auth y PostgreSQL no comparten una transacción ACID.
+
+    Flujo:
+    - valida reglas funcionales antes de crear la identidad;
+    - crea la identidad en Supabase Auth;
+    - crea public.usuarios + audit_logs mediante una RPC PostgreSQL atómica;
+    - si PostgreSQL falla antes de confirmar el perfil, elimina
+      compensatoriamente la identidad recién creada en Auth.
+
+    La contraseña nunca se envía a PostgreSQL ni se registra en auditoría.
     """
 
     supabase = get_supabase_client()
 
     auth_user_id: str | None = None
-    profile_created = False
+    db_creation_committed = False
 
     try:
         # --------------------------------------------------------
-        # 1. Validar rol solicitado.
+        # 1. Validar rol solicitado antes de crear la identidad.
+        #    La RPC repite esta regla como defensa en profundidad.
         # --------------------------------------------------------
         role_response = (
             supabase.table("roles")
@@ -319,7 +325,6 @@ async def create_user(
 
         requested_role = role_response.data
 
-        # DIRECTIVA nunca puede crear SUPERADMIN.
         if (
             current_user.role_code == "DIRECTIVA"
             and requested_role["codigo"] == "SUPERADMIN"
@@ -330,7 +335,8 @@ async def create_user(
             )
 
         # --------------------------------------------------------
-        # 2. Validar RUT duplicado.
+        # 2. Prevalidar duplicados para responder antes de tocar Auth.
+        #    PostgreSQL vuelve a validarlos de forma autoritativa.
         # --------------------------------------------------------
         rut_response = (
             supabase.table("usuarios")
@@ -346,9 +352,6 @@ async def create_user(
                 detail="El RUT ya se encuentra registrado.",
             )
 
-        # --------------------------------------------------------
-        # 3. Validar correo duplicado.
-        # --------------------------------------------------------
         email_response = (
             supabase.table("usuarios")
             .select("id")
@@ -364,7 +367,7 @@ async def create_user(
             )
 
         # --------------------------------------------------------
-        # 4. Crear identidad en Supabase Auth.
+        # 3. Crear identidad en Supabase Auth.
         # --------------------------------------------------------
         auth_response = supabase.auth.admin.create_user(
             {
@@ -382,111 +385,104 @@ async def create_user(
         auth_user_id = str(auth_response.user.id)
 
         # --------------------------------------------------------
-        # 5. Crear perfil en public.usuarios.
+        # 4. Crear perfil + auditoría en una sola transacción SQL.
         # --------------------------------------------------------
-        profile_response = (
-            supabase.table("usuarios")
-            .insert(
-                {
-                    "id": auth_user_id,
-                    "rut": payload.rut,
-                    "nombres": payload.nombres,
-                    "apellido_paterno": payload.apellido_paterno,
-                    "apellido_materno": payload.apellido_materno,
-                    "email": str(payload.email),
-                    "telefono": payload.telefono,
-                    "rol_id": requested_role["id"],
-                    "activo": True,
-                    "created_by": str(current_user.id),
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .execute()
-        )
+        context = _request_rpc_context(request)
 
-        if not profile_response.data:
-            raise RuntimeError(
-                "No se creó el perfil en public.usuarios."
-            )
-
-        profile_created = True
-
-        # --------------------------------------------------------
-        # 6. Consultar resultado final.
-        # --------------------------------------------------------
-        created_response = (
-            supabase.table("usuarios")
-            .select(
-                """
-                id,
-                rut,
-                nombres,
-                apellido_paterno,
-                apellido_materno,
-                email,
-                telefono,
-                activo,
-                roles(
-                    codigo,
-                    nombre
-                )
-                """
-            )
-            .eq("id", auth_user_id)
-            .single()
-            .execute()
-        )
-
-        created_user = UserCreateResponse.model_validate(
-            created_response.data
-        )
-
-        # --------------------------------------------------------
-        # 7. Auditoría.
-        #
-        # SECURITY:
-        # Nunca se registra la contraseña.
-        # --------------------------------------------------------
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="CREATE_USER",
-            entity_type="USER",
-            entity_id=created_user.id,
-            old_values=None,
-            new_values={
-                "id": str(created_user.id),
-                "rut": created_user.rut,
-                "nombres": created_user.nombres,
-                "apellido_paterno": created_user.apellido_paterno,
-                "apellido_materno": created_user.apellido_materno,
-                "email": str(created_user.email),
-                "telefono": created_user.telefono,
-                "activo": created_user.activo,
-                "role_code": created_user.roles.codigo,
+        response = supabase.rpc(
+            "crear_usuario_atomico",
+            {
+                "p_user_id": auth_user_id,
+                "p_rut": payload.rut,
+                "p_nombres": payload.nombres,
+                "p_apellido_paterno": payload.apellido_paterno,
+                "p_apellido_materno": payload.apellido_materno,
+                "p_email": str(payload.email),
+                "p_telefono": payload.telefono,
+                "p_role_code": payload.role_code,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            description="Creación de usuario.",
-        )
+        ).execute()
 
-        return created_user
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError(
+                "La RPC de creación de usuario devolvió una respuesta inválida."
+            )
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code in {
+                "RUT_EXISTS",
+                "EMAIL_EXISTS",
+                "USER_ID_EXISTS",
+                "DUPLICATE_USER",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="El RUT o correo ya se encuentra registrado.",
+                )
+
+            if error_code == "ROLE_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El rol solicitado no existe o está inactivo.",
+                )
+
+            if error_code in {
+                "INVALID_USER_ID",
+                "INVALID_RUT",
+                "INVALID_NAME",
+                "INVALID_EMAIL",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos enviados para crear el usuario no son válidos.",
+                )
+
+            if error_code in {
+                "ACTOR_NOT_FOUND",
+                "FORBIDDEN",
+                "FORBIDDEN_SUPERADMIN",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No autorizado para crear este usuario.",
+                )
+
+            raise RuntimeError(
+                "La RPC no pudo completar la creación del usuario."
+            )
+
+        db_creation_committed = True
+
+        usuario = resultado.get("usuario")
+
+        if not isinstance(usuario, dict):
+            raise RuntimeError(
+                "La RPC no devolvió el usuario creado."
+            )
+
+        return UserCreateResponse.model_validate(usuario)
 
     except HTTPException:
+        # Si Auth ya creó la identidad pero PostgreSQL no confirmó el perfil,
+        # se compensa eliminando únicamente esa identidad recién creada.
+        if auth_user_id is not None and not db_creation_committed:
+            try:
+                supabase.auth.admin.delete_user(auth_user_id)
+            except Exception:
+                pass
+
         raise
 
     except Exception:
-        # Rollback compensatorio de creación.
-        if auth_user_id is not None:
-            if profile_created:
-                try:
-                    (
-                        supabase.table("usuarios")
-                        .delete()
-                        .eq("id", auth_user_id)
-                        .execute()
-                    )
-                except Exception:
-                    pass
-
+        if auth_user_id is not None and not db_creation_committed:
             try:
                 supabase.auth.admin.delete_user(auth_user_id)
             except Exception:
@@ -496,6 +492,7 @@ async def create_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible crear el usuario.",
         )
+
 
 
 # ============================================================

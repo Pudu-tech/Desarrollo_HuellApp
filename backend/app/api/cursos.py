@@ -30,7 +30,6 @@ from app.schemas.cursos import (
     CursoListItem,
     CursoUpdate,
 )
-from app.services.audit import write_audit_log
 
 
 router = APIRouter(
@@ -61,27 +60,51 @@ updated_at
 # ============================================================
 
 
-def _curso_a_auditoria(
-    curso: CursoListItem,
-) -> dict:
+def _request_rpc_context(request: Request) -> dict:
     """
-    Convierte un curso en un diccionario seguro para auditoría.
+    Construye los metadatos comunes enviados a las RPC de escritura.
+    """
 
-    Los UUID se convierten a texto para que puedan persistirse
-    correctamente en JSONB.
-    """
+    request_id_raw = getattr(request.state, "request_id", None)
 
     return {
-        "id": str(curso.id),
-        "colegio_id": str(curso.colegio_id),
-        "nivel_curso_id": str(curso.nivel_curso_id),
-        "seccion": curso.seccion,
-        "nombre_mostrado": curso.nombre_mostrado,
-        "anio": curso.anio,
-        "activo": curso.activo,
-        "created_at": curso.created_at.isoformat(),
-        "updated_at": curso.updated_at.isoformat(),
+        "request_id": (
+            str(request_id_raw)
+            if request_id_raw is not None
+            else None
+        ),
+        "ip_address": (
+            request.client.host
+            if request.client
+            else None
+        ),
+        "user_agent": request.headers.get("user-agent"),
     }
+
+
+def _obtener_curso_resultado(
+    supabase,
+    *,
+    curso_id: UUID,
+) -> CursoListItem:
+    """
+    Recupera el curso persistido usando el contrato público de respuesta.
+    """
+
+    response = (
+        supabase.table("cursos_colegio")
+        .select(CURSO_SELECT)
+        .eq("id", str(curso_id))
+        .is_("deleted_at", "null")
+        .single()
+        .execute()
+    )
+
+    return CursoListItem.model_validate(response.data)
+
+
+
+
 
 
 def _payload_a_dict(
@@ -171,75 +194,8 @@ def _obtener_nivel_activo(
     return response.data
 
 
-def _validar_duplicado_curso(
-    supabase,
-    *,
-    colegio_id: UUID,
-    nivel_curso_id: UUID,
-    seccion: str,
-    anio: int,
-    curso_id_excluir: UUID | None = None,
-) -> None:
-    """
-    Valida la restricción lógica:
-
-    colegio + nivel + sección + año
-
-    La base también posee la restricción UNIQUE:
-
-        uq_curso_colegio_nivel_seccion_anio
-
-    Esta validación permite devolver un error HTTP más claro.
-    """
-
-    query = (
-        supabase.table("cursos_colegio")
-        .select("id")
-        .eq("colegio_id", str(colegio_id))
-        .eq("nivel_curso_id", str(nivel_curso_id))
-        .eq("seccion", seccion)
-        .eq("anio", anio)
-        .is_("deleted_at", "null")
-    )
-
-    if curso_id_excluir is not None:
-        query = query.neq(
-            "id",
-            str(curso_id_excluir),
-        )
-
-    response = (
-        query
-        .limit(1)
-        .execute()
-    )
-
-    if response.data:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=(
-                "Ya existe un curso para el mismo colegio, "
-                "nivel, sección y año."
-            ),
-        )
 
 
-def _generar_nombre_mostrado(
-    *,
-    nivel_nombre: str,
-    seccion: str,
-) -> str:
-    """
-    Genera el nombre visible del curso.
-
-    Ejemplo:
-        nivel_nombre = "7° Básico"
-        seccion = "A"
-
-        resultado = "7° Básico A"
-    """
-
-    return f"{nivel_nombre} {seccion}"
 
 
 # ============================================================
@@ -419,24 +375,16 @@ async def obtener_curso(
     response_model=CursoListItem,
     status_code=status.HTTP_201_CREATED,
     responses={
-        400: {
-            "description": "Datos o relaciones inválidas.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso CREATE_COURSE.",
-        },
+        400: {"description": "Datos o relaciones inválidas."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso CREATE_COURSE."},
         409: {
             "description": (
                 "Ya existe un curso para el mismo colegio, "
                 "nivel, sección y año."
             ),
         },
-        500: {
-            "description": "Error interno al crear el curso.",
-        },
+        500: {"description": "Error interno al crear el curso."},
     },
 )
 async def crear_curso(
@@ -447,114 +395,85 @@ async def crear_curso(
     ),
 ) -> CursoListItem:
     """
-    Crea un curso asociado a un colegio.
-
-    Reglas:
-    - el colegio debe existir y estar activo;
-    - el nivel debe existir y estar activo;
-    - sección debe estar entre A y Z;
-    - no puede existir otra combinación colegio/nivel/sección/año;
-    - nombre_mostrado se genera automáticamente.
+    Crea un curso y registra su auditoría en una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. VALIDAR COLEGIO
-        # --------------------------------------------------------
-
+        # Las mismas reglas se vuelven a validar dentro de PostgreSQL.
         _obtener_colegio_activo(
             supabase,
             colegio_id=payload.colegio_id,
         )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR NIVEL
-        # --------------------------------------------------------
-
-        nivel = _obtener_nivel_activo(
+        _obtener_nivel_activo(
             supabase,
             nivel_curso_id=payload.nivel_curso_id,
         )
 
-        # --------------------------------------------------------
-        # 3. VALIDAR DUPLICADO
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        _validar_duplicado_curso(
-            supabase,
-            colegio_id=payload.colegio_id,
-            nivel_curso_id=payload.nivel_curso_id,
-            seccion=payload.seccion,
-            anio=payload.anio,
-        )
+        response = supabase.rpc(
+            "crear_curso_atomico",
+            {
+                "p_colegio_id": str(payload.colegio_id),
+                "p_nivel_curso_id": str(payload.nivel_curso_id),
+                "p_seccion": payload.seccion,
+                "p_anio": payload.anio,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        # --------------------------------------------------------
-        # 4. GENERAR NOMBRE MOSTRADO
-        # --------------------------------------------------------
+        resultado = response.data
 
-        nombre_mostrado = _generar_nombre_mostrado(
-            nivel_nombre=nivel["nombre"],
-            seccion=payload.seccion,
-        )
-
-        # --------------------------------------------------------
-        # 5. CREAR CURSO
-        # --------------------------------------------------------
-
-        insert_data = _payload_a_dict(payload)
-
-        insert_data["nombre_mostrado"] = nombre_mostrado
-        insert_data["activo"] = True
-        insert_data["created_by"] = str(current_user.id)
-        insert_data["updated_by"] = str(current_user.id)
-
-        insert_response = (
-            supabase.table("cursos_colegio")
-            .insert(insert_data)
-            .execute()
-        )
-
-        if not insert_response.data:
+        if not isinstance(resultado, dict):
             raise RuntimeError(
-                "No se creó el curso."
+                "La RPC de creación de curso devolvió una respuesta inválida."
             )
 
-        curso_id = insert_response.data[0]["id"]
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
 
-        # --------------------------------------------------------
-        # 6. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
+            if error_code == "COURSE_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Ya existe un curso para el mismo colegio, "
+                        "nivel, sección y año."
+                    ),
+                )
 
-        created_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT)
-            .eq("id", curso_id)
-            .single()
-            .execute()
+            if error_code in {
+                "SCHOOL_NOT_ACTIVE",
+                "LEVEL_NOT_ACTIVE",
+                "INVALID_SECTION",
+                "INVALID_YEAR",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos o relaciones del curso no son válidos.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para crear cursos.",
+                )
+
+            raise RuntimeError("No fue posible crear el curso.")
+
+        curso_id = resultado.get("curso_id")
+
+        if not curso_id:
+            raise RuntimeError("La RPC no devolvió el curso creado.")
+
+        return _obtener_curso_resultado(
+            supabase,
+            curso_id=UUID(str(curso_id)),
         )
-
-        curso = CursoListItem.model_validate(
-            created_response.data
-        )
-
-        # --------------------------------------------------------
-        # 7. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="CREATE_COURSE",
-            entity_type="COURSE",
-            entity_id=curso.id,
-            old_values=None,
-            new_values=_curso_a_auditoria(curso),
-            description="Creación de curso.",
-        )
-
-        return curso
 
     except HTTPException:
         raise
@@ -566,6 +485,7 @@ async def crear_curso(
         )
 
 
+
 # ============================================================
 # ACTUALIZAR CURSO
 # ============================================================
@@ -575,27 +495,17 @@ async def crear_curso(
     "/{curso_id}",
     response_model=CursoListItem,
     responses={
-        400: {
-            "description": "Datos inválidos o sin cambios.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso UPDATE_COURSE.",
-        },
-        404: {
-            "description": "Curso no encontrado.",
-        },
+        400: {"description": "Datos inválidos o sin cambios."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso UPDATE_COURSE."},
+        404: {"description": "Curso no encontrado."},
         409: {
             "description": (
                 "Ya existe un curso para el mismo colegio, "
                 "nivel, sección y año."
             ),
         },
-        500: {
-            "description": "Error interno al actualizar el curso.",
-        },
+        500: {"description": "Error interno al actualizar el curso."},
     },
 )
 async def actualizar_curso(
@@ -607,193 +517,85 @@ async def actualizar_curso(
     ),
 ) -> CursoListItem:
     """
-    Modifica parcialmente un curso.
-
-    Si se cambia el nivel o la sección, nombre_mostrado
-    se recalcula automáticamente.
+    Actualiza un curso y su auditoría dentro de una sola transacción.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER ESTADO ACTUAL
-        # --------------------------------------------------------
+        cambios = _payload_a_dict(payload)
 
-        current_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT + ",deleted_at")
-            .eq("id", str(curso_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Curso no encontrado.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Curso no encontrado.",
-            )
-
-        curso_actual = CursoListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. OBTENER CAMPOS ENVIADOS
-        # --------------------------------------------------------
-
-        update_data = _payload_a_dict(payload)
-
-        if not update_data:
+        if not cambios:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No se enviaron campos para actualizar.",
             )
 
-        # --------------------------------------------------------
-        # 3. CALCULAR ESTADO FINAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        colegio_final = UUID(
-            str(
-                update_data.get(
-                    "colegio_id",
-                    curso_actual.colegio_id,
-                )
-            )
-        )
+        response = supabase.rpc(
+            "actualizar_curso_atomico",
+            {
+                "p_curso_id": str(curso_id),
+                "p_cambios": cambios,
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
 
-        nivel_final = UUID(
-            str(
-                update_data.get(
-                    "nivel_curso_id",
-                    curso_actual.nivel_curso_id,
-                )
-            )
-        )
+        resultado = response.data
 
-        seccion_final = update_data.get(
-            "seccion",
-            curso_actual.seccion,
-        )
-
-        anio_final = update_data.get(
-            "anio",
-            curso_actual.anio,
-        )
-
-        # --------------------------------------------------------
-        # 4. VALIDAR RELACIONES SOLO CUANDO CAMBIAN
-        # --------------------------------------------------------
-
-        if "colegio_id" in update_data:
-            _obtener_colegio_activo(
-                supabase,
-                colegio_id=colegio_final,
-            )
-
-        nivel = None
-
-        if "nivel_curso_id" in update_data:
-            nivel = _obtener_nivel_activo(
-                supabase,
-                nivel_curso_id=nivel_final,
-            )
-
-        # --------------------------------------------------------
-        # 5. VALIDAR DUPLICADO FINAL
-        # --------------------------------------------------------
-
-        _validar_duplicado_curso(
-            supabase,
-            colegio_id=colegio_final,
-            nivel_curso_id=nivel_final,
-            seccion=seccion_final,
-            anio=anio_final,
-            curso_id_excluir=curso_id,
-        )
-
-        # --------------------------------------------------------
-        # 6. RECALCULAR NOMBRE MOSTRADO CUANDO CORRESPONDE
-        # --------------------------------------------------------
-
-        if (
-            "nivel_curso_id" in update_data
-            or "seccion" in update_data
-        ):
-            if nivel is None:
-                nivel = _obtener_nivel_activo(
-                    supabase,
-                    nivel_curso_id=nivel_final,
-                )
-
-            update_data["nombre_mostrado"] = (
-                _generar_nombre_mostrado(
-                    nivel_nombre=nivel["nombre"],
-                    seccion=seccion_final,
-                )
-            )
-
-        # --------------------------------------------------------
-        # 7. ACTUALIZAR
-        # --------------------------------------------------------
-
-        update_data["updated_by"] = str(current_user.id)
-
-        update_response = (
-            supabase.table("cursos_colegio")
-            .update(update_data)
-            .eq("id", str(curso_id))
-            .execute()
-        )
-
-        if not update_response.data:
+        if not isinstance(resultado, dict):
             raise RuntimeError(
-                "No fue posible actualizar el curso."
+                "La RPC de actualización de curso devolvió una respuesta inválida."
             )
 
-        # --------------------------------------------------------
-        # 8. CONSULTAR ESTADO POSTERIOR
-        # --------------------------------------------------------
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
 
-        updated_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT)
-            .eq("id", str(curso_id))
-            .single()
-            .execute()
+            if error_code == "COURSE_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Curso no encontrado.",
+                )
+
+            if error_code == "COURSE_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Ya existe un curso para el mismo colegio, "
+                        "nivel, sección y año."
+                    ),
+                )
+
+            if error_code in {
+                "NO_CHANGES",
+                "INVALID_FIELDS",
+                "INVALID_DATA",
+                "INVALID_SECTION",
+                "INVALID_YEAR",
+                "SCHOOL_NOT_ACTIVE",
+                "LEVEL_NOT_ACTIVE",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Los datos o relaciones del curso no son válidos.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para actualizar cursos.",
+                )
+
+            raise RuntimeError("No fue posible actualizar el curso.")
+
+        return _obtener_curso_resultado(
+            supabase,
+            curso_id=curso_id,
         )
-
-        curso_actualizado = CursoListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 9. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="UPDATE_COURSE",
-            entity_type="COURSE",
-            entity_id=curso_actualizado.id,
-            old_values=_curso_a_auditoria(
-                curso_actual
-            ),
-            new_values=_curso_a_auditoria(
-                curso_actualizado
-            ),
-            description="Actualización de curso.",
-        )
-
-        return curso_actualizado
 
     except HTTPException:
         raise
@@ -803,6 +605,7 @@ async def actualizar_curso(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible actualizar el curso.",
         )
+
 
 
 # ============================================================
@@ -819,23 +622,15 @@ async def actualizar_curso(
                 "El curso ya está activo o posee relaciones inválidas."
             ),
         },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso ACTIVATE_COURSE.",
-        },
-        404: {
-            "description": "Curso no encontrado.",
-        },
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso ACTIVATE_COURSE."},
+        404: {"description": "Curso no encontrado."},
         409: {
             "description": (
                 "Existe otro curso con la misma combinación académica."
             ),
         },
-        500: {
-            "description": "Error interno al activar el curso.",
-        },
+        500: {"description": "Error interno al activar el curso."},
     },
 )
 async def activar_curso(
@@ -846,139 +641,71 @@ async def activar_curso(
     ),
 ) -> CursoListItem:
     """
-    Reactiva un curso previamente desactivado.
-
-    Antes de activarlo vuelve a validar:
-    - colegio activo;
-    - nivel activo;
-    - ausencia de duplicados.
+    Activa un curso y registra su auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER CURSO ACTUAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        current_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT + ",deleted_at")
-            .eq("id", str(curso_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Curso no encontrado.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Curso no encontrado.",
-            )
-
-        curso_actual = CursoListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR ESTADO
-        # --------------------------------------------------------
-
-        if curso_actual.activo is True:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El curso ya se encuentra activo.",
-            )
-
-        # --------------------------------------------------------
-        # 3. VALIDAR RELACIONES
-        # --------------------------------------------------------
-
-        _obtener_colegio_activo(
-            supabase,
-            colegio_id=curso_actual.colegio_id,
-        )
-
-        _obtener_nivel_activo(
-            supabase,
-            nivel_curso_id=curso_actual.nivel_curso_id,
-        )
-
-        # --------------------------------------------------------
-        # 4. VALIDAR DUPLICADO
-        # --------------------------------------------------------
-
-        _validar_duplicado_curso(
-            supabase,
-            colegio_id=curso_actual.colegio_id,
-            nivel_curso_id=curso_actual.nivel_curso_id,
-            seccion=curso_actual.seccion,
-            anio=curso_actual.anio,
-            curso_id_excluir=curso_id,
-        )
-
-        # --------------------------------------------------------
-        # 5. ACTIVAR
-        # --------------------------------------------------------
-
-        update_response = (
-            supabase.table("cursos_colegio")
-            .update(
-                {
-                    "activo": True,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(curso_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible activar el curso."
-            )
-
-        # --------------------------------------------------------
-        # 6. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
-
-        updated_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT)
-            .eq("id", str(curso_id))
-            .single()
-            .execute()
-        )
-
-        curso_actualizado = CursoListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 7. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="ACTIVATE_COURSE",
-            entity_type="COURSE",
-            entity_id=curso_actualizado.id,
-            old_values={
-                "activo": False,
+        response = supabase.rpc(
+            "activar_curso_atomico",
+            {
+                "p_curso_id": str(curso_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": True,
-            },
-            description="Activación de curso.",
-        )
+        ).execute()
 
-        return curso_actualizado
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de activación de curso.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "COURSE_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Curso no encontrado.",
+                )
+
+            if error_code in {
+                "ALREADY_ACTIVE",
+                "SCHOOL_NOT_ACTIVE",
+                "LEVEL_NOT_ACTIVE",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "El curso ya está activo o posee relaciones inválidas."
+                    ),
+                )
+
+            if error_code == "COURSE_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Existe otro curso con la misma combinación académica."
+                    ),
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para activar cursos.",
+                )
+
+            raise RuntimeError("No fue posible activar el curso.")
+
+        return _obtener_curso_resultado(
+            supabase,
+            curso_id=curso_id,
+        )
 
     except HTTPException:
         raise
@@ -990,6 +717,7 @@ async def activar_curso(
         )
 
 
+
 # ============================================================
 # DESACTIVAR CURSO
 # ============================================================
@@ -999,21 +727,11 @@ async def activar_curso(
     "/{curso_id}/deactivate",
     response_model=CursoListItem,
     responses={
-        400: {
-            "description": "El curso ya se encuentra inactivo.",
-        },
-        401: {
-            "description": "No autenticado o sesión inválida.",
-        },
-        403: {
-            "description": "No posee el permiso DEACTIVATE_COURSE.",
-        },
-        404: {
-            "description": "Curso no encontrado.",
-        },
-        500: {
-            "description": "Error interno al desactivar el curso.",
-        },
+        400: {"description": "El curso ya se encuentra inactivo."},
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso DEACTIVATE_COURSE."},
+        404: {"description": "Curso no encontrado."},
+        500: {"description": "Error interno al desactivar el curso."},
     },
 )
 async def desactivar_curso(
@@ -1024,109 +742,57 @@ async def desactivar_curso(
     ),
 ) -> CursoListItem:
     """
-    Desactiva un curso.
-
-    La operación no elimina físicamente el registro.
+    Desactiva un curso y registra su auditoría de forma atómica.
     """
 
     supabase = get_supabase_client()
 
     try:
-        # --------------------------------------------------------
-        # 1. OBTENER CURSO ACTUAL
-        # --------------------------------------------------------
+        context = _request_rpc_context(request)
 
-        current_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT + ",deleted_at")
-            .eq("id", str(curso_id))
-            .maybe_single()
-            .execute()
-        )
-
-        if not current_response.data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Curso no encontrado.",
-            )
-
-        if current_response.data.get("deleted_at") is not None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Curso no encontrado.",
-            )
-
-        curso_actual = CursoListItem.model_validate(
-            current_response.data
-        )
-
-        # --------------------------------------------------------
-        # 2. VALIDAR ESTADO
-        # --------------------------------------------------------
-
-        if curso_actual.activo is False:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="El curso ya se encuentra inactivo.",
-            )
-
-        # --------------------------------------------------------
-        # 3. DESACTIVAR
-        # --------------------------------------------------------
-
-        update_response = (
-            supabase.table("cursos_colegio")
-            .update(
-                {
-                    "activo": False,
-                    "updated_by": str(current_user.id),
-                }
-            )
-            .eq("id", str(curso_id))
-            .execute()
-        )
-
-        if not update_response.data:
-            raise RuntimeError(
-                "No fue posible desactivar el curso."
-            )
-
-        # --------------------------------------------------------
-        # 4. CONSULTAR RESULTADO FINAL
-        # --------------------------------------------------------
-
-        updated_response = (
-            supabase.table("cursos_colegio")
-            .select(CURSO_SELECT)
-            .eq("id", str(curso_id))
-            .single()
-            .execute()
-        )
-
-        curso_actualizado = CursoListItem.model_validate(
-            updated_response.data
-        )
-
-        # --------------------------------------------------------
-        # 5. AUDITORÍA
-        # --------------------------------------------------------
-
-        await write_audit_log(
-            request=request,
-            actor=current_user,
-            action="DEACTIVATE_COURSE",
-            entity_type="COURSE",
-            entity_id=curso_actualizado.id,
-            old_values={
-                "activo": True,
+        response = supabase.rpc(
+            "desactivar_curso_atomico",
+            {
+                "p_curso_id": str(curso_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
             },
-            new_values={
-                "activo": False,
-            },
-            description="Desactivación de curso.",
-        )
+        ).execute()
 
-        return curso_actualizado
+        resultado = response.data
+
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de desactivación de curso.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "COURSE_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Curso no encontrado.",
+                )
+
+            if error_code == "ALREADY_INACTIVE":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El curso ya se encuentra inactivo.",
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para desactivar cursos.",
+                )
+
+            raise RuntimeError("No fue posible desactivar el curso.")
+
+        return _obtener_curso_resultado(
+            supabase,
+            curso_id=curso_id,
+        )
 
     except HTTPException:
         raise
@@ -1136,3 +802,4 @@ async def desactivar_curso(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible desactivar el curso.",
         )
+

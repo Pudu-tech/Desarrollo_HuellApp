@@ -1,0 +1,860 @@
+/**
+ * HuellApp
+ * Estilos compartidos para:
+ * - Recuperar contraseña
+ * - Restablecer contraseña
+ *
+ * OBJETIVO VISUAL
+ * ------------------------------------------------------------
+ * Mantener coherencia visual con Login:
+ *
+ * - Tarjeta blanca amplia.
+ * - Logo sobre fondo blanco.
+ * - Botón coral.
+ * - Enlaces teal.
+ * - Tamaño visual cómodo.
+ * - Ocupa correctamente la altura disponible.
+ * - Responsive por ancho y alto.
+ */
+
+
+/* ============================================================
+   VARIABLES
+   ============================================================ */
+
+:root {
+  --huellapp-teal: #245f6b;
+  --huellapp-teal-dark: #1f5360;
+
+  --huellapp-coral: #f58a5b;
+  --huellapp-coral-hover: #ee7f50;
+
+  --huellapp-bg: #f4f6f7;
+  --huellapp-surface: #ffffff;
+
+  --huellapp-border: #dbe3e6;
+
+  --huellapp-text: #111111;
+  --huellapp-text-soft: #66717a;
+
+  --huellapp-danger-bg: #fff1f2;
+  --huellapp-danger-border: #fecdd3;
+  --huellapp-danger-text: #b42318;
+
+  --huellapp-success-bg: #edf8f6;
+  --huellapp-success-border: #b9ded8;
+  --huellapp-success-text: #246b65;
+
+  --huellapp-shadow:
+    0 20px 48px rgba(31, 83, 96, 0.13);
+}
+
+
+/* ============================================================
+   RESET
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+}
+
+
+/* ============================================================
+   PÁGINA
+   ============================================================ */
+
+.auth-page {
+  width: 100%;
+  min-height: 100dvh;
+
+  padding: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: var(--huellapp-bg);
+
+  font-family: inherit;
+}
+
+
+/* ============================================================
+   TARJETA
+   ============================================================ */
+
+.auth-card {
+  width: min(500px, calc(100vw - 32px));
+
+  /*
+   * La tarjeta ahora ocupa una proporción real de la pantalla.
+   *
+   * En notebooks evita las franjas gigantes arriba y abajo.
+   * En monitores grandes no crece indefinidamente.
+   */
+  min-height: clamp(
+    610px,
+    82dvh,
+    740px
+  );
+
+  display: flex;
+  flex-direction: column;
+
+  background: var(--huellapp-surface);
+
+  border: 1px solid var(--huellapp-border);
+  border-radius: 20px;
+
+  box-shadow: var(--huellapp-shadow);
+
+  overflow: hidden;
+}
+
+
+/* ============================================================
+   CABECERA
+   ============================================================ */
+
+.auth-header {
+  padding:
+    36px
+    38px
+    20px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  text-align: center;
+
+  background: #ffffff;
+}
+
+
+/* ============================================================
+   LOGO
+   ============================================================ */
+
+.auth-logo-wrap {
+  width: 145px;
+
+  margin:
+    0
+    auto
+    10px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-logo {
+  display: block;
+
+  width: 100%;
+  max-width: 145px;
+  height: auto;
+
+  object-fit: contain;
+}
+
+
+/* ============================================================
+   NOMBRE
+   ============================================================ */
+
+.auth-brand {
+  margin:
+    6px
+    0
+    0;
+
+  color: var(--huellapp-text);
+
+  font-size: 1.45rem;
+  font-weight: 500;
+  line-height: 1.2;
+
+  text-align: center;
+}
+
+
+/* ============================================================
+   LÍNEA CORAL
+   ============================================================ */
+
+.auth-header::after {
+  content: "";
+
+  width: 42px;
+  height: 4px;
+
+  margin-top: 10px;
+
+  background: var(--huellapp-coral);
+
+  border-radius: 999px;
+}
+
+
+/* ============================================================
+   TÍTULO
+   ============================================================ */
+
+.auth-title {
+  margin:
+    4px
+    38px
+    10px;
+
+  color: var(--huellapp-text);
+
+  font-size: 1.4rem;
+  font-weight: 600;
+  line-height: 1.3;
+
+  text-align: center;
+}
+
+
+/* ============================================================
+   SUBTÍTULO
+   ============================================================ */
+
+.auth-subtitle {
+  margin:
+    0
+    auto
+    26px;
+
+  padding:
+    0
+    38px;
+
+  max-width: 460px;
+
+  color: var(--huellapp-text-soft);
+
+  font-size: 0.96rem;
+  line-height: 1.55;
+
+  text-align: center;
+}
+
+
+/* ============================================================
+   FORMULARIO
+   ============================================================ */
+
+.auth-form {
+  padding:
+    0
+    38px;
+
+  display: flex;
+  flex-direction: column;
+
+  gap: 17px;
+}
+
+
+/* ============================================================
+   CAMPOS
+   ============================================================ */
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+
+  gap: 7px;
+}
+
+.auth-label {
+  color: var(--huellapp-text);
+
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+
+.auth-input {
+  width: 100%;
+  min-height: 48px;
+
+  padding:
+    12px
+    14px;
+
+  background: #ffffff;
+
+  color: var(--huellapp-text);
+
+  font-family: inherit;
+  font-size: 0.96rem;
+
+  border:
+    1px solid
+    #cfd9dd;
+
+  border-radius: 11px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.auth-input::placeholder {
+  color: #98a3aa;
+}
+
+.auth-input:focus {
+  border-color: var(--huellapp-teal);
+
+  box-shadow:
+    0 0 0 3px
+    rgba(36, 95, 107, 0.10);
+}
+
+.auth-input:disabled {
+  background: #f5f5f5;
+
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   BOTÓN
+   ============================================================ */
+
+.auth-button {
+  width: 100%;
+  min-height: 49px;
+
+  padding:
+    12px
+    20px;
+
+  background: var(--huellapp-coral);
+
+  color: #111111;
+
+  font-family: inherit;
+  font-size: 0.96rem;
+  font-weight: 700;
+
+  border: none;
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  box-shadow:
+    0 8px 20px
+    rgba(245, 138, 91, 0.20);
+
+  transition:
+    background 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.auth-button:hover:not(:disabled) {
+  background: var(--huellapp-coral-hover);
+
+  transform: translateY(-1px);
+
+  box-shadow:
+    0 10px 24px
+    rgba(245, 138, 91, 0.24);
+}
+
+.auth-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.auth-button:disabled {
+  opacity: 0.65;
+
+  cursor: not-allowed;
+}
+
+
+/* ============================================================
+   MENSAJES
+   ============================================================ */
+
+.auth-message {
+  padding:
+    13px
+    15px;
+
+  font-size: 0.9rem;
+  line-height: 1.5;
+
+  border-radius: 10px;
+}
+
+.auth-message--error {
+  color: var(--huellapp-danger-text);
+
+  background: var(--huellapp-danger-bg);
+
+  border:
+    1px solid
+    var(--huellapp-danger-border);
+}
+
+.auth-message--success {
+  color: var(--huellapp-success-text);
+
+  background: var(--huellapp-success-bg);
+
+  border:
+    1px solid
+    var(--huellapp-success-border);
+}
+
+
+/* ============================================================
+   CAJA INFORMATIVA
+   ============================================================ */
+
+.auth-help-box {
+  margin:
+    20px
+    38px
+    0;
+
+  padding:
+    14px
+    16px;
+
+  background: #f8f8f8;
+
+  border:
+    1px solid
+    #e5e5e5;
+
+  border-radius: 12px;
+}
+
+.auth-help-box p {
+  margin: 0;
+
+  color: var(--huellapp-text-soft);
+
+  font-size: 0.87rem;
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   FOOTER
+   Se empuja hacia la parte inferior de la tarjeta.
+   ============================================================ */
+
+.auth-footer {
+  margin-top: auto;
+
+  padding:
+    19px
+    38px
+    21px;
+
+  text-align: center;
+
+  background: #ffffff;
+
+  border-top:
+    1px solid
+    #eeeeee;
+}
+
+.auth-link {
+  color: var(--huellapp-teal);
+
+  font-size: 0.9rem;
+  font-weight: 700;
+
+  text-decoration: none;
+}
+
+.auth-link:hover {
+  color: var(--huellapp-teal-dark);
+
+  text-decoration: underline;
+}
+
+
+/* ============================================================
+   ESTADOS
+   ============================================================ */
+
+.auth-state-content {
+  padding:
+    0
+    38px
+    32px;
+
+  text-align: center;
+}
+
+.auth-state-title {
+  margin:
+    0
+    0
+    10px;
+
+  color: var(--huellapp-text);
+
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.auth-state-text {
+  margin: 0;
+
+  color: var(--huellapp-text-soft);
+
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+
+/* ============================================================
+   NOTEBOOK / PANTALLAS DE ALTURA MEDIA
+   ============================================================ */
+
+@media (max-height: 850px) {
+
+  .auth-page {
+    padding:
+      14px
+      20px;
+  }
+
+  .auth-card {
+    width: min(
+      500px,
+      calc(100vw - 32px)
+    );
+
+    /*
+     * En notebook de 15" ocupa casi toda la altura útil.
+     */
+    min-height: calc(100dvh - 28px);
+  }
+
+  .auth-header {
+    padding:
+      24px
+      36px
+      14px;
+  }
+
+  .auth-logo-wrap {
+    width: 120px;
+
+    margin-bottom: 6px;
+  }
+
+  .auth-logo {
+    max-width: 120px;
+  }
+
+  .auth-brand {
+    font-size: 1.34rem;
+  }
+
+  .auth-header::after {
+    width: 38px;
+    height: 3px;
+
+    margin-top: 7px;
+  }
+
+  .auth-title {
+    margin-top: 2px;
+    margin-bottom: 7px;
+
+    font-size: 1.28rem;
+  }
+
+  .auth-subtitle {
+    margin-bottom: 18px;
+
+    font-size: 0.91rem;
+    line-height: 1.45;
+  }
+
+  .auth-form {
+    gap: 14px;
+  }
+
+  .auth-input {
+    min-height: 45px;
+  }
+
+  .auth-button {
+    min-height: 46px;
+  }
+
+  .auth-help-box {
+    margin-top: 15px;
+  }
+
+  .auth-footer {
+    padding-top: 15px;
+    padding-bottom: 16px;
+  }
+}
+
+
+/* ============================================================
+   NOTEBOOK BAJO
+   Ej: 1366x768
+   ============================================================ */
+
+@media (max-height: 760px) {
+
+  .auth-page {
+    padding:
+      8px
+      16px;
+  }
+
+  .auth-card {
+    width: min(
+      490px,
+      calc(100vw - 28px)
+    );
+
+    min-height: calc(100dvh - 16px);
+  }
+
+  .auth-header {
+    padding:
+      16px
+      34px
+      10px;
+  }
+
+  .auth-logo-wrap {
+    width: 100px;
+
+    margin-bottom: 3px;
+  }
+
+  .auth-logo {
+    max-width: 100px;
+  }
+
+  .auth-brand {
+    font-size: 1.25rem;
+  }
+
+  .auth-header::after {
+    margin-top: 5px;
+  }
+
+  .auth-title {
+    font-size: 1.18rem;
+  }
+
+  .auth-subtitle {
+    margin-bottom: 13px;
+
+    font-size: 0.86rem;
+  }
+
+  .auth-form {
+    gap: 11px;
+  }
+
+  .auth-field {
+    gap: 5px;
+  }
+
+  .auth-input {
+    min-height: 41px;
+
+    padding:
+      9px
+      12px;
+  }
+
+  .auth-button {
+    min-height: 42px;
+
+    padding:
+      9px
+      16px;
+  }
+
+  .auth-help-box {
+    margin-top: 11px;
+
+    padding:
+      10px
+      13px;
+  }
+
+  .auth-help-box p {
+    font-size: 0.81rem;
+  }
+
+  .auth-footer {
+    padding-top: 11px;
+    padding-bottom: 12px;
+  }
+}
+
+
+/* ============================================================
+   TABLET
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+  .auth-page {
+    padding:
+      16px
+      12px;
+  }
+
+  .auth-card {
+    width: min(
+      460px,
+      calc(100vw - 24px)
+    );
+
+    min-height: auto;
+  }
+
+  .auth-header {
+    padding:
+      26px
+      24px
+      17px;
+  }
+
+  .auth-title {
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .auth-subtitle {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .auth-form {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .auth-help-box {
+    margin-left: 24px;
+    margin-right: 24px;
+  }
+
+  .auth-footer {
+    margin-top: 24px;
+
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+
+/* ============================================================
+   CELULAR
+   ============================================================ */
+
+@media (max-width: 480px) {
+
+  .auth-page {
+    min-height: 100dvh;
+
+    padding:
+      10px
+      8px;
+
+    align-items: center;
+  }
+
+  .auth-card {
+    width: 100%;
+    max-width: 430px;
+
+    min-height: auto;
+
+    border-radius: 16px;
+  }
+
+  .auth-header {
+    padding:
+      22px
+      20px
+      15px;
+  }
+
+  .auth-logo-wrap {
+    width: 105px;
+  }
+
+  .auth-logo {
+    max-width: 105px;
+  }
+
+  .auth-brand {
+    font-size: 1.22rem;
+  }
+
+  .auth-title {
+    margin-left: 20px;
+    margin-right: 20px;
+
+    font-size: 1.18rem;
+  }
+
+  .auth-subtitle {
+    padding-left: 20px;
+    padding-right: 20px;
+
+    font-size: 0.88rem;
+  }
+
+  .auth-form {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
+  .auth-help-box {
+    margin-left: 20px;
+    margin-right: 20px;
+  }
+
+  .auth-footer {
+    margin-top: 22px;
+
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}

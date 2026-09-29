@@ -36,6 +36,7 @@
  * - /login
  * - /recuperar-password
  * - /restablecer-password
+ * - /establecer-password
  *
  * Rutas autenticadas:
  * - /app/*
@@ -67,6 +68,7 @@ import AsignacionesPage from './pages/AsignacionesPage'
 import AuditoriaPage from './pages/AuditoriaPage'
 import ColegiosPage from './pages/ColegiosPage'
 import CursosPage from './pages/CursosPage'
+import EstablecerPasswordPage from './pages/EstablecerPasswordPage'
 import InicioPage from './pages/InicioPage'
 import LoginPage from './pages/LoginPage'
 import MonitorAsignacionDetallePage from './pages/MonitorAsignacionDetallePage'
@@ -116,6 +118,11 @@ function App() {
           <Route
             path="/restablecer-password"
             element={<RestablecerPasswordPage />}
+          />
+
+          <Route
+            path="/establecer-password"
+            element={<EstablecerPasswordPage />}
           />
 
 

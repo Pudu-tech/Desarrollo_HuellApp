@@ -1,0 +1,168 @@
+/**
+ * HuellAPP
+ * Estilos estructurales del layout principal.
+ *
+ * Estos estilos no representan el diseño visual definitivo.
+ * Su objetivo es entregar una base funcional y ordenada
+ * para una futura capa de diseño.
+ */
+
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f5f5;
+}
+
+
+/* ============================================================
+   SIDEBAR
+   ============================================================ */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+
+  width: 240px;
+  min-height: 100vh;
+
+  padding: 20px;
+
+  background: #ffffff;
+  border-right: 1px solid #dddddd;
+}
+
+.sidebar__header {
+  margin-bottom: 32px;
+}
+
+.sidebar__title {
+  margin: 0;
+  font-size: 24px;
+}
+
+.sidebar__subtitle {
+  display: block;
+  margin-top: 4px;
+
+  font-size: 13px;
+  color: #666666;
+}
+
+
+/* ============================================================
+   NAVEGACIÓN
+   ============================================================ */
+
+.sidebar__navigation {
+  flex: 1;
+}
+
+.sidebar__list {
+  margin: 0;
+  padding: 0;
+
+  list-style: none;
+}
+
+.sidebar__item {
+  margin-bottom: 6px;
+}
+
+.sidebar__link {
+  display: block;
+
+  padding: 10px 12px;
+
+  color: #333333;
+  text-decoration: none;
+
+  border-radius: 4px;
+}
+
+.sidebar__link:hover {
+  background: #eeeeee;
+}
+
+.sidebar__link--active {
+  background: #dddddd;
+  font-weight: 600;
+}
+
+
+/* ============================================================
+   USUARIO
+   ============================================================ */
+
+.sidebar__footer {
+  padding-top: 16px;
+
+  border-top: 1px solid #dddddd;
+}
+
+.sidebar__user {
+  display: flex;
+  flex-direction: column;
+
+  margin-bottom: 12px;
+}
+
+.sidebar__user-email {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.sidebar__user-role {
+  margin-top: 4px;
+
+  font-size: 12px;
+  font-weight: 600;
+  color: #666666;
+}
+
+.sidebar__logout {
+  width: 100%;
+
+  padding: 9px 12px;
+
+  cursor: pointer;
+
+  background: #ffffff;
+  border: 1px solid #aaaaaa;
+  border-radius: 4px;
+}
+
+
+/* ============================================================
+   CONTENIDO
+   ============================================================ */
+
+.app-content {
+  flex: 1;
+
+  min-width: 0;
+
+  padding: 32px;
+}
+
+
+/* ============================================================
+   RESPONSIVE BÁSICO
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .app-shell {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: auto;
+    min-height: auto;
+
+    border-right: 0;
+    border-bottom: 1px solid #dddddd;
+  }
+
+  .app-content {
+    padding: 20px;
+  }
+}

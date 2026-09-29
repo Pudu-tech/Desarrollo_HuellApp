@@ -5,116 +5,70 @@
  * - DIRECTIVA
  * - COORDINADOR
  *
- * La navegación se filtra según role_code.
- *
- * IMPORTANTE
+ * RESPONSABILIDADES
  * ------------------------------------------------------------
- * La seguridad real continúa en el backend.
- * Ocultar un enlace no equivale a autorizar una operación.
+ * - Componer la estructura principal de la aplicación.
+ * - Mostrar el sidebar administrativo.
+ * - Renderizar mediante Outlet la página activa.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La visibilidad del menú no constituye autorización.
+ * RoleRoute y FastAPI continúan siendo responsables
+ * de controlar el acceso real a cada recurso.
  */
 
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import {
+  Outlet,
+  useNavigate,
+} from 'react-router-dom'
+
+import Sidebar from '../components/navigation/Sidebar'
 
 import { useAuth } from '../contexts/AuthContext'
 
+import type {
+  AppRole,
+} from '../types/navigation'
+
+import '../styles/app-layout.css'
+
 function AppLayout() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
 
-  const roleCode = user?.role_code
+  const {
+    user,
+    logout,
+  } = useAuth()
 
-  const isAdministrativeRole =
-    roleCode === 'SUPERADMIN'
-    || roleCode === 'DIRECTIVA'
-
-  const canManageAssignments =
-    roleCode === 'SUPERADMIN'
-    || roleCode === 'DIRECTIVA'
-    || roleCode === 'COORDINADOR'
-
+  /**
+   * Finaliza la sesión y devuelve al usuario
+   * al punto público de entrada de HuellAPP.
+   */
   const handleLogout = async () => {
     await logout()
-    navigate('/', { replace: true })
+
+    navigate('/', {
+      replace: true,
+    })
   }
 
+  if (!user) {
+    return null
+  }
+
+  const roleCode =
+    user.role_code as AppRole
+
   return (
-    <div>
-      <header>
-        <h1>HuellAPP</h1>
+    <div className="app-shell">
+      <Sidebar
+        email={user.email}
+        role={roleCode}
+        onLogout={handleLogout}
+      />
 
-        <p>
-          Usuario: {user?.email}
-        </p>
-
-        <p>
-          Rol: {roleCode}
-        </p>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-        >
-          Cerrar sesión
-        </button>
-      </header>
-
-      <nav aria-label="Navegación principal">
-        <ul>
-          <li>
-            <Link to="/app/inicio">
-              Inicio
-            </Link>
-          </li>
-
-          {isAdministrativeRole && (
-            <>
-              <li>
-                <Link to="/app/usuarios">
-                  Usuarios
-                </Link>
-              </li>
-
-              <li>
-                <Link to="/app/colegios">
-                  Colegios
-                </Link>
-              </li>
-
-              <li>
-                <Link to="/app/cursos">
-                  Cursos
-                </Link>
-              </li>
-
-              <li>
-                <Link to="/app/salas">
-                  Salas
-                </Link>
-              </li>
-            </>
-          )}
-
-          {canManageAssignments && (
-            <li>
-              <Link to="/app/asignaciones">
-                Asignaciones
-              </Link>
-            </li>
-          )}
-
-          {roleCode === 'SUPERADMIN' && (
-            <li>
-              <Link to="/app/auditoria">
-                Auditoría
-              </Link>
-            </li>
-          )}
-        </ul>
-      </nav>
-
-      <hr />
-
-      <main>
+      <main className="app-content">
         <Outlet />
       </main>
     </div>

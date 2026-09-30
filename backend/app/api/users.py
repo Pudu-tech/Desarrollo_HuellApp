@@ -30,6 +30,7 @@ from app.schemas.auth import AuthenticatedUser
 from app.schemas.users import (
     UserCreate,
     UserCreateResponse,
+    UserEmailUpdate,
     UserListItem,
     UserRoleUpdate,
     UserUpdate,
@@ -922,6 +923,473 @@ async def update_user(
                 "No fue posible actualizar el usuario."
             ),
         )
+
+
+# ============================================================
+# CAMBIO DE CORREO
+# ============================================================
+
+
+@router.patch(
+    "/{user_id}/email",
+    response_model=UserListItem,
+    responses={
+        400: {
+            "description": (
+                "Correo inválido o igual al correo actual."
+            ),
+        },
+        401: {
+            "description": (
+                "No autenticado o sesión inválida."
+            ),
+        },
+        403: {
+            "description": (
+                "No autorizado para cambiar el correo."
+            ),
+        },
+        404: {
+            "description": "Usuario no encontrado.",
+        },
+        409: {
+            "description": (
+                "Correo ocupado o identidad desincronizada."
+            ),
+        },
+        500: {
+            "description": (
+                "Error interno al cambiar el correo."
+            ),
+        },
+    },
+)
+async def update_user_email(
+    request: Request,
+    user_id: UUID,
+    payload: UserEmailUpdate,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("UPDATE_USER")
+    ),
+) -> UserListItem:
+    """
+    Cambia el correo de un usuario manteniendo el mismo UUID.
+
+    FLUJO
+    --------------------------------------------------------
+    1. Valida usuario, permisos y duplicados funcionales.
+    2. Verifica que Supabase Auth y public.usuarios estén
+       sincronizados antes de modificar datos.
+    3. Actualiza el correo en Supabase Auth.
+    4. Actualiza public.usuarios + auditoría mediante la RPC
+       cambiar_email_usuario_atomico.
+    5. Si PostgreSQL falla después del cambio en Auth, intenta
+       restaurar el correo anterior en Auth.
+
+    SECURITY
+    --------------------------------------------------------
+    - El cambio se ejecuta exclusivamente desde backend.
+    - Nunca se expone la clave de service role al frontend.
+    - DIRECTIVA no puede modificar cuentas SUPERADMIN.
+    - La auditoría se registra únicamente si el cambio
+      funcional queda confirmado en PostgreSQL.
+    """
+
+    supabase = get_supabase_client()
+    new_email = str(payload.email).strip().lower()
+    old_email: str | None = None
+    auth_email_updated = False
+
+    def restore_auth_email() -> None:
+        """
+        Restaura el correo anterior en Supabase Auth cuando el
+        cambio funcional en PostgreSQL no puede confirmarse.
+        """
+
+        nonlocal auth_email_updated
+
+        if not auth_email_updated or old_email is None:
+            return
+
+        try:
+            supabase.auth.admin.update_user_by_id(
+                str(user_id),
+                {
+                    "email": old_email,
+                },
+            )
+            auth_email_updated = False
+        except Exception as rollback_error:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "No fue posible completar el cambio de correo "
+                    "ni restaurar automáticamente el correo anterior. "
+                    "Revise la sincronización entre Supabase Auth "
+                    "y HuellAPP."
+                ),
+            ) from rollback_error
+
+    try:
+        # --------------------------------------------------------
+        # 1. OBTENER USUARIO OBJETIVO
+        # --------------------------------------------------------
+        target_response = (
+            supabase.table("usuarios")
+            .select(
+                """
+                id,
+                email,
+                deleted_at,
+                roles(
+                    codigo,
+                    nombre
+                )
+                """
+            )
+            .eq(
+                "id",
+                str(user_id),
+            )
+            .maybe_single()
+            .execute()
+        )
+
+        if (
+            not target_response.data
+            or target_response.data.get("deleted_at") is not None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuario no encontrado.",
+            )
+
+        target_user = target_response.data
+        target_role = target_user.get("roles")
+        old_email = str(
+            target_user["email"]
+        ).strip().lower()
+
+        if (
+            current_user.role_code == "DIRECTIVA"
+            and target_role
+            and target_role.get("codigo") == "SUPERADMIN"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=(
+                    "No autorizado para cambiar el correo "
+                    "de este usuario."
+                ),
+            )
+
+        if old_email == new_email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "El nuevo correo debe ser diferente "
+                    "al correo actual."
+                ),
+            )
+
+        # --------------------------------------------------------
+        # 2. PREVALIDAR DUPLICADO FUNCIONAL
+        # --------------------------------------------------------
+        email_response = (
+            supabase.table("usuarios")
+            .select("id")
+            .ilike(
+                "email",
+                new_email,
+            )
+            .is_(
+                "deleted_at",
+                "null",
+            )
+            .neq(
+                "id",
+                str(user_id),
+            )
+            .limit(1)
+            .execute()
+        )
+
+        if email_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "El correo ya se encuentra registrado."
+                ),
+            )
+
+        # --------------------------------------------------------
+        # 3. VERIFICAR SINCRONIZACIÓN CON SUPABASE AUTH
+        # --------------------------------------------------------
+        auth_lookup = (
+            supabase.auth.admin.get_user_by_id(
+                str(user_id)
+            )
+        )
+        auth_user = getattr(
+            auth_lookup,
+            "user",
+            None,
+        )
+
+        if auth_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "La identidad de autenticación del usuario "
+                    "no se encuentra disponible."
+                ),
+            )
+
+        auth_old_email_raw = getattr(
+            auth_user,
+            "email",
+            None,
+        )
+
+        if not auth_old_email_raw:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "La identidad de autenticación no posee "
+                    "un correo válido."
+                ),
+            )
+
+        auth_old_email = str(
+            auth_old_email_raw
+        ).strip().lower()
+
+        if auth_old_email != old_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=(
+                    "El correo del usuario no está sincronizado "
+                    "entre Supabase Auth y HuellAPP."
+                ),
+            )
+
+        # --------------------------------------------------------
+        # 4. ACTUALIZAR SUPABASE AUTH
+        # --------------------------------------------------------
+        try:
+            auth_update = (
+                supabase.auth.admin.update_user_by_id(
+                    str(user_id),
+                    {
+                        "email": new_email,
+                    },
+                )
+            )
+        except Exception as auth_error:
+            auth_message = str(
+                auth_error
+            ).lower()
+
+            if (
+                "already" in auth_message
+                or "registered" in auth_message
+                or "exists" in auth_message
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "El correo ya se encuentra registrado "
+                        "en el sistema de autenticación."
+                    ),
+                ) from auth_error
+
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "No fue posible actualizar el correo "
+                    "en Supabase Auth."
+                ),
+            ) from auth_error
+
+        # Desde este punto asumimos que Auth pudo aplicar el cambio.
+        # Si cualquier validación posterior falla, intentaremos
+        # restaurar el correo anterior.
+        auth_email_updated = True
+
+        updated_auth_user = getattr(
+            auth_update,
+            "user",
+            None,
+        )
+
+        if updated_auth_user is None:
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "Supabase Auth no confirmó la actualización "
+                    "del correo."
+                ),
+            )
+
+        updated_auth_email = getattr(
+            updated_auth_user,
+            "email",
+            None,
+        )
+
+        if (
+            not updated_auth_email
+            or str(updated_auth_email).strip().lower()
+            != new_email
+        ):
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "Supabase Auth devolvió un correo distinto "
+                    "al solicitado."
+                ),
+            )
+
+        # --------------------------------------------------------
+        # 5. ACTUALIZAR PERFIL + AUDITORÍA EN POSTGRESQL
+        # --------------------------------------------------------
+        context = _request_rpc_context(
+            request
+        )
+
+        response = supabase.rpc(
+            "cambiar_email_usuario_atomico",
+            {
+                "p_user_id": str(
+                    user_id
+                ),
+                "p_new_email": new_email,
+                "p_actor_user_id": str(
+                    current_user.id
+                ),
+                "p_request_id": (
+                    context["request_id"]
+                ),
+                "p_ip_address": (
+                    context["ip_address"]
+                ),
+                "p_user_agent": (
+                    context["user_agent"]
+                ),
+            },
+        ).execute()
+
+        resultado = response.data
+
+        if not isinstance(
+            resultado,
+            dict,
+        ):
+            restore_auth_email()
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "La base de datos devolvió una respuesta "
+                    "inválida al cambiar el correo."
+                ),
+            )
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get(
+                "error_code"
+            )
+
+            restore_auth_email()
+
+            if error_code == "USER_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Usuario no encontrado.",
+                )
+
+            if error_code in {
+                "ACTOR_NOT_FOUND",
+                "FORBIDDEN",
+                "FORBIDDEN_SUPERADMIN",
+            }:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "No autorizado para cambiar el correo "
+                        "de este usuario."
+                    ),
+                )
+
+            if error_code == "EMAIL_EXISTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "El correo ya se encuentra registrado."
+                    ),
+                )
+
+            if error_code == "SAME_EMAIL":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "El nuevo correo debe ser diferente "
+                        "al correo actual."
+                    ),
+                )
+
+            if error_code == "INVALID_EMAIL":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "El correo ingresado no es válido."
+                    ),
+                )
+
+            raise HTTPException(
+                status_code=(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR
+                ),
+                detail=(
+                    "No fue posible confirmar el cambio de correo "
+                    "en HuellAPP."
+                ),
+            )
+
+        # Ambos sistemas ya quedaron sincronizados.
+        auth_email_updated = False
+
+        return _get_user_result(
+            supabase,
+            user_id=user_id,
+        )
+
+    except HTTPException:
+        if auth_email_updated:
+            restore_auth_email()
+        raise
+
+    except Exception as unexpected_error:
+        if auth_email_updated:
+            restore_auth_email()
+
+        raise HTTPException(
+            status_code=(
+                status.HTTP_500_INTERNAL_SERVER_ERROR
+            ),
+            detail=(
+                "No fue posible cambiar el correo del usuario."
+            ),
+        ) from unexpected_error
 
 
 # ============================================================

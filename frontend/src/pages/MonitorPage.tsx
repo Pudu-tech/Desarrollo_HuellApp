@@ -17,20 +17,35 @@ import { Link } from 'react-router-dom'
 
 import { useAuth } from '../contexts/AuthContext'
 
+
 function MonitorPage() {
   const { user } = useAuth()
 
+
+  const displayName = user
+    ? [
+        user.nombres,
+        user.apellido_paterno,
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : ''
+
+
   return (
     <section>
-      <h2>Mi espacio</h2>
+      <h2>
+        Mi espacio
+      </h2>
 
       <p>
-        Bienvenido, {user?.email}.
+        Bienvenido {displayName}.
       </p>
 
       <p>
         Desde aquí podrás revisar tus actividades
-        y registrar las acciones asociadas a tu participación.
+        y registrar las acciones asociadas
+        a tu participación.
       </p>
 
       <Link to="/app/monitor/asignaciones">
@@ -39,5 +54,6 @@ function MonitorPage() {
     </section>
   )
 }
+
 
 export default MonitorPage

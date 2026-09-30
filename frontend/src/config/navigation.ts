@@ -15,6 +15,11 @@ import type {
   NavigationItem,
 } from '../types/navigation'
 
+
+// ============================================================
+// NAVEGACIÓN ADMINISTRATIVA
+// ============================================================
+
 export const ADMIN_NAVIGATION_ITEMS:
   NavigationItem[] = [
     {
@@ -72,6 +77,29 @@ export const ADMIN_NAVIGATION_ITEMS:
       path: '/app/auditoria',
       allowedRoles: [
         'SUPERADMIN',
+      ],
+    },
+  ]
+
+
+// ============================================================
+// NAVEGACIÓN MONITOR
+// ============================================================
+
+export const MONITOR_NAVIGATION_ITEMS:
+  NavigationItem[] = [
+    {
+      label: 'Inicio',
+      path: '/app/monitor',
+      allowedRoles: [
+        'MONITOR',
+      ],
+    },
+    {
+      label: 'Mis asignaciones',
+      path: '/app/monitor/asignaciones',
+      allowedRoles: [
+        'MONITOR',
       ],
     },
   ]

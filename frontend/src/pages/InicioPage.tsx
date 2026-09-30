@@ -10,15 +10,28 @@
 
 import { useAuth } from '../contexts/AuthContext'
 
+
 function InicioPage() {
   const { user } = useAuth()
 
+  const displayName = user
+    ? [
+        user.nombres,
+        user.apellido_paterno,
+      ]
+        .filter(Boolean)
+        .join(' ')
+    : ''
+
+
   return (
     <section>
-      <h2>Inicio</h2>
+      <h2>
+        Inicio
+      </h2>
 
       <p>
-        Bienvenido a HuellAPP.
+        Bienvenido {displayName}.
       </p>
 
       <p>
@@ -27,5 +40,6 @@ function InicioPage() {
     </section>
   )
 }
+
 
 export default InicioPage

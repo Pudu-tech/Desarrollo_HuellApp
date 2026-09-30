@@ -6,6 +6,7 @@
  * - listar usuarios;
  * - crear e invitar usuarios;
  * - editar datos básicos;
+ * - cambiar correo electrónico;
  * - cambiar roles;
  * - activar/desactivar;
  * - eliminar mediante borrado lógico.
@@ -23,6 +24,7 @@ import { useAuth } from '../contexts/AuthContext'
 
 import {
   activateUser,
+  changeUserEmail,
   createUser,
   deactivateUser,
   deleteUser,
@@ -60,9 +62,6 @@ function UsuariosPage() {
     useState<UserListItem | null>(null)
 
 
-  /**
-   * Carga nuevamente el listado desde backend.
-   */
   const loadUsers = async () => {
     setLoading(true)
     setError(null)
@@ -91,11 +90,6 @@ function UsuariosPage() {
   }, [])
 
 
-  /**
-   * Roles disponibles según el usuario autenticado.
-   *
-   * El backend sigue siendo la autoridad definitiva.
-   */
   const allowedRoles: UserRoleCode[] =
     user?.role_code === 'SUPERADMIN'
       ? [
@@ -161,9 +155,6 @@ function UsuariosPage() {
   }
 
 
-  /**
-   * Actualiza datos básicos.
-   */
   const handleUpdateBasicData = async (
     userId: string,
     payload: UserUpdatePayload,
@@ -188,9 +179,38 @@ function UsuariosPage() {
   }
 
 
-  /**
-   * Cambia rol.
-   */
+  // ==========================================================
+  // CAMBIO DE CORREO
+  // ==========================================================
+
+  const handleUpdateEmail = async (
+    userId: string,
+    email: string,
+  ): Promise<UserListItem> => {
+    const updatedUser =
+      await changeUserEmail(
+        userId,
+        { email },
+      )
+
+    setUsers((current) =>
+      current.map((item) =>
+        item.id === updatedUser.id
+          ? updatedUser
+          : item,
+      ),
+    )
+
+    setEditingUser(updatedUser)
+
+    return updatedUser
+  }
+
+
+  // ==========================================================
+  // CAMBIO DE ROL
+  // ==========================================================
+
   const handleUpdateRole = async (
     userId: string,
     roleCode: UserRoleCode,
@@ -217,9 +237,10 @@ function UsuariosPage() {
   }
 
 
-  /**
-   * Activa o desactiva según estado actual.
-   */
+  // ==========================================================
+  // ESTADO
+  // ==========================================================
+
   const handleToggleStatus = async (
     selectedUser: UserListItem,
   ): Promise<UserListItem> => {
@@ -246,9 +267,10 @@ function UsuariosPage() {
   }
 
 
-  /**
-   * Ejecuta borrado lógico.
-   */
+  // ==========================================================
+  // ELIMINACIÓN
+  // ==========================================================
+
   const handleDeleteUser = async (
     selectedUser: UserListItem,
   ): Promise<void> => {
@@ -279,10 +301,6 @@ function UsuariosPage() {
       </header>
 
 
-      {/* ======================================================
-          CREAR NUEVO USUARIO
-          ====================================================== */}
-
       {!showCreateForm
         && !editingUser && (
           <div>
@@ -296,10 +314,6 @@ function UsuariosPage() {
         )}
 
 
-      {/* ======================================================
-          MENSAJE GENERAL DE ÉXITO
-          ====================================================== */}
-
       {successMessage && (
         <p
           role="status"
@@ -309,10 +323,6 @@ function UsuariosPage() {
         </p>
       )}
 
-
-      {/* ======================================================
-          FORMULARIO DE CREACIÓN
-          ====================================================== */}
 
       {showCreateForm && (
         <UserCreateForm
@@ -328,16 +338,15 @@ function UsuariosPage() {
       )}
 
 
-      {/* ======================================================
-          FORMULARIO DE EDICIÓN
-          ====================================================== */}
-
       {editingUser && (
         <UserEditForm
           user={editingUser}
           allowedRoles={allowedRoles}
           onUpdateBasicData={
             handleUpdateBasicData
+          }
+          onUpdateEmail={
+            handleUpdateEmail
           }
           onUpdateRole={
             handleUpdateRole
@@ -358,20 +367,12 @@ function UsuariosPage() {
       <hr />
 
 
-      {/* ======================================================
-          CARGA
-          ====================================================== */}
-
       {loading && (
         <p>
           Cargando usuarios...
         </p>
       )}
 
-
-      {/* ======================================================
-          ERROR DE LISTADO
-          ====================================================== */}
 
       {!loading && error && (
         <div>
@@ -391,10 +392,6 @@ function UsuariosPage() {
       )}
 
 
-      {/* ======================================================
-          LISTADO VACÍO
-          ====================================================== */}
-
       {!loading
         && !error
         && users.length === 0 && (
@@ -403,10 +400,6 @@ function UsuariosPage() {
           </p>
         )}
 
-
-      {/* ======================================================
-          LISTADO
-          ====================================================== */}
 
       {!loading
         && !error

@@ -1,42 +1,67 @@
 /**
  * HuellAPP
- * Sidebar principal para roles administrativos.
+ * Sidebar principal de la aplicación.
  *
  * RESPONSABILIDADES
  * ------------------------------------------------------------
  * - Mostrar navegación permitida por rol.
+ * - Adaptar la navegación para roles administrativos
+ *   y MONITOR.
  * - Mostrar información básica del usuario autenticado.
  * - Exponer la acción de cierre de sesión.
  *
- * La lógica de autenticación permanece en AuthContext.
+ * SECURITY
+ * ------------------------------------------------------------
+ * La visibilidad del menú no constituye autorización.
+ * RoleRoute y FastAPI continúan siendo responsables
+ * del acceso real a cada recurso.
  */
 
 import SidebarItem from './SidebarItem'
 
 import {
   ADMIN_NAVIGATION_ITEMS,
+  MONITOR_NAVIGATION_ITEMS,
 } from '../../config/navigation'
 
 import type {
   AppRole,
 } from '../../types/navigation'
 
+
 interface SidebarProps {
-  email: string
+  displayName: string
   role: AppRole
   onLogout: () => Promise<void>
 }
 
+
 function Sidebar({
-  email,
+  displayName,
   role,
   onLogout,
 }: SidebarProps) {
+  /**
+   * El MONITOR utiliza una navegación propia.
+   *
+   * Los demás roles utilizan la navegación
+   * administrativa.
+   */
+  const navigationItems =
+    role === 'MONITOR'
+      ? MONITOR_NAVIGATION_ITEMS
+      : ADMIN_NAVIGATION_ITEMS
+
+
+  /**
+   * Segunda capa de filtrado según rol.
+   */
   const visibleNavigationItems =
-    ADMIN_NAVIGATION_ITEMS.filter(
+    navigationItems.filter(
       (item) =>
         item.allowedRoles.includes(role),
     )
+
 
   return (
     <aside className="sidebar">
@@ -49,6 +74,7 @@ function Sidebar({
           Fundación Huella
         </span>
       </div>
+
 
       <nav
         className="sidebar__navigation"
@@ -67,10 +93,11 @@ function Sidebar({
         </ul>
       </nav>
 
+
       <div className="sidebar__footer">
         <div className="sidebar__user">
           <span className="sidebar__user-email">
-            {email}
+            {displayName}
           </span>
 
           <span className="sidebar__user-role">
@@ -91,5 +118,6 @@ function Sidebar({
     </aside>
   )
 }
+
 
 export default Sidebar

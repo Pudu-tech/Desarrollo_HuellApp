@@ -64,6 +64,16 @@ export interface UserUpdatePayload {
 
 
 /**
+ * Payload utilizado para el cambio controlado de correo.
+ *
+ * PATCH /users/{user_id}/email
+ */
+export interface UserEmailUpdatePayload {
+  email: string
+}
+
+
+/**
  * Payload utilizado para cambio de rol.
  */
 export interface UserRoleUpdatePayload {

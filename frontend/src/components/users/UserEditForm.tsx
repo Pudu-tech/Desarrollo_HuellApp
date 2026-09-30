@@ -4,6 +4,7 @@
  *
  * Permite:
  * - editar datos básicos;
+ * - cambiar correo electrónico;
  * - cambiar rol;
  * - activar/desactivar;
  * - eliminar usuario.
@@ -32,6 +33,11 @@ interface UserEditFormProps {
   onUpdateBasicData: (
     userId: string,
     payload: UserUpdatePayload,
+  ) => Promise<UserListItem>
+
+  onUpdateEmail: (
+    userId: string,
+    email: string,
   ) => Promise<UserListItem>
 
   onUpdateRole: (
@@ -83,6 +89,7 @@ function UserEditForm({
   user,
   allowedRoles,
   onUpdateBasicData,
+  onUpdateEmail,
   onUpdateRole,
   onToggleStatus,
   onDelete,
@@ -96,9 +103,19 @@ function UserEditForm({
   const [currentUser, setCurrentUser] =
     useState<UserListItem>(user)
 
+  const [showEmailEditor, setShowEmailEditor] =
+    useState(false)
+
+  const [newEmail, setNewEmail] =
+    useState('')
+
+  const [confirmEmail, setConfirmEmail] =
+    useState('')
+
   const [loadingAction, setLoadingAction] =
     useState<
       | 'basic'
+      | 'email'
       | 'role'
       | 'status'
       | 'delete'
@@ -115,6 +132,9 @@ function UserEditForm({
   useEffect(() => {
     setCurrentUser(user)
     setForm(createFormState(user))
+    setShowEmailEditor(false)
+    setNewEmail('')
+    setConfirmEmail('')
     setError(null)
     setSuccess(null)
   }, [user])
@@ -124,9 +144,6 @@ function UserEditForm({
     loadingAction !== null
 
 
-  /**
-   * Actualiza campos simples del formulario.
-   */
   const updateField = <
     K extends keyof EditFormState,
   >(
@@ -143,9 +160,6 @@ function UserEditForm({
   }
 
 
-  /**
-   * Guarda únicamente los datos básicos.
-   */
   const handleSaveBasicData = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -209,9 +223,106 @@ function UserEditForm({
   }
 
 
-  /**
-   * Cambia el rol utilizando el endpoint específico.
-   */
+  const handleOpenEmailEditor = () => {
+    if (isLoading) {
+      return
+    }
+
+    setNewEmail('')
+    setConfirmEmail('')
+    setError(null)
+    setSuccess(null)
+    setShowEmailEditor(true)
+  }
+
+
+  const handleCancelEmailChange = () => {
+    if (isLoading) {
+      return
+    }
+
+    setNewEmail('')
+    setConfirmEmail('')
+    setError(null)
+    setShowEmailEditor(false)
+  }
+
+
+  const handleChangeEmail = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault()
+
+    if (isLoading) {
+      return
+    }
+
+    const normalizedEmail =
+      newEmail.trim().toLowerCase()
+
+    const normalizedConfirmation =
+      confirmEmail.trim().toLowerCase()
+
+    if (!normalizedEmail) {
+      setError(
+        'Debes ingresar el nuevo correo electrónico.',
+      )
+      return
+    }
+
+    if (
+      normalizedEmail
+      === currentUser.email.trim().toLowerCase()
+    ) {
+      setError(
+        'El nuevo correo debe ser diferente al correo actual.',
+      )
+      return
+    }
+
+    if (
+      normalizedEmail
+      !== normalizedConfirmation
+    ) {
+      setError(
+        'Los correos ingresados no coinciden.',
+      )
+      return
+    }
+
+    setError(null)
+    setSuccess(null)
+    setLoadingAction('email')
+
+    try {
+      const updatedUser =
+        await onUpdateEmail(
+          currentUser.id,
+          normalizedEmail,
+        )
+
+      setCurrentUser(updatedUser)
+      setNewEmail('')
+      setConfirmEmail('')
+      setShowEmailEditor(false)
+
+      setSuccess(
+        'Correo electrónico actualizado correctamente.',
+      )
+
+    } catch (emailError) {
+      setError(
+        emailError instanceof Error
+          ? emailError.message
+          : 'No fue posible cambiar el correo.',
+      )
+
+    } finally {
+      setLoadingAction(null)
+    }
+  }
+
+
   const handleChangeRole = async () => {
     if (isLoading) {
       return
@@ -264,9 +375,6 @@ function UserEditForm({
   }
 
 
-  /**
-   * Activa o desactiva según el estado actual.
-   */
   const handleToggleStatus = async () => {
     if (isLoading) {
       return
@@ -303,9 +411,6 @@ function UserEditForm({
   }
 
 
-  /**
-   * Confirma y ejecuta el borrado lógico.
-   */
   const handleDelete = async () => {
     if (isLoading) {
       return
@@ -356,9 +461,7 @@ function UserEditForm({
       </p>
 
 
-      {/* ======================================================
-          DATOS BÁSICOS
-          ====================================================== */}
+      {/* DATOS BÁSICOS */}
 
       <form onSubmit={handleSaveBasicData}>
         <div>
@@ -381,7 +484,6 @@ function UserEditForm({
           />
         </div>
 
-
         <div>
           <label htmlFor="edit-user-names">
             Nombres
@@ -402,7 +504,6 @@ function UserEditForm({
           />
         </div>
 
-
         <div>
           <label htmlFor="edit-user-lastname-1">
             Apellido paterno
@@ -411,9 +512,7 @@ function UserEditForm({
           <input
             id="edit-user-lastname-1"
             type="text"
-            value={
-              form.apellido_paterno
-            }
+            value={form.apellido_paterno}
             onChange={(event) => {
               updateField(
                 'apellido_paterno',
@@ -425,7 +524,6 @@ function UserEditForm({
           />
         </div>
 
-
         <div>
           <label htmlFor="edit-user-lastname-2">
             Apellido materno
@@ -434,9 +532,7 @@ function UserEditForm({
           <input
             id="edit-user-lastname-2"
             type="text"
-            value={
-              form.apellido_materno
-            }
+            value={form.apellido_materno}
             onChange={(event) => {
               updateField(
                 'apellido_materno',
@@ -447,26 +543,6 @@ function UserEditForm({
             required
           />
         </div>
-
-
-        <div>
-          <label htmlFor="edit-user-email">
-            Correo electrónico
-          </label>
-
-          <input
-            id="edit-user-email"
-            type="email"
-            value={currentUser.email}
-            disabled
-          />
-
-          <small>
-            El correo no se modifica desde
-            este formulario.
-          </small>
-        </div>
-
 
         <div>
           <label htmlFor="edit-user-phone">
@@ -487,7 +563,6 @@ function UserEditForm({
           />
         </div>
 
-
         <button
           type="submit"
           disabled={isLoading}
@@ -502,9 +577,103 @@ function UserEditForm({
       <hr />
 
 
-      {/* ======================================================
-          ROL
-          ====================================================== */}
+      {/* CORREO ELECTRÓNICO */}
+
+      <div>
+        <h4>
+          Correo electrónico
+        </h4>
+
+        <p>
+          Correo actual:{' '}
+          <strong>
+            {currentUser.email}
+          </strong>
+        </p>
+
+        {!showEmailEditor && (
+          <button
+            type="button"
+            onClick={handleOpenEmailEditor}
+            disabled={isLoading}
+          >
+            Cambiar correo
+          </button>
+        )}
+
+        {showEmailEditor && (
+          <form onSubmit={handleChangeEmail}>
+            <div>
+              <label htmlFor="edit-user-new-email">
+                Nuevo correo
+              </label>
+
+              <input
+                id="edit-user-new-email"
+                type="email"
+                value={newEmail}
+                onChange={(event) => {
+                  setNewEmail(
+                    event.target.value,
+                  )
+                  setError(null)
+                  setSuccess(null)
+                }}
+                disabled={isLoading}
+                autoComplete="off"
+                required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="edit-user-confirm-email">
+                Confirmar nuevo correo
+              </label>
+
+              <input
+                id="edit-user-confirm-email"
+                type="email"
+                value={confirmEmail}
+                onChange={(event) => {
+                  setConfirmEmail(
+                    event.target.value,
+                  )
+                  setError(null)
+                  setSuccess(null)
+                }}
+                disabled={isLoading}
+                autoComplete="off"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+            >
+              {loadingAction === 'email'
+                ? 'Cambiando correo...'
+                : 'Guardar nuevo correo'}
+            </button>
+
+            {' '}
+
+            <button
+              type="button"
+              onClick={handleCancelEmailChange}
+              disabled={isLoading}
+            >
+              Cancelar
+            </button>
+          </form>
+        )}
+      </div>
+
+
+      <hr />
+
+
+      {/* ROL */}
 
       <div>
         <h4>
@@ -515,8 +684,7 @@ function UserEditForm({
           value={form.role_code}
           onChange={(event) => {
             const selectedRole =
-              event.target
-                .value as UserRoleCode
+              event.target.value as UserRoleCode
 
             updateField(
               'role_code',
@@ -552,9 +720,7 @@ function UserEditForm({
       <hr />
 
 
-      {/* ======================================================
-          ESTADO
-          ====================================================== */}
+      {/* ESTADO */}
 
       <div>
         <h4>
@@ -589,9 +755,7 @@ function UserEditForm({
       <hr />
 
 
-      {/* ======================================================
-          ELIMINACIÓN
-          ====================================================== */}
+      {/* ELIMINACIÓN */}
 
       <div>
         <h4>
@@ -617,9 +781,7 @@ function UserEditForm({
       </div>
 
 
-      {/* ======================================================
-          MENSAJES
-          ====================================================== */}
+      {/* MENSAJES */}
 
       {success && (
         <p

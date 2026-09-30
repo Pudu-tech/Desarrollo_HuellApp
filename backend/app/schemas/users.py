@@ -349,6 +349,28 @@ class UserUpdate(BaseModel):
 
 
 # ============================================================
+# CAMBIO DE CORREO
+# ============================================================
+
+
+class UserEmailUpdate(BaseModel):
+    """
+    Datos requeridos para cambiar el correo de un usuario.
+
+    SECURITY
+    --------------------------------------------------------
+    - El cambio se procesa mediante un endpoint independiente.
+    - El backend coordina Supabase Auth y public.usuarios.
+    - El mismo UUID del usuario se conserva.
+    - El nuevo correo se valida antes de ejecutar el cambio.
+    """
+
+    email: EmailStr = Field(
+        description="Nuevo correo electrónico del usuario.",
+    )
+
+
+# ============================================================
 # CAMBIO DE ROL
 # ============================================================
 

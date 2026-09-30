@@ -19,6 +19,7 @@ import { supabase } from './supabase'
 
 import type {
   UserCreatePayload,
+  UserEmailUpdatePayload,
   UserListItem,
   UserRoleUpdatePayload,
   UserUpdatePayload,
@@ -268,6 +269,24 @@ export async function updateUser(
 ): Promise<UserListItem> {
   return requestUserJson(
     `/users/${userId}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+
+// ============================================================
+// CAMBIO DE CORREO
+// ============================================================
+
+export async function changeUserEmail(
+  userId: string,
+  payload: UserEmailUpdatePayload,
+): Promise<UserListItem> {
+  return requestUserJson(
+    `/users/${userId}/email`,
     {
       method: 'PATCH',
       body: JSON.stringify(payload),

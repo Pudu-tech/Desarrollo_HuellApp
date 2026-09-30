@@ -21,16 +21,25 @@ class AuthenticatedUser(BaseModel):
     """
     Representa al usuario autenticado dentro de HuellAPP.
 
-    Esta estructura se utilizará después de validar el JWT emitido
-    por Supabase Auth y obtener el perfil correspondiente desde
-    la tabla `usuarios`.
-
     Attributes:
-        id: UUID único del usuario, compartido con auth.users.
-        email: Correo utilizado para autenticación.
-        role_code: Código del rol actual del usuario.
+        id:
+            UUID único del usuario, compartido con auth.users.
+
+        email:
+            Correo utilizado para autenticación.
+
+        nombres:
+            Nombres reales registrados en public.usuarios.
+
+        apellido_paterno:
+            Apellido paterno registrado en public.usuarios.
+
+        role_code:
+            Código del rol actual del usuario.
     """
 
     id: UUID
     email: EmailStr
+    nombres: str
+    apellido_paterno: str
     role_code: str

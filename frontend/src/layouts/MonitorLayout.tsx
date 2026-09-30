@@ -4,71 +4,87 @@
  *
  * OBJETIVO
  * ------------------------------------------------------------
- * Separar la experiencia del monitor de la administración.
+ * Mantener una experiencia propia para el monitor,
+ * pero utilizando la misma estructura visual general
+ * de HuellAPP.
  *
- * El monitor no visualiza mantenedores administrativos.
- * Su navegación se concentra en:
- * - inicio personal;
- * - sus asignaciones;
- * - participación;
- * - asistencia.
+ * El monitor solamente visualiza:
+ * - Inicio.
+ * - Mis asignaciones.
+ *
+ * No visualiza mantenedores administrativos.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La navegación visible no reemplaza las restricciones
+ * de RoleRoute ni la autorización implementada en FastAPI.
  */
 
-import { Link, Outlet, useNavigate } from 'react-router-dom'
+import {
+  Outlet,
+  useNavigate,
+} from 'react-router-dom'
+
+import Sidebar from '../components/navigation/Sidebar'
 
 import { useAuth } from '../contexts/AuthContext'
 
+import type {
+  AppRole,
+} from '../types/navigation'
+
+import '../styles/app-layout.css'
+
+
 function MonitorLayout() {
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+
+  const {
+    user,
+    logout,
+  } = useAuth()
+
 
   const handleLogout = async () => {
     await logout()
-    navigate('/', { replace: true })
+
+    navigate('/', {
+      replace: true,
+    })
   }
 
+
+  if (!user) {
+    return null
+  }
+
+
+  const roleCode =
+    user.role_code as AppRole
+
+
+  const displayName = [
+    user.nombres,
+    user.apellido_paterno,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+
   return (
-    <div>
-      <header>
-        <h1>HuellAPP</h1>
+    <div className="app-shell">
+      <Sidebar
+        displayName={displayName}
+        role={roleCode}
+        onLogout={handleLogout}
+      />
 
-        <p>Espacio Monitor</p>
-
-        <p>
-          Usuario: {user?.email}
-        </p>
-
-        <button
-          type="button"
-          onClick={handleLogout}
-        >
-          Cerrar sesión
-        </button>
-      </header>
-
-      <nav aria-label="Navegación Monitor">
-        <ul>
-          <li>
-            <Link to="/app/monitor">
-              Inicio
-            </Link>
-          </li>
-
-          <li>
-            <Link to="/app/monitor/asignaciones">
-              Mis asignaciones
-            </Link>
-          </li>
-        </ul>
-      </nav>
-
-      <hr />
-
-      <main>
+      <main className="app-content">
         <Outlet />
       </main>
     </div>
   )
 }
+
 
 export default MonitorLayout

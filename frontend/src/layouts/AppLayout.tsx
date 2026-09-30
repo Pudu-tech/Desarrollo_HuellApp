@@ -33,6 +33,7 @@ import type {
 
 import '../styles/app-layout.css'
 
+
 function AppLayout() {
   const navigate = useNavigate()
 
@@ -41,10 +42,7 @@ function AppLayout() {
     logout,
   } = useAuth()
 
-  /**
-   * Finaliza la sesión y devuelve al usuario
-   * al punto público de entrada de HuellAPP.
-   */
+
   const handleLogout = async () => {
     await logout()
 
@@ -53,17 +51,27 @@ function AppLayout() {
     })
   }
 
+
   if (!user) {
     return null
   }
 
+
   const roleCode =
     user.role_code as AppRole
+
+  const displayName = [
+    user.nombres,
+    user.apellido_paterno,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
 
   return (
     <div className="app-shell">
       <Sidebar
-        email={user.email}
+        displayName={displayName}
         role={roleCode}
         onLogout={handleLogout}
       />
@@ -74,5 +82,6 @@ function AppLayout() {
     </div>
   )
 }
+
 
 export default AppLayout

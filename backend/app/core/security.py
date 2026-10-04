@@ -169,6 +169,7 @@ async def get_current_user(
         )
 
 
+# Autorización centralizada: la navegación del frontend nunca reemplaza este control.
 def require_permission(
     permission_code: str,
 ) -> Callable:

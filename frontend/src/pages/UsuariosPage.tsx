@@ -19,6 +19,7 @@ import {
 
 import UserCreateForm from '../components/users/UserCreateForm'
 import UserEditForm from '../components/users/UserEditForm'
+import '../styles/usuarios.css'
 
 import { useAuth } from '../contexts/AuthContext'
 
@@ -40,6 +41,10 @@ import type {
 } from '../types/users'
 
 
+/**
+ * Orquesta listado, creación, edición y operaciones administrativas.
+ * Los servicios existentes conservan los flujos de invitación y auditoría.
+ */
 function UsuariosPage() {
   const { user } = useAuth()
 
@@ -62,6 +67,9 @@ function UsuariosPage() {
     useState<UserListItem | null>(null)
 
 
+/**
+ * Recupera el listado administrativo desde la API.
+ */
   const loadUsers = async () => {
     setLoading(true)
     setError(null)
@@ -109,6 +117,9 @@ function UsuariosPage() {
   // CREACIÓN
   // ==========================================================
 
+/**
+ * Abre el formulario de invitación de usuarios.
+ */
   const handleOpenCreateForm = () => {
     setEditingUser(null)
     setSuccessMessage(null)
@@ -117,11 +128,17 @@ function UsuariosPage() {
   }
 
 
+/**
+ * Cierra la creación sin enviar datos.
+ */
   const handleCancelCreate = () => {
     setShowCreateForm(false)
   }
 
 
+/**
+ * Sincroniza la vista después de una creación exitosa.
+ */
   const handleUserCreated = async (
     createdUser: UserListItem,
   ) => {
@@ -140,6 +157,9 @@ function UsuariosPage() {
   // EDICIÓN
   // ==========================================================
 
+/**
+ * Selecciona el usuario que se editará.
+ */
   const handleOpenEdit = (
     selectedUser: UserListItem,
   ) => {
@@ -150,11 +170,17 @@ function UsuariosPage() {
   }
 
 
+/**
+ * Regresa al listado sin aplicar cambios adicionales.
+ */
   const handleCancelEdit = () => {
     setEditingUser(null)
   }
 
 
+/**
+ * Actualiza únicamente los datos personales editables.
+ */
   const handleUpdateBasicData = async (
     userId: string,
     payload: UserUpdatePayload,
@@ -183,6 +209,9 @@ function UsuariosPage() {
   // CAMBIO DE CORREO
   // ==========================================================
 
+/**
+ * Usa el flujo separado de cambio de correo; no modifica contraseña.
+ */
   const handleUpdateEmail = async (
     userId: string,
     email: string,
@@ -211,6 +240,9 @@ function UsuariosPage() {
   // CAMBIO DE ROL
   // ==========================================================
 
+/**
+ * Solicita cambio de rol mediante su endpoint específico.
+ */
   const handleUpdateRole = async (
     userId: string,
     roleCode: UserRoleCode,
@@ -241,6 +273,9 @@ function UsuariosPage() {
   // ESTADO
   // ==========================================================
 
+/**
+ * Activa o desactiva la cuenta sin eliminar su historial.
+ */
   const handleToggleStatus = async (
     selectedUser: UserListItem,
   ): Promise<UserListItem> => {
@@ -271,6 +306,9 @@ function UsuariosPage() {
   // ELIMINACIÓN
   // ==========================================================
 
+/**
+ * Ejecuta el flujo de eliminación existente, sin alterar su semántica.
+ */
   const handleDeleteUser = async (
     selectedUser: UserListItem,
   ): Promise<void> => {
@@ -289,33 +327,26 @@ function UsuariosPage() {
 
 
   return (
-    <section>
-      <header>
-        <h2>
-          Usuarios
-        </h2>
-
-        <p>
-          Administración de usuarios de HuellAPP.
-        </p>
-      </header>
-
-
-      {!showCreateForm
-        && !editingUser && (
-          <div>
-            <button
-              type="button"
-              onClick={handleOpenCreateForm}
-            >
-              Crear nuevo usuario
-            </button>
-          </div>
+    <section className="users-page">
+      <header className="users-heading">
+        <div>
+          <h1>Usuarios</h1>
+          <p>Administración de usuarios de HuellAPP.</p>
+        </div>
+        {!showCreateForm && !editingUser && (
+          <button
+            className="users-primary"
+            type="button"
+            onClick={handleOpenCreateForm}
+          >
+            + Crear nuevo usuario
+          </button>
         )}
-
+      </header>
 
       {successMessage && (
         <p
+          className="users-message users-message--success"
           role="status"
           aria-live="polite"
         >
@@ -364,24 +395,38 @@ function UsuariosPage() {
       )}
 
 
-      <hr />
-
+      <div className="users-panel">
+        <div className="users-panel-heading">
+          <div>
+            <h2>Usuarios registrados</h2>
+            <p>{loading ? 'Cargando...' : `${users.length} usuarios`}</p>
+          </div>
+          <button
+            type="button"
+            className="users-secondary"
+            onClick={() => { void loadUsers() }}
+            disabled={loading}
+          >
+            Actualizar
+          </button>
+        </div>
 
       {loading && (
-        <p>
+        <p className="users-feedback" role="status">
           Cargando usuarios...
         </p>
       )}
 
 
       {!loading && error && (
-        <div>
-          <p role="alert">
+        <div className="users-feedback">
+          <p role="alert" className="users-message users-message--error">
             {error}
           </p>
 
           <button
             type="button"
+            className="users-secondary"
             onClick={() => {
               void loadUsers()
             }}
@@ -395,7 +440,7 @@ function UsuariosPage() {
       {!loading
         && !error
         && users.length === 0 && (
-          <p>
+          <p className="users-feedback">
             No hay usuarios registrados.
           </p>
         )}
@@ -404,7 +449,8 @@ function UsuariosPage() {
       {!loading
         && !error
         && users.length > 0 && (
-          <table>
+          <div className="users-table-scroll">
+          <table className="users-table">
             <thead>
               <tr>
                 <th scope="col">
@@ -444,13 +490,13 @@ function UsuariosPage() {
                     {item.rut}
                   </td>
 
-                  <td>
+                  <td className="users-name">
                     {item.nombres}{' '}
                     {item.apellido_paterno}{' '}
                     {item.apellido_materno}
                   </td>
 
-                  <td>
+                  <td className="users-email">
                     {item.email}
                   </td>
 
@@ -459,30 +505,33 @@ function UsuariosPage() {
                   </td>
 
                   <td>
-                    {item.roles.nombre}
+                    <span className="users-role">{item.roles.nombre}</span>
                   </td>
 
                   <td>
-                    {item.activo
-                      ? 'Activo'
-                      : 'Inactivo'}
+                    <span className={`users-status ${item.activo ? 'users-status--active' : 'users-status--inactive'}`}>
+                      {item.activo ? 'Activo' : 'Inactivo'}
+                    </span>
                   </td>
 
                   <td>
                     <button
                       type="button"
+                      className="users-action"
                       onClick={() => {
                         handleOpenEdit(item)
                       }}
                     >
-                      Editar usuario
+                      Editar
                     </button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>
         )}
+      </div>
     </section>
   )
 }

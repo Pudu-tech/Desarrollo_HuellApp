@@ -61,6 +61,10 @@ function createInitialForm(
 }
 
 
+/**
+ * Presenta la creación sin permitir que el administrador elija contraseñas.
+ * La invitación se tramita por el servicio existente, sin cambios de correo.
+ */
 function UserCreateForm({
   allowedRoles,
   onCreate,
@@ -142,6 +146,9 @@ function UserCreateForm({
    * por ejemplo RUT o correo duplicado, se muestran
    * directamente al usuario.
    */
+/**
+ * Valida el formulario y delega la creación al callback existente.
+ */
   const handleSubmit = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -194,10 +201,9 @@ function UserCreateForm({
 
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h3>
-        Crear nuevo usuario
-      </h3>
+    <form className="users-create-form" onSubmit={handleSubmit}>
+      <h3>Crear nuevo usuario</h3>
+      <p className="users-form-intro">Completa los datos para enviar la invitación al nuevo usuario.</p>
 
 
       <div>
@@ -377,8 +383,9 @@ function UserCreateForm({
           ACCIONES
           ====================================================== */}
 
-      <div>
+      <div className="users-form-actions">
         <button
+          className="users-primary"
           type="submit"
           disabled={
             loading
@@ -392,6 +399,7 @@ function UserCreateForm({
 
         <button
           type="button"
+          className="users-secondary"
           onClick={onCancel}
           disabled={loading}
         >
@@ -406,6 +414,7 @@ function UserCreateForm({
 
       {error && (
         <p
+          className="users-message users-message--error"
           role="alert"
           aria-live="assertive"
         >

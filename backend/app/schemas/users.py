@@ -353,6 +353,7 @@ class UserUpdate(BaseModel):
 # ============================================================
 
 
+# Contrato específico del cambio de correo: no altera rol, UUID ni contraseña.
 class UserEmailUpdate(BaseModel):
     """
     Datos requeridos para cambiar el correo de un usuario.

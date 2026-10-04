@@ -178,6 +178,8 @@ class ColegioCreate(BaseModel):
 # ============================================================
 
 
+# PATCH permite enviar únicamente los campos modificados.
+# No expone activo ni metadatos de auditoría como campos editables.
 class ColegioUpdate(BaseModel):
     """
     Datos permitidos para modificar un colegio.

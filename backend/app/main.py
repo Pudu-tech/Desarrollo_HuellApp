@@ -24,6 +24,8 @@ from app.api.asignaciones import router as asignaciones_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.colegios import router as colegios_router
+from app.api.contactos import router as contactos_router
+from app.api.catalogos import router as catalogos_router
 from app.api.cursos import router as cursos_router
 from app.api.health import router as health_router
 from app.api.salas import router as salas_router
@@ -81,6 +83,13 @@ app.include_router(audit_router)
 
 # Registra los endpoints relacionados con administración de colegios.
 app.include_router(colegios_router)
+
+# Contactos reutilizables por colegio; conserva el límite de Asignaciones.
+app.include_router(contactos_router)
+
+# Catálogos activos para los selectores del formulario de colegios.
+# La API de catálogos reutiliza el mismo sistema de autenticación y permisos.
+app.include_router(catalogos_router)
 
 # Registra los endpoints del módulo de cursos.
 app.include_router(cursos_router)

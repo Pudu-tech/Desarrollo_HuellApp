@@ -4,6 +4,12 @@
 -- Cambio controlado de correo de usuario
 -- ============================================================
 
+-- DOCUMENTACIÓN
+-- La RPC registra el cambio en public.usuarios y auditoría.
+-- FastAPI coordina por separado la actualización de Supabase Auth
+-- y su restauración compensatoria si la operación funcional falla.
+-- Documentación únicamente; no repetir la migración en Supabase.
+
 BEGIN;
 
 

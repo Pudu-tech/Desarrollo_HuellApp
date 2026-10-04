@@ -1,0 +1,93 @@
+/* Estilos encapsulados del listado de colegios. No modifican Usuarios. */
+/* ============================================================
+   HUELLAPP · COLEGIOS
+   Estilos limitados al módulo; no afectan Usuarios ni autenticación.
+   ============================================================ */
+.schools-page { max-width: 1250px; margin: 0 auto; color: #1f2937; }
+.schools-heading, .schools-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.schools-heading { margin-bottom: 24px; }
+.schools-heading h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: -.5px; }
+.schools-heading p, .schools-panel-heading p { margin: 0; color: #64748b; font-size: 14px; }
+.schools-panel { padding: 24px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }
+.schools-panel-heading h2 { margin: 0 0 4px; font-size: 17px; }
+.schools-primary, .schools-secondary { padding: 10px 16px; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.schools-primary { background: #1e293b; color: #fff; border: 1px solid #1e293b; }
+.schools-primary:disabled { opacity: .55; cursor: not-allowed; }
+.schools-secondary { color: #334155; background: #fff; border: 1px solid #cbd5e1; }
+.schools-secondary:disabled { opacity: .6; cursor: wait; }
+/* Filtros responsivos: la comuna se muestra inhabilitada hasta elegir región. */
+.schools-filters { display: grid; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(130px, 1fr)); gap: 14px; margin: 24px 0 16px; }
+.schools-filters label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; color: #475569; }
+.schools-filters input, .schools-filters select { width: 100%; min-width: 0; padding: 10px 11px; font: inherit; font-size: 14px; font-weight: 400; color: #1f2937; background: #fff; border: 1px solid #cbd5e1; border-radius: 7px; }
+.schools-filters select:disabled { background: #f8fafc; color: #94a3b8; }
+/* Tabla con desplazamiento horizontal en pantallas pequeñas. */
+.schools-table-scroll { overflow-x: auto; }
+.schools-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
+.schools-table th { padding: 13px 12px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.schools-table td { padding: 16px 12px; border-top: 1px solid #e2e8f0; }
+.schools-name { font-weight: 600; }
+.schools-status { display: inline-block; padding: 4px 9px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.schools-status--active { background: #ecfdf5; color: #047857; }
+.schools-status--inactive { background: #f1f5f9; color: #64748b; }
+.schools-feedback { padding: 32px 8px; text-align: center; color: #64748b; }
+.schools-warning { padding: 10px 12px; border-radius: 7px; background: #fff7ed; color: #9a3412; font-size: 13px; }
+@media (max-width: 1050px) { .schools-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 650px) { .schools-heading, .schools-panel-heading { align-items: flex-start; flex-direction: column; } .schools-panel { padding: 16px; } .schools-filters { grid-template-columns: 1fr; } .schools-table { min-width: 670px; } }
+/* Edición de colegios: consistente con el listado y sin afectar otros módulos. */
+.schools-action { background: #fff; color: #334155; border: 1px solid #cbd5e1; border-radius: 7px; padding: 7px 12px; cursor: pointer; font: inherit; font-weight: 600; }
+.schools-action:hover { background: #f1f5f9; }
+/* Formulario de edición y operaciones de estado reversible. */
+.schools-editor { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; }
+.schools-editor-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 22px; }
+.schools-editor-heading h2 { margin: 0 0 5px; font-size: 21px; }
+.schools-editor-heading p, .schools-status-section p { margin: 0 0 10px; color: #64748b; }
+.schools-fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.schools-form-section { border-top: 1px solid #e2e8f0; padding: 20px 0; }
+.schools-form-section h3 { font-size: 16px; margin: 0 0 16px; }
+.schools-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.schools-form-grid label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; color: #475569; }
+.schools-field-wide { grid-column: 1 / -1; }
+.schools-form-grid input, .schools-form-grid select, .schools-form-grid textarea { min-width: 0; width: 100%; box-sizing: border-box; border: 1px solid #cbd5e1; border-radius: 7px; padding: 10px 11px; font: inherit; font-size: 14px; font-weight: 400; background: #fff; color: #1f2937; }
+.schools-form-grid select:disabled { background: #f8fafc; }
+.schools-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 12px 0 24px; }
+.schools-editor-actions button:disabled { opacity: .6; cursor: not-allowed; }
+.schools-danger { background: #fff; color: #b91c1c; border: 1px solid #fca5a5; border-radius: 8px; padding: 10px 16px; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.schools-danger:hover { background: #fef2f2; }
+.schools-error, .schools-success { border-radius: 7px; padding: 11px 13px; font-size: 13px; }
+.schools-error { background: #fef2f2; color: #991b1b; }
+.schools-success { background: #ecfdf5; color: #065f46; }
+@media (max-width: 650px) { .schools-editor { padding: 16px; } .schools-editor-heading { flex-direction: column; align-items: flex-start; } .schools-form-grid { grid-template-columns: 1fr; } .schools-field-wide { grid-column: auto; } }
+
+/* ============================================================
+   ELIMINACIÓN LÓGICA · Controles y confirmación del colegio
+   ============================================================ */
+.schools-delete-section p { color: #64748b; }
+.schools-dialog-backdrop { position: fixed; inset: 0; z-index: 1100; background: rgba(15,23,42,.52); display: grid; place-items: center; padding: 20px; }
+.schools-dialog { box-sizing: border-box; width: min(100%, 490px); background: #fff; border-radius: 12px; padding: 26px; box-shadow: 0 20px 60px rgba(15,23,42,.24); }
+.schools-dialog h2 { margin: 0 0 12px; font-size: 21px; }
+.schools-dialog p { color: #475569; line-height: 1.5; }
+.schools-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.schools-danger--solid { background: #b91c1c; color: white; border-color: #b91c1c; }
+.schools-danger--solid:hover { background: #991b1b; }
+.schools-dialog button:disabled { opacity: .6; cursor: not-allowed; }
+
+/* ============================================================
+   HUELLAPP · CONTACTOS REUTILIZABLES PARA ASIGNACIONES
+   Los controles de eliminación se ubican únicamente dentro de Editar.
+   ============================================================ */
+.schools-contacts-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; margin-bottom: 18px; }
+.schools-contacts-heading h3 { margin-bottom: 5px; }
+.schools-contacts-heading p, .schools-contact-row p, .schools-contacts-admin p { margin: 0; color: #64748b; font-size: 13px; }
+.schools-contact-list { display: grid; gap: 10px; }
+.schools-contact-row { display: flex; justify-content: space-between; align-items: center; gap: 14px; padding: 14px; border: 1px solid #e2e8f0; border-radius: 8px; }
+.schools-contact-row strong { margin-right: 10px; }
+.schools-contact-row p { margin-top: 7px; overflow-wrap: anywhere; }
+.schools-contact-editor { margin-top: 18px; padding: 18px; border: 1px solid #cbd5e1; background: #f8fafc; border-radius: 10px; }
+.schools-contact-editor h4 { margin: 0 0 16px; font-size: 15px; }
+.schools-contacts-admin { border-top: 1px solid #e2e8f0; padding-top: 20px; }
+.schools-contacts-admin p { margin-bottom: 12px; }
+.schools-contacts-delete { border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 20px; }
+@media (max-width: 650px) { .schools-contacts-heading, .schools-contact-row { align-items: flex-start; flex-direction: column; } }
+
+/* Datos anteriores legibles durante la transición al catálogo único. */
+.schools-legacy-contact p { color: #64748b; font-size: 13px; line-height: 1.5; }

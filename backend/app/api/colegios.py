@@ -6,14 +6,16 @@ Funciones disponibles:
 - obtener colegio por UUID;
 - crear colegio;
 - modificar colegio;
-- desactivar colegio.
+- desactivar colegio;
+- eliminar lógicamente un colegio sin perder sus relaciones históricas.
 
 SECURITY:
 - Todos los endpoints utilizan permisos RBAC.
 - created_by y updated_by provienen del usuario autenticado.
 - No se confía en identificadores relacionados sin validarlos.
 - Las operaciones sensibles quedan registradas en auditoría.
-- No existe eliminación física de colegios desde esta API.
+- La eliminación es lógica, requiere DELETE_SCHOOL y auditoría atómica.
+- Se bloquea la eliminación de colegios con asignaciones futuras activas.
 """
 
 from uuid import UUID
@@ -40,6 +42,7 @@ router = APIRouter(
 # CAMPOS CONSULTADOS
 # ============================================================
 
+# Contrato compartido de lectura: evita diferencias entre listado y respuestas de escritura.
 COLEGIO_SELECT = """
 id,
 rbd,
@@ -134,6 +137,7 @@ def _payload_a_dict(
     )
 
 
+# Valida integridad de catálogos ANTES de ejecutar una operación de escritura.
 def _validar_relaciones_colegio(
     supabase,
     *,
@@ -806,3 +810,93 @@ async def desactivar_colegio(
             detail="No fue posible desactivar el colegio.",
         )
 
+# ============================================================
+# ELIMINAR COLEGIO (ELIMINACIÓN LÓGICA)
+# ============================================================
+
+
+@router.delete(
+    "/{colegio_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        401: {"description": "No autenticado o sesión inválida."},
+        403: {"description": "No posee el permiso DELETE_SCHOOL."},
+        404: {"description": "Colegio no encontrado o ya eliminado."},
+        409: {"description": "El colegio tiene asignaciones futuras activas."},
+        500: {"description": "Error interno al eliminar el colegio."},
+    },
+)
+async def eliminar_colegio(
+    request: Request,
+    colegio_id: UUID,
+    current_user: AuthenticatedUser = Depends(
+        require_permission("DELETE_SCHOOL")
+    ),
+) -> None:
+    """Elimina lógicamente un colegio mediante la RPC de la migración 041.
+
+    La autorización se comprueba en FastAPI y nuevamente en PostgreSQL.
+    La RPC bloquea el colegio, protege las asignaciones futuras activas y
+    registra los valores anteriores/posteriores y el actor en auditoría.
+    No elimina físicamente colegios ni modifica sus relaciones históricas.
+
+    Returns:
+        HTTP 204 sin contenido cuando la transacción se completa.
+    """
+    supabase = get_supabase_client()
+
+    try:
+        # Reutiliza los metadatos de auditoría empleados por las demás RPC.
+        context = _request_rpc_context(request)
+        response = supabase.rpc(
+            "eliminar_colegio_atomico",
+            {
+                "p_colegio_id": str(colegio_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute()
+
+        resultado = response.data
+        if not isinstance(resultado, dict):
+            raise RuntimeError("Respuesta inválida de eliminación de colegio.")
+
+        if resultado.get("ok") is not True:
+            error_code = resultado.get("error_code")
+
+            if error_code == "SCHOOL_NOT_FOUND":
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Colegio no encontrado o ya eliminado.",
+                )
+
+            if error_code == "SCHOOL_HAS_FUTURE_ASSIGNMENTS":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "No se puede eliminar el colegio porque tiene "
+                        "asignaciones futuras activas."
+                    ),
+                )
+
+            if error_code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="No posee permiso para eliminar colegios.",
+                )
+
+            raise RuntimeError("No fue posible eliminar el colegio.")
+
+        # 204: no devolver datos de un colegio que ya está eliminado.
+        return None
+
+    except HTTPException:
+        raise
+
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="No fue posible eliminar el colegio.",
+        )

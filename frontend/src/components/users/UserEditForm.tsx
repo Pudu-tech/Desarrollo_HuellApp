@@ -67,6 +67,9 @@ interface EditFormState {
 }
 
 
+/**
+ * Convierte el usuario recibido al estado editable de datos y rol.
+ */
 function createFormState(
   user: UserListItem,
 ): EditFormState {
@@ -85,6 +88,10 @@ function createFormState(
 }
 
 
+/**
+ * Presenta las secciones de datos, correo, rol, estado y eliminación.
+ * Cada sección utiliza su operación independiente para no mezclar efectos.
+ */
 function UserEditForm({
   user,
   allowedRoles,
@@ -160,6 +167,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Guarda los datos básicos sin modificar correo, rol ni estado.
+ */
   const handleSaveBasicData = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -223,6 +233,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Muestra el editor independiente de correo.
+ */
   const handleOpenEmailEditor = () => {
     if (isLoading) {
       return
@@ -236,6 +249,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Descarta el correo temporal sin enviar cambios.
+ */
   const handleCancelEmailChange = () => {
     if (isLoading) {
       return
@@ -248,6 +264,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Solicita cambio de correo conservando el UUID y la contraseña.
+ */
   const handleChangeEmail = async (
     event: FormEvent<HTMLFormElement>,
   ) => {
@@ -323,6 +342,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Solicita el cambio de rol sin tocar otros datos.
+ */
   const handleChangeRole = async () => {
     if (isLoading) {
       return
@@ -375,6 +397,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Confirma la activación o desactivación reversible.
+ */
   const handleToggleStatus = async () => {
     if (isLoading) {
       return
@@ -411,6 +436,9 @@ function UserEditForm({
   }
 
 
+/**
+ * Solicita confirmación y delega la eliminación al flujo existente.
+ */
   const handleDelete = async () => {
     if (isLoading) {
       return
@@ -449,12 +477,12 @@ function UserEditForm({
 
 
   return (
-    <section>
+    <section className="users-editor">
       <h3>
         Editar usuario
       </h3>
 
-      <p>
+      <p className="users-form-intro">
         {currentUser.nombres}{' '}
         {currentUser.apellido_paterno}{' '}
         {currentUser.apellido_materno}
@@ -463,7 +491,8 @@ function UserEditForm({
 
       {/* DATOS BÁSICOS */}
 
-      <form onSubmit={handleSaveBasicData}>
+      <form className="users-basic-form" onSubmit={handleSaveBasicData}>
+        <h4>Información personal</h4>
         <div>
           <label htmlFor="edit-user-rut">
             RUT
@@ -564,6 +593,7 @@ function UserEditForm({
         </div>
 
         <button
+          className="users-primary users-basic-save"
           type="submit"
           disabled={isLoading}
         >
@@ -579,7 +609,7 @@ function UserEditForm({
 
       {/* CORREO ELECTRÓNICO */}
 
-      <div>
+      <div className="users-edit-section users-email-section">
         <h4>
           Correo electrónico
         </h4>
@@ -594,6 +624,7 @@ function UserEditForm({
         {!showEmailEditor && (
           <button
             type="button"
+            className="users-secondary"
             onClick={handleOpenEmailEditor}
             disabled={isLoading}
           >
@@ -602,7 +633,7 @@ function UserEditForm({
         )}
 
         {showEmailEditor && (
-          <form onSubmit={handleChangeEmail}>
+          <form className="users-email-form" onSubmit={handleChangeEmail}>
             <div>
               <label htmlFor="edit-user-new-email">
                 Nuevo correo
@@ -648,6 +679,7 @@ function UserEditForm({
             </div>
 
             <button
+              className="users-primary"
               type="submit"
               disabled={isLoading}
             >
@@ -659,6 +691,7 @@ function UserEditForm({
             {' '}
 
             <button
+              className="users-secondary"
               type="button"
               onClick={handleCancelEmailChange}
               disabled={isLoading}
@@ -675,7 +708,7 @@ function UserEditForm({
 
       {/* ROL */}
 
-      <div>
+      <div className="users-edit-section users-role-section">
         <h4>
           Rol
         </h4>
@@ -705,6 +738,7 @@ function UserEditForm({
 
         <button
           type="button"
+          className="users-secondary"
           onClick={() => {
             void handleChangeRole()
           }}
@@ -722,7 +756,7 @@ function UserEditForm({
 
       {/* ESTADO */}
 
-      <div>
+      <div className="users-edit-section users-status-section">
         <h4>
           Estado
         </h4>
@@ -738,6 +772,7 @@ function UserEditForm({
 
         <button
           type="button"
+          className="users-secondary"
           onClick={() => {
             void handleToggleStatus()
           }}
@@ -757,7 +792,7 @@ function UserEditForm({
 
       {/* ELIMINACIÓN */}
 
-      <div>
+      <div className="users-edit-section users-delete-section">
         <h4>
           Eliminar usuario
         </h4>
@@ -769,6 +804,7 @@ function UserEditForm({
 
         <button
           type="button"
+          className="users-danger"
           onClick={() => {
             void handleDelete()
           }}
@@ -785,6 +821,7 @@ function UserEditForm({
 
       {success && (
         <p
+          className="users-message users-message--success"
           role="status"
           aria-live="polite"
         >
@@ -794,6 +831,7 @@ function UserEditForm({
 
       {error && (
         <p
+          className="users-message users-message--error"
           role="alert"
           aria-live="assertive"
         >
@@ -802,8 +840,9 @@ function UserEditForm({
       )}
 
 
-      <div>
+      <div className="users-editor-footer">
         <button
+          className="users-secondary"
           type="button"
           onClick={onCancel}
           disabled={isLoading}

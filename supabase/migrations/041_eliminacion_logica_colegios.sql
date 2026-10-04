@@ -1,67 +1,72 @@
 -- ============================================================
--- HuellAPP
--- Migración 032
--- Atomicidad de gestión de colegios
+-- HuellAPP | Migración 041
+-- Eliminación lógica auditada y reutilización de RBD
 -- ============================================================
 --
--- Flujos migrados:
--- - crear colegio;
--- - actualizar colegio;
--- - activar colegio;
--- - desactivar colegio.
+-- REGLAS
+-- ------------------------------------------------------------
+-- - DELETE_SCHOOL se concede inicialmente solo a SUPERADMIN.
+-- - No se elimina físicamente el colegio ni sus relaciones.
+-- - Se bloquea la eliminación si hay asignaciones futuras activas.
+-- - El RBD es único únicamente entre colegios no eliminados.
+-- - Eliminación y auditoría ocurren en la misma transacción.
+-- - Las RPC se ejecutan exclusivamente desde el backend con
+--   service_role; el cliente nunca recibe esta credencial.
 --
--- Cada operación crítica y su auditoría se ejecutan dentro de
--- una única transacción PostgreSQL.
+-- IMPORTANTE
+-- ------------------------------------------------------------
+-- Ejecutar una sola vez en DEV, tras revisar el respaldo.
+-- No ejecutar eliminación desde SQL Editor: esta migración
+-- únicamente prepara la funcionalidad y sus permisos.
 -- ============================================================
-
--- DOCUMENTACIÓN
--- Las RPC de colegios encapsulan operaciones funcionales y auditoría.
--- La API comprueba los permisos y valida las relaciones antes de invocarlas.
--- Esta migración se conserva íntegra: no ejecutarla de nuevo por documentar.
 
 BEGIN;
 
+/* ============================================================
+   1. PERMISO DE ELIMINACIÓN
+   ============================================================ */
 
--- ============================================================
--- HELPER INTERNO: SNAPSHOT DE COLEGIO
--- ============================================================
-
-CREATE OR REPLACE FUNCTION public.snapshot_colegio_auditoria(
-    p_colegio_id uuid
+INSERT INTO public.permisos (codigo, nombre, descripcion, modulo, activo)
+VALUES (
+    'DELETE_SCHOOL',
+    'Eliminar colegios',
+    'Permite eliminar lógicamente colegios sin asignaciones futuras activas.',
+    'COLEGIOS',
+    true
 )
-RETURNS jsonb
-LANGUAGE sql
-STABLE
-SET search_path = public
-AS $$
-    SELECT jsonb_build_object(
-        'id', c.id,
-        'rbd', c.rbd,
-        'nombre', c.nombre,
-        'descripcion', c.descripcion,
-        'tipo_dependencia_id', c.tipo_dependencia_id,
-        'direccion', c.direccion,
-        'numero', c.numero,
-        'complemento', c.complemento,
-        'comuna_id', c.comuna_id,
-        'region_id', c.region_id,
-        'codigo_postal', c.codigo_postal,
-        'telefono', c.telefono,
-        'email', c.email,
-        'sitio_web', c.sitio_web,
-        'nombre_contacto', c.nombre_contacto,
-        'telefono_contacto', c.telefono_contacto,
-        'email_contacto', c.email_contacto,
-        'activo', c.activo
-    )
-    FROM public.colegios c
-    WHERE c.id = p_colegio_id;
-$$;
+ON CONFLICT (codigo) DO UPDATE SET
+    nombre = EXCLUDED.nombre,
+    descripcion = EXCLUDED.descripcion,
+    modulo = EXCLUDED.modulo,
+    activo = true;
 
+-- La eliminación se limita inicialmente a SUPERADMIN.
+INSERT INTO public.rol_permiso (rol_id, permiso_id)
+SELECT r.id, p.id
+FROM public.roles r
+JOIN public.permisos p ON p.codigo = 'DELETE_SCHOOL'
+WHERE r.codigo = 'SUPERADMIN'
+ON CONFLICT (rol_id, permiso_id) DO NOTHING;
 
--- ============================================================
--- CREAR COLEGIO
--- ============================================================
+/* ============================================================
+   2. UNICIDAD DE RBD ENTRE COLEGIOS NO ELIMINADOS
+   ============================================================ */
+
+-- Primero se crea el índice nuevo para mantener la unicidad
+-- incluso durante el cambio de restricción.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_colegios_rbd_no_eliminados
+ON public.colegios (rbd)
+WHERE deleted_at IS NULL;
+
+ALTER TABLE public.colegios
+DROP CONSTRAINT IF EXISTS colegios_rbd_key;
+
+/* ============================================================
+   3. ADAPTAR LAS RPC DE CREACIÓN Y EDICIÓN
+   ============================================================ */
+
+-- Se conservan las funciones 032; únicamente se modifica
+-- su validación de RBD para ignorar colegios eliminados.
 
 CREATE OR REPLACE FUNCTION public.crear_colegio_atomico(
     p_datos jsonb,
@@ -162,6 +167,7 @@ BEGIN
             SELECT 1
             FROM public.colegios c
             WHERE c.rbd = BTRIM(p_datos ->> 'rbd')
+              AND c.deleted_at IS NULL
        ) THEN
         RETURN jsonb_build_object('ok', false, 'error_code', 'RBD_EXISTS');
     END IF;
@@ -253,11 +259,6 @@ BEGIN
     );
 END;
 $$;
-
-
--- ============================================================
--- ACTUALIZAR COLEGIO
--- ============================================================
 
 CREATE OR REPLACE FUNCTION public.actualizar_colegio_atomico(
     p_colegio_id uuid,
@@ -414,6 +415,7 @@ BEGIN
             SELECT 1
             FROM public.colegios c
             WHERE c.rbd = BTRIM(p_cambios ->> 'rbd')
+              AND c.deleted_at IS NULL
               AND c.id <> p_colegio_id
        ) THEN
         RETURN jsonb_build_object('ok', false, 'error_code', 'RBD_EXISTS');
@@ -537,11 +539,14 @@ END;
 $$;
 
 
--- ============================================================
--- ACTIVAR COLEGIO
--- ============================================================
+/* ============================================================
+   4. ELIMINACIÓN LÓGICA ATÓMICA Y AUDITADA
+   ============================================================ */
 
-CREATE OR REPLACE FUNCTION public.activar_colegio_atomico(
+-- La RPC verifica actor, permiso y ausencia de asignaciones
+-- futuras. Bloquea la fila objetivo durante la transacción.
+-- Conserva contactos, cursos, salas y asignaciones históricas.
+CREATE OR REPLACE FUNCTION public.eliminar_colegio_atomico(
     p_colegio_id uuid,
     p_actor_user_id uuid,
     p_request_id uuid DEFAULT NULL,
@@ -556,13 +561,18 @@ AS $$
 DECLARE
     v_actor record;
     v_actual record;
+    v_old_values jsonb;
+    v_new_values jsonb;
 BEGIN
+    /* --------------------------------------------------------
+       Actor activo y autorizado
+       -------------------------------------------------------- */
     SELECT u.id, u.rol_id
-    INTO v_actor
-    FROM public.usuarios u
-    WHERE u.id = p_actor_user_id
-      AND u.activo = true
-      AND u.deleted_at IS NULL;
+      INTO v_actor
+      FROM public.usuarios u
+     WHERE u.id = p_actor_user_id
+       AND u.activo = true
+       AND u.deleted_at IS NULL;
 
     IF NOT FOUND THEN
         RETURN jsonb_build_object('ok', false, 'error_code', 'ACTOR_NOT_FOUND');
@@ -570,252 +580,84 @@ BEGIN
 
     IF NOT EXISTS (
         SELECT 1
-        FROM public.rol_permiso rp
-        JOIN public.permisos p ON p.id = rp.permiso_id
-        WHERE rp.rol_id = v_actor.rol_id
-          AND p.codigo = 'ACTIVATE_SCHOOL'
-          AND p.activo = true
+          FROM public.rol_permiso rp
+          JOIN public.permisos p ON p.id = rp.permiso_id
+         WHERE rp.rol_id = v_actor.rol_id
+           AND p.codigo = 'DELETE_SCHOOL'
+           AND p.activo = true
     ) THEN
         RETURN jsonb_build_object('ok', false, 'error_code', 'FORBIDDEN');
     END IF;
 
+    /* --------------------------------------------------------
+       Colegio objetivo
+       -------------------------------------------------------- */
     SELECT *
-    INTO v_actual
-    FROM public.colegios
-    WHERE id = p_colegio_id
-    FOR UPDATE;
+      INTO v_actual
+      FROM public.colegios
+     WHERE id = p_colegio_id
+     FOR UPDATE;
 
     IF NOT FOUND OR v_actual.deleted_at IS NOT NULL THEN
         RETURN jsonb_build_object('ok', false, 'error_code', 'SCHOOL_NOT_FOUND');
     END IF;
 
-    IF v_actual.activo IS TRUE THEN
-        RETURN jsonb_build_object('ok', false, 'error_code', 'ALREADY_ACTIVE');
-    END IF;
-
-    UPDATE public.colegios
-    SET
-        activo = true,
-        updated_by = p_actor_user_id,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = p_colegio_id;
-
-    INSERT INTO public.audit_logs (
-        actor_user_id,
-        actor_role_id,
-        action,
-        entity_type,
-        entity_id,
-        old_values,
-        new_values,
-        description,
-        request_id,
-        ip_address,
-        user_agent,
-        source
-    )
-    VALUES (
-        p_actor_user_id,
-        v_actor.rol_id,
-        'ACTIVATE_SCHOOL',
-        'SCHOOL',
-        p_colegio_id,
-        jsonb_build_object('activo', false),
-        jsonb_build_object('activo', true),
-        'Activación de colegio.',
-        p_request_id,
-        p_ip_address,
-        p_user_agent,
-        'WEB'
-    );
-
-    RETURN jsonb_build_object('ok', true, 'colegio_id', p_colegio_id);
-END;
-$$;
-
-
--- ============================================================
--- DESACTIVAR COLEGIO
--- ============================================================
-
-CREATE OR REPLACE FUNCTION public.desactivar_colegio_atomico(
-    p_colegio_id uuid,
-    p_actor_user_id uuid,
-    p_request_id uuid DEFAULT NULL,
-    p_ip_address inet DEFAULT NULL,
-    p_user_agent text DEFAULT NULL
-)
-RETURNS jsonb
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-DECLARE
-    v_actor record;
-    v_actual record;
-BEGIN
-    SELECT u.id, u.rol_id
-    INTO v_actor
-    FROM public.usuarios u
-    WHERE u.id = p_actor_user_id
-      AND u.activo = true
-      AND u.deleted_at IS NULL;
-
-    IF NOT FOUND THEN
-        RETURN jsonb_build_object('ok', false, 'error_code', 'ACTOR_NOT_FOUND');
-    END IF;
-
-    IF NOT EXISTS (
+    /* --------------------------------------------------------
+       Protección de asignaciones futuras activas
+       -------------------------------------------------------- */
+    IF EXISTS (
         SELECT 1
-        FROM public.rol_permiso rp
-        JOIN public.permisos p ON p.id = rp.permiso_id
-        WHERE rp.rol_id = v_actor.rol_id
-          AND p.codigo = 'DEACTIVATE_SCHOOL'
-          AND p.activo = true
+          FROM public.asignaciones a
+         WHERE a.colegio_id = p_colegio_id
+           AND a.activo = true
+           AND a.deleted_at IS NULL
+           AND a.fecha >= CURRENT_DATE
     ) THEN
-        RETURN jsonb_build_object('ok', false, 'error_code', 'FORBIDDEN');
+        RETURN jsonb_build_object('ok', false, 'error_code', 'SCHOOL_HAS_FUTURE_ASSIGNMENTS');
     END IF;
 
-    SELECT *
-    INTO v_actual
-    FROM public.colegios
-    WHERE id = p_colegio_id
-    FOR UPDATE;
-
-    IF NOT FOUND OR v_actual.deleted_at IS NOT NULL THEN
-        RETURN jsonb_build_object('ok', false, 'error_code', 'SCHOOL_NOT_FOUND');
-    END IF;
-
-    IF v_actual.activo IS FALSE THEN
-        RETURN jsonb_build_object('ok', false, 'error_code', 'ALREADY_INACTIVE');
-    END IF;
+    /* --------------------------------------------------------
+       Actualización y auditoría en una sola transacción
+       -------------------------------------------------------- */
+    v_old_values := public.snapshot_colegio_auditoria(p_colegio_id)
+        || jsonb_build_object('deleted_at', v_actual.deleted_at);
 
     UPDATE public.colegios
-    SET
-        activo = false,
-        updated_by = p_actor_user_id,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = p_colegio_id;
+       SET activo = false,
+           deleted_at = CURRENT_TIMESTAMP,
+           updated_at = CURRENT_TIMESTAMP,
+           updated_by = p_actor_user_id
+     WHERE id = p_colegio_id;
+
+    v_new_values := public.snapshot_colegio_auditoria(p_colegio_id)
+        || jsonb_build_object(
+            'deleted_at',
+            (SELECT deleted_at FROM public.colegios WHERE id = p_colegio_id)
+        );
 
     INSERT INTO public.audit_logs (
-        actor_user_id,
-        actor_role_id,
-        action,
-        entity_type,
-        entity_id,
-        old_values,
-        new_values,
-        description,
-        request_id,
-        ip_address,
-        user_agent,
-        source
-    )
-    VALUES (
-        p_actor_user_id,
-        v_actor.rol_id,
-        'DEACTIVATE_SCHOOL',
-        'SCHOOL',
-        p_colegio_id,
-        jsonb_build_object('activo', true),
-        jsonb_build_object('activo', false),
-        'Desactivación de colegio.',
-        p_request_id,
-        p_ip_address,
-        p_user_agent,
-        'WEB'
+        actor_user_id, actor_role_id, action, entity_type,
+        entity_id, old_values, new_values, description,
+        request_id, ip_address, user_agent, source
+    ) VALUES (
+        p_actor_user_id, v_actor.rol_id, 'DELETE_SCHOOL', 'SCHOOL',
+        p_colegio_id, v_old_values, v_new_values,
+        'Eliminación lógica de colegio.',
+        p_request_id, p_ip_address, p_user_agent, 'WEB'
     );
 
     RETURN jsonb_build_object('ok', true, 'colegio_id', p_colegio_id);
 END;
 $$;
 
-
--- ============================================================
--- COMENTARIOS
--- ============================================================
-
-COMMENT ON FUNCTION public.crear_colegio_atomico(
-    jsonb, uuid, uuid, inet, text
-) IS
-'Crea un colegio y registra CREATE_SCHOOL de forma atómica.';
-
-COMMENT ON FUNCTION public.actualizar_colegio_atomico(
-    uuid, jsonb, uuid, uuid, inet, text
-) IS
-'Actualiza un colegio y registra UPDATE_SCHOOL de forma atómica.';
-
-COMMENT ON FUNCTION public.activar_colegio_atomico(
+COMMENT ON FUNCTION public.eliminar_colegio_atomico(
     uuid, uuid, uuid, inet, text
-) IS
-'Activa un colegio y registra ACTIVATE_SCHOOL de forma atómica.';
+) IS 'Elimina lógicamente un colegio sin asignaciones futuras activas y registra DELETE_SCHOOL atómicamente.';
 
-COMMENT ON FUNCTION public.desactivar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) IS
-'Desactiva un colegio y registra DEACTIVATE_SCHOOL de forma atómica.';
-
-
--- ============================================================
--- SEGURIDAD DE EJECUCIÓN
--- ============================================================
-
-REVOKE ALL ON FUNCTION public.snapshot_colegio_auditoria(uuid) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.snapshot_colegio_auditoria(uuid) FROM anon;
-REVOKE ALL ON FUNCTION public.snapshot_colegio_auditoria(uuid) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.snapshot_colegio_auditoria(uuid) TO service_role;
-
-REVOKE ALL ON FUNCTION public.crear_colegio_atomico(
-    jsonb, uuid, uuid, inet, text
-) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.crear_colegio_atomico(
-    jsonb, uuid, uuid, inet, text
-) FROM anon;
-REVOKE ALL ON FUNCTION public.crear_colegio_atomico(
-    jsonb, uuid, uuid, inet, text
-) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.crear_colegio_atomico(
-    jsonb, uuid, uuid, inet, text
-) TO service_role;
-
-REVOKE ALL ON FUNCTION public.actualizar_colegio_atomico(
-    uuid, jsonb, uuid, uuid, inet, text
-) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.actualizar_colegio_atomico(
-    uuid, jsonb, uuid, uuid, inet, text
-) FROM anon;
-REVOKE ALL ON FUNCTION public.actualizar_colegio_atomico(
-    uuid, jsonb, uuid, uuid, inet, text
-) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.actualizar_colegio_atomico(
-    uuid, jsonb, uuid, uuid, inet, text
-) TO service_role;
-
-REVOKE ALL ON FUNCTION public.activar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.activar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) FROM anon;
-REVOKE ALL ON FUNCTION public.activar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.activar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) TO service_role;
-
-REVOKE ALL ON FUNCTION public.desactivar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.desactivar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) FROM anon;
-REVOKE ALL ON FUNCTION public.desactivar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) FROM authenticated;
-GRANT EXECUTE ON FUNCTION public.desactivar_colegio_atomico(
-    uuid, uuid, uuid, inet, text
-) TO service_role;
-
+-- SECURITY DEFINER: prohibir llamadas directas desde el cliente.
+REVOKE ALL ON FUNCTION public.eliminar_colegio_atomico(uuid, uuid, uuid, inet, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.eliminar_colegio_atomico(uuid, uuid, uuid, inet, text) FROM anon;
+REVOKE ALL ON FUNCTION public.eliminar_colegio_atomico(uuid, uuid, uuid, inet, text) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.eliminar_colegio_atomico(uuid, uuid, uuid, inet, text) TO service_role;
 
 COMMIT;

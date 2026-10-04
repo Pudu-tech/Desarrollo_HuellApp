@@ -964,6 +964,8 @@ async def update_user(
         },
     },
 )
+# Cambio de correo independiente de edición básica, rol y estado.
+# La sincronización con Auth requiere compensación si falla la RPC.
 async def update_user_email(
     request: Request,
     user_id: UUID,

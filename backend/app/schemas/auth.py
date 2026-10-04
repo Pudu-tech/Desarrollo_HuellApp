@@ -17,6 +17,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
 
+# Datos del perfil autenticado que consume /auth/me y la autorización por rol.
 class AuthenticatedUser(BaseModel):
     """
     Representa al usuario autenticado dentro de HuellAPP.

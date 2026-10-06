@@ -1,57 +1,58 @@
-/**
- * HuellAPP
- * Estilos estructurales del layout principal.
- *
- * Estos estilos no representan el diseño visual definitivo.
- * Su objetivo es entregar una base funcional y ordenada
- * para una futura capa de diseño.
- */
+/* Diseño de AppLayout.css adaptado al Sidebar actual, compartido por administración y monitor. */
 
 .app-shell {
   display: flex;
   min-height: 100vh;
-  background: #f5f5f5;
+  background: var(--huella-gray-050);
+  color: var(--huella-ink);
 }
 
-
-/* ============================================================
-   SIDEBAR
-   ============================================================ */
-
 .sidebar {
+  width: var(--huella-sidebar-width);
+  background: var(--huella-white);
+  border-right: 1px solid var(--huella-gray-200);
   display: flex;
   flex-direction: column;
-
-  width: 240px;
-  min-height: 100vh;
-
-  padding: 20px;
-
-  background: #ffffff;
-  border-right: 1px solid #dddddd;
+  padding: 24px 16px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow-y: auto;
 }
 
 .sidebar__header {
-  margin-bottom: 32px;
+  padding: 8px 12px 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--huella-gray-100);
 }
 
 .sidebar__title {
   margin: 0;
-  font-size: 24px;
+  color: var(--huella-teal-dark);
+  font-family: var(--huella-font-heading);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .sidebar__subtitle {
   display: block;
   margin-top: 4px;
-
+  color: var(--huella-gray-600);
   font-size: 13px;
-  color: #666666;
 }
 
-
-/* ============================================================
-   NAVEGACIÓN
-   ============================================================ */
+.sidebar__header::after {
+  content: '';
+  display: block;
+  width: 42px;
+  height: 4px;
+  margin-top: 16px;
+  border-radius: 999px;
+  background: var(--huella-coral);
+}
 
 .sidebar__navigation {
   flex: 1;
@@ -60,7 +61,6 @@
 .sidebar__list {
   margin: 0;
   padding: 0;
-
   list-style: none;
 }
 
@@ -69,100 +69,145 @@
 }
 
 .sidebar__link {
-  display: block;
-
-  padding: 10px 12px;
-
-  color: #333333;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-radius: 12px;
   text-decoration: none;
-
-  border-radius: 4px;
+  color: var(--huella-navy);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 160ms ease, color 160ms ease, box-shadow 160ms ease;
+  overflow-wrap: anywhere;
 }
 
 .sidebar__link:hover {
-  background: #eeeeee;
-}
-
-.sidebar__link--active {
-  background: #dddddd;
+  background: var(--huella-coral-soft);
+  color: var(--huella-teal-dark);
   font-weight: 600;
 }
 
+.sidebar__link--active {
+  background: linear-gradient(135deg, var(--huella-teal-dark) 0%, var(--huella-teal) 100%);
+  color: var(--huella-white);
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(36, 100, 116, 0.25);
+}
 
-/* ============================================================
-   USUARIO
-   ============================================================ */
+.sidebar__link--active:hover {
+  background: linear-gradient(135deg, var(--huella-teal-dark) 0%, var(--huella-teal) 100%);
+  color: var(--huella-white);
+}
 
 .sidebar__footer {
+  margin-top: 24px;
   padding-top: 16px;
-
-  border-top: 1px solid #dddddd;
+  border-top: 1px solid var(--huella-gray-200);
 }
 
 .sidebar__user {
   display: flex;
   flex-direction: column;
-
-  margin-bottom: 12px;
+  gap: 6px;
+  margin: 0 12px 16px;
 }
 
 .sidebar__user-email {
+  color: var(--huella-navy);
   font-size: 13px;
+  font-weight: 600;
   overflow-wrap: anywhere;
 }
 
 .sidebar__user-role {
-  margin-top: 4px;
-
-  font-size: 12px;
-  font-weight: 600;
-  color: #666666;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--huella-coral-soft);
+  color: var(--huella-teal-dark);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .sidebar__logout {
-  width: 100%;
-
-  padding: 9px 12px;
-
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  border: 1px solid var(--huella-gray-200);
+  background: var(--huella-white);
+  color: var(--huella-navy);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-
-  background: #ffffff;
-  border: 1px solid #aaaaaa;
-  border-radius: 4px;
+  transition: background 160ms ease, color 160ms ease, border-color 160ms ease;
+  width: 100%;
+  justify-content: center;
+  min-height: 44px;
 }
 
+.sidebar__logout:hover:not(:disabled) {
+  background: var(--huella-danger-soft);
+  color: var(--huella-danger);
+  border-color: rgba(180, 35, 24, 0.3);
+}
 
-/* ============================================================
-   CONTENIDO
-   ============================================================ */
+.sidebar__link:focus-visible, .sidebar__logout:focus-visible {
+  outline: 2px solid var(--huella-teal);
+  outline-offset: 3px;
+}
 
 .app-content {
   flex: 1;
-
   min-width: 0;
-
-  padding: 32px;
+  padding: clamp(20px, 3vw, 40px);
+  background: var(--huella-gray-050);
 }
-
-
-/* ============================================================
-   RESPONSIVE BÁSICO
-   ============================================================ */
 
 @media (max-width: 768px) {
   .app-shell {
     flex-direction: column;
   }
-
   .sidebar {
-    width: auto;
+    position: static;
+    width: 100%;
     min-height: auto;
-
+    max-height: none;
+    overflow-y: visible;
+    padding: 20px 16px;
     border-right: 0;
-    border-bottom: 1px solid #dddddd;
+    border-bottom: 1px solid var(--huella-gray-200);
   }
-
+  .sidebar__header {
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+  }
+  .sidebar__list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+  .sidebar__item {
+    margin: 0;
+    min-width: 0;
+  }
+  .sidebar__link {
+    height: 100%;
+    padding: 10px 12px;
+  }
+  .sidebar__footer {
+    margin-top: 16px;
+  }
   .app-content {
-    padding: 20px;
+    padding: 20px 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar__link, .sidebar__logout {
+    transition: none;
   }
 }

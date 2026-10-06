@@ -1,0 +1,115 @@
+/* Tarjetas de la copia adaptadas a las pantallas actuales sin clases. Cargado desde index.css. */
+
+.app-content > section:not([class]) {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: clamp(24px, 3vw, 40px);
+  background: var(--huella-white);
+  border: 1px solid var(--huella-gray-200);
+  border-radius: 18px;
+  box-shadow: var(--huella-shadow-sm);
+}
+
+.app-content > section:not([class]) > :is(h1, h2) {
+  margin: 0 0 16px;
+  color: var(--huella-navy);
+  font-family: var(--huella-font-heading);
+  font-size: clamp(24px, 2.5vw, 32px);
+  letter-spacing: -0.02em;
+}
+
+.app-content > section:not([class]) > p {
+  color: var(--huella-gray-600);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+#root > main:not([class]), .app-content > main:not([class]) {
+  max-width: 540px;
+  width: calc(100% - 32px);
+  background: var(--huella-white);
+  border-radius: 24px;
+  border: 1px solid var(--huella-gray-200);
+  box-shadow: var(--huella-shadow);
+  padding: clamp(32px, 5vw, 48px);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  margin: clamp(24px, 8vh, 80px) auto;
+  min-width: 0;
+}
+
+#root > main:not([class])::before, .app-content > main:not([class])::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: linear-gradient(90deg, var(--huella-coral) 0%, var(--huella-teal) 100%);
+}
+
+#root > main:not([class]) > h1, .app-content > main:not([class]) > h1 {
+  margin: 0 0 12px;
+  font-family: var(--huella-font-heading);
+  font-size: clamp(22px, 3vw, 28px);
+  font-weight: 700;
+  color: var(--huella-navy);
+  letter-spacing: -0.02em;
+}
+
+#root > main:not([class]) > p, .app-content > main:not([class]) > p {
+  margin: 0 0 28px;
+  font-size: 15px;
+  color: var(--huella-gray-600);
+  line-height: 1.6;
+  max-width: 420px;
+  overflow-wrap: anywhere;
+}
+
+.app-content > section:not([class]) > :is(a, button), #root > main:not([class]) > :is(a, button), .app-content > main:not([class]) > :is(a, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 32px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--huella-teal-dark) 0%, var(--huella-teal) 100%);
+  color: var(--huella-white);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 15px;
+  box-shadow: 0 8px 20px rgba(36, 100, 116, 0.25);
+  transition: background 160ms ease, box-shadow 160ms ease;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid var(--huella-teal-dark);
+  min-height: 44px;
+  cursor: pointer;
+  margin-top: 12px;
+  text-align: center;
+}
+
+.app-content > section:not([class]) > :is(a, button):hover:not(:disabled), #root > main:not([class]) > :is(a, button):hover:not(:disabled), .app-content > main:not([class]) > :is(a, button):hover:not(:disabled) {
+  background: var(--huella-teal-dark);
+  box-shadow: 0 8px 22px rgba(36, 100, 116, 0.32);
+}
+
+.app-content > section:not([class]) > :is(a, button):focus-visible, #root > main:not([class]) > :is(a, button):focus-visible, .app-content > main:not([class]) > :is(a, button):focus-visible {
+  outline: 2px solid var(--huella-teal);
+  outline-offset: 3px;
+}
+
+.app-content > section:not([class]) > button:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-content > section:not([class]) > :is(a, button), #root > main:not([class]) > :is(a, button), .app-content > main:not([class]) > :is(a, button) {
+    transition: none;
+  }
+}

@@ -1,10 +1,60 @@
+@import './styles/pages.css';
+
+/* HuellAPP: tokens de la copia, compartidos por todas las pantallas. */
+
 :root {
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
-    sans-serif;
+  --huella-coral: #f18e5f;
+  --huella-coral-hover: #e67d4b;
+  --huella-coral-soft: #fce8df;
+  --huella-navy: #2d3142;
+  --huella-navy-dark: #1f222e;
+  --huella-teal: #246474;
+  --huella-teal-dark: #1e5361;
+  --huella-teal-light: #2d7c90;
+  --huella-white: #ffffff;
+  --huella-gray-050: #f8f9fa;
+  --huella-gray-100: #e9ecef;
+  --huella-gray-200: #dee2e6;
+  --huella-gray-300: #ced4da;
+  --huella-gray-600: #6c757d;
+  --huella-ink: #212529;
+  --huella-danger: #b42318;
+  --huella-danger-soft: #fff1f0;
+  --huella-shadow-sm: 0 4px 12px rgba(45, 49, 66, 0.06);
+  --huella-shadow-md: 0 10px 28px rgba(45, 49, 66, 0.08);
+  --huella-shadow-lg: 0 22px 55px rgba(45, 49, 66, 0.12);
+  --huella-font-heading: 'Inter Tight', 'Arial Narrow', Arial, sans-serif;
+  --huella-font-body: 'Inter', Arial, sans-serif;
+  --huella-topbar-height: 72px;
+  --huella-sidebar-width: 250px;
+  --huella-success: #12b76a;
+  --huella-success-soft: #ecfdf3;
+  --huella-warning: #f79009;
+  --huella-warning-soft: #fffaeb;
+  --huella-shadow: 0 22px 55px rgba(45, 49, 66, 0.12);
+  --huellapp-teal: #245f6b;
+  --huellapp-teal-dark: #1f5360;
+  --huellapp-coral: #f58a5b;
+  --huellapp-coral-hover: #ee7f50;
+  --huellapp-bg: #f4f6f7;
+  --huellapp-surface: #ffffff;
+  --huellapp-border: #dbe3e6;
+  --huellapp-text: #111111;
+  --huellapp-text-soft: #66717a;
+  --huellapp-danger-bg: #fff1f2;
+  --huellapp-danger-border: #fecdd3;
+  --huellapp-danger-text: #b42318;
+  --huellapp-success-bg: #edf8f6;
+  --huellapp-success-border: #b9ded8;
+  --huellapp-success-text: #246b65;
+  --huellapp-shadow: 0 20px 48px rgba(31, 83, 96, 0.13);
+  --huella-success-text: #067647;
+  --huella-warning-text: #93370d;
+  font-family: var(--huella-font-body), system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #1f2937;
-  background: #f8fafc;
+  color: var(--huella-ink);
+  background: var(--huella-gray-050);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
 }
@@ -13,9 +63,7 @@
   box-sizing: border-box;
 }
 
-html,
-body,
-#root {
+html, body, #root {
   margin: 0;
   min-width: 320px;
   min-height: 100%;
@@ -23,4 +71,8 @@ body,
 
 body {
   min-height: 100vh;
+}
+
+button, input, select, textarea {
+  font-family: inherit;
 }

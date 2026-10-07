@@ -1,5 +1,5 @@
 /**
- * HuellAPP · Campos compartidos de creación y edición de colegios.
+ * HuellApp · Campos compartidos de creación y edición de colegios.
  *
  * REGLAS
  * ------------------------------------------------------------

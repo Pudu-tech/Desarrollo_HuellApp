@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Configuración principal de rutas con separación por rol.
  *
  * ROLES
@@ -8,8 +8,7 @@
  * - Inicio
  * - Usuarios
  * - Colegios
- * - Cursos
- * - Salas
+ * - Cursos y Salas dentro de la ficha de Colegios
  * - Asignaciones
  * - Auditoría
  *
@@ -17,8 +16,7 @@
  * - Inicio
  * - Usuarios
  * - Colegios
- * - Cursos
- * - Salas
+ * - Cursos y Salas dentro de la ficha de Colegios
  * - Asignaciones
  *
  * COORDINADOR
@@ -67,7 +65,10 @@ import AsignacionDetallePage from './pages/AsignacionDetallePage'
 import AsignacionesPage from './pages/AsignacionesPage'
 import AuditoriaPage from './pages/AuditoriaPage'
 import ColegiosPage from './pages/ColegiosPage'
-import CursosPage from './pages/CursosPage'
+import CatalogoAcademicoPage from './pages/CatalogoAcademicoPage'
+import InvitacionParticipacionPage from './pages/InvitacionParticipacionPage'
+import MisParticipacionesPage from './pages/MisParticipacionesPage'
+import MiParticipacionPage from './pages/MiParticipacionPage'
 import EstablecerPasswordPage from './pages/EstablecerPasswordPage'
 import InicioPage from './pages/InicioPage'
 import LoginPage from './pages/LoginPage'
@@ -77,7 +78,6 @@ import MonitorPage from './pages/MonitorPage'
 import NotFoundPage from './pages/NotFoundPage'
 import RecuperarPasswordPage from './pages/RecuperarPasswordPage'
 import RestablecerPasswordPage from './pages/RestablecerPasswordPage'
-import SalasPage from './pages/SalasPage'
 import UsuariosPage from './pages/UsuariosPage'
 
 import AppEntryRoute from './routes/AppEntryRoute'
@@ -99,6 +99,7 @@ function App() {
             path="/"
             element={<LoginPage />}
           />
+          <Route path="/responder-participacion" element={<InvitacionParticipacionPage />} />
 
           <Route
             path="/login"
@@ -172,6 +173,9 @@ function App() {
               path="inicio"
               element={<InicioPage />}
             />
+            <Route path="catalogo-academico" element={<CatalogoAcademicoPage />} />
+            <Route path="mis-asignaciones" element={<MisParticipacionesPage />} />
+            <Route path="mis-asignaciones/:asignacionId" element={<MiParticipacionPage />} />
 
             <Route
               path="asignaciones"
@@ -240,7 +244,7 @@ function App() {
                     'DIRECTIVA',
                   ]}
                 >
-                  <CursosPage />
+                  <Navigate to="/app/colegios" replace />
                 </RoleRoute>
               }
             />
@@ -254,7 +258,7 @@ function App() {
                     'DIRECTIVA',
                   ]}
                 >
-                  <SalasPage />
+                  <Navigate to="/app/colegios" replace />
                 </RoleRoute>
               }
             />

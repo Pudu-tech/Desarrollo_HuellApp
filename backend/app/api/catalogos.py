@@ -1,7 +1,8 @@
-"""Catálogos de apoyo para el formulario de colegios de HuellAPP.
+"""Catálogos de apoyo para la ficha de colegios de HuellAPP.
 
 Solo se exponen registros activos. Los endpoints están protegidos
-por el mismo permiso de consulta que el mantenedor de colegios.
+por el permiso de consulta del mantenedor que los utiliza.
+Los niveles proceden de niveles_curso; no se fijan valores en frontend.
 """
 
 from uuid import UUID
@@ -40,6 +41,31 @@ class TipoDependenciaItem(BaseModel):
     codigo: str
     nombre: str
     descripcion: str | None = None
+
+
+class NivelCursoItem(BaseModel):
+    """Nivel activo utilizado para crear y editar cursos del colegio."""
+
+    id: UUID
+    codigo: str
+    nombre: str
+    orden: int
+
+
+@router.get("/niveles-curso", response_model=list[NivelCursoItem])
+async def listar_niveles_curso(
+    _current_user: AuthenticatedUser = Depends(require_permission("VIEW_COURSES")),
+) -> list[NivelCursoItem]:
+    """Consulta la fuente real de niveles activos, ordenada por orden académico."""
+    try:
+        response = (
+            get_supabase_client().table("niveles_curso")
+            .select("id,codigo,nombre,orden").eq("activo", True)
+            .order("orden").execute()
+        )
+        return [NivelCursoItem.model_validate(item) for item in (response.data or [])]
+    except Exception as exc:
+        raise HTTPException(500, "No fue posible obtener los niveles de curso.") from exc
 
 
 @router.get("/regiones", response_model=list[RegionItem])

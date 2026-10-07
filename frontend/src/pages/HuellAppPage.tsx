@@ -13,7 +13,7 @@ function HuellAppPage() {
 
   return (
     <main>
-      <h1>HuellAPP</h1>
+      <h1>HuellApp</h1>
 
       <p>
         Usuario: {user?.email}

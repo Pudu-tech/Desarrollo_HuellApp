@@ -1,11 +1,12 @@
 /**
- * HuellAPP
+ * HuellApp
  * Configuración centralizada de navegación.
  *
  * IMPORTANTE
  * ------------------------------------------------------------
  * Esta configuración determina qué enlaces son visibles
  * para cada rol.
+ * Cursos, Salas y Contactos se administran dentro de la ficha de Colegios.
  *
  * No reemplaza las validaciones realizadas por RoleRoute
  * ni la autorización implementada en FastAPI.
@@ -48,22 +49,6 @@ export const ADMIN_NAVIGATION_ITEMS:
       ],
     },
     {
-      label: 'Cursos',
-      path: '/app/cursos',
-      allowedRoles: [
-        'SUPERADMIN',
-        'DIRECTIVA',
-      ],
-    },
-    {
-      label: 'Salas',
-      path: '/app/salas',
-      allowedRoles: [
-        'SUPERADMIN',
-        'DIRECTIVA',
-      ],
-    },
-    {
       label: 'Asignaciones',
       path: '/app/asignaciones',
       allowedRoles: [
@@ -71,6 +56,16 @@ export const ADMIN_NAVIGATION_ITEMS:
         'DIRECTIVA',
         'COORDINADOR',
       ],
+    },
+    {
+      label: 'Catálogo académico',
+      path: '/app/catalogo-academico',
+      allowedRoles: ['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'],
+    },
+    {
+      label: 'Mis asignaciones',
+      path: '/app/mis-asignaciones',
+      allowedRoles: ['DIRECTIVA', 'COORDINADOR'],
     },
     {
       label: 'Auditoría',

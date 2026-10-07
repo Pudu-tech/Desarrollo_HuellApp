@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Tipos asociados a la navegación principal.
  *
  * Estos tipos representan únicamente permisos de visualización

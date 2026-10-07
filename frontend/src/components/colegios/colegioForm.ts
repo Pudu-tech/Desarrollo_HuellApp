@@ -1,5 +1,5 @@
 /**
- * HuellAPP · Estado y normalización de formularios de colegios.
+ * HuellApp · Estado y normalización de formularios de colegios.
  *
  * REGLAS
  * ------------------------------------------------------------

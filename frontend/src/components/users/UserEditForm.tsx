@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Formulario funcional de edición de usuarios.
  *
  * Permite:
@@ -10,6 +10,7 @@
  * - eliminar usuario.
  *
  * Cada operación utiliza su endpoint específico.
+ * La confirmación utiliza el formato común aprobado para toda la aplicación.
  */
 
 import {
@@ -23,6 +24,7 @@ import type {
   UserRoleCode,
   UserUpdatePayload,
 } from '../../types/users'
+import { useConfirmation } from '../../hooks/useConfirmation'
 
 
 interface UserEditFormProps {
@@ -102,6 +104,7 @@ function UserEditForm({
   onDelete,
   onCancel,
 }: UserEditFormProps) {
+  const { confirm, confirmationDialog } = useConfirmation()
   const [form, setForm] =
     useState<EditFormState>(() =>
       createFormState(user),
@@ -448,10 +451,9 @@ function UserEditForm({
       `${currentUser.nombres} `
       + `${currentUser.apellido_paterno}`
 
-    const confirmed = window.confirm(
-      `¿Estás seguro de que deseas eliminar a ${fullName}?\n\n`
-      + 'El usuario dejará de aparecer en HuellAPP.',
-    )
+    const confirmed = await confirm({ title: '¿Eliminar usuario?',
+      message: <>Vas a eliminar a <strong>{fullName}</strong>. El usuario dejará de aparecer en HuellApp.</>,
+      confirmLabel: 'Sí, eliminar usuario' })
 
     if (!confirmed) {
       return
@@ -478,6 +480,7 @@ function UserEditForm({
 
   return (
     <section className="users-editor">
+      {confirmationDialog}
       <h3>
         Editar usuario
       </h3>
@@ -799,7 +802,7 @@ function UserEditForm({
 
         <p>
           Esta acción eliminará al usuario
-          del mantenedor de HuellAPP.
+          del mantenedor de HuellApp.
         </p>
 
         <button

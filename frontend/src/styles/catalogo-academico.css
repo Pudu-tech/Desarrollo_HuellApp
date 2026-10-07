@@ -1,0 +1,15 @@
+/* Catálogo académico · Complementa el diseño común de páginas administrativas. */
+.academic-tabs { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; overflow-x: auto; }
+.academic-tabs button { padding: 14px 18px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64748b; font: inherit; font-size: 14px; white-space: nowrap; cursor: pointer; }
+.academic-tabs button[aria-current="page"] { border-bottom-color: #1e293b; color: #1e293b; font-weight: 600; }
+.academic-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.academic-actions button { padding: 8px 12px; }
+.academic-danger { color: #b91c1c; }
+.academic-item-description { margin: 6px 0 0; color: #64748b; font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.academic-editor h2 { margin: 0 0 20px; font-size: 18px; }
+.academic-description { margin-top: 20px; }
+.academic-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.academic-levels label { flex-direction: row; align-items: center; padding: 12px; border: 1px solid #e2e8f0; border-radius: 7px; font-weight: 400; }
+.academic-levels input { width: auto; }
+@media (max-width: 800px) { .academic-levels { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 500px) { .academic-levels { grid-template-columns: 1fr; } }

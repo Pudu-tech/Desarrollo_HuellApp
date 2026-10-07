@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Formulario estructural para creación de usuarios.
  *
  * El diseño visual es deliberadamente básico.

@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Página principal exclusiva del rol MONITOR.
  *
  * OBJETIVO

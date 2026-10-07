@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Página base de auditoría.
  *
  * En este paquete se deja visible únicamente para SUPERADMIN.

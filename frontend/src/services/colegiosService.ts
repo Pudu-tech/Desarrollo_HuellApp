@@ -1,5 +1,5 @@
 /**
- * HuellAPP · Cliente HTTP de colegios y catálogos.
+ * HuellApp · Cliente HTTP de colegios y catálogos.
  *
  * SECURITY
  * ------------------------------------------------------------

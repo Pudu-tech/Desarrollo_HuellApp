@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Servicio del mantenedor de usuarios.
  *
  * RESPONSABILIDADES

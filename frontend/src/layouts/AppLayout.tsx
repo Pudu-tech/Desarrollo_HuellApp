@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Layout principal para:
  * - SUPERADMIN
  * - DIRECTIVA

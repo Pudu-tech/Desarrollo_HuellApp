@@ -32,12 +32,12 @@ export async function login(
 
     if (response.status === 401 || response.status === 403) {
       throw new Error(
-        'Tu usuario no está autorizado para ingresar a HuellAPP.',
+        'Tu usuario no está autorizado para ingresar a HuellApp.',
       )
     }
 
     throw new Error(
-      'No fue posible validar tu usuario en HuellAPP.',
+      'No fue posible validar tu usuario en HuellApp.',
     )
   }
 

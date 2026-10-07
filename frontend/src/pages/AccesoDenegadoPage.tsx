@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Página mostrada cuando un usuario autenticado intenta
  * acceder a una ruta no habilitada para su rol.
  */

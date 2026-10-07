@@ -8,6 +8,7 @@ Funciones disponibles:
 - modificar sala;
 - activar sala;
 - desactivar sala.
+- eliminar lógicamente con auditoría y protección de asignaciones futuras.
 
 SECURITY:
 - Todos los endpoints utilizan permisos RBAC.
@@ -22,6 +23,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.security import require_permission
+from app.core.resource_integrity import raise_school_resource_conflict
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.salas import (
@@ -415,7 +417,8 @@ async def crear_sala(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible crear la sala.",
@@ -542,7 +545,8 @@ async def actualizar_sala(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible actualizar la sala.",
@@ -643,7 +647,8 @@ async def activar_sala(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible activar la sala.",
@@ -730,9 +735,54 @@ async def desactivar_sala(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible desactivar la sala.",
         )
 
+
+
+@router.delete(
+    "/{sala_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        403: {"description": "Requiere DELETE_ROOM."},
+        404: {"description": "Registro inexistente o eliminado."},
+        409: {"description": "Tiene asignaciones futuras activas."},
+    },
+)
+async def eliminar_sala(
+    request: Request,
+    sala_id: UUID,
+    current_user: AuthenticatedUser = Depends(require_permission("DELETE_ROOM")),
+) -> None:
+    """Elimina lógicamente y audita en una única transacción PostgreSQL."""
+    try:
+        context = _request_rpc_context(request)
+        result = get_supabase_client().rpc(
+            "eliminar_sala_atomica",
+            {
+                "p_sala_id": str(sala_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute().data
+        if not isinstance(result, dict):
+            raise RuntimeError("Respuesta RPC inválida.")
+        if result.get("ok") is not True:
+            code = result.get("error_code")
+            if code == "ROOM_NOT_FOUND":
+                raise HTTPException(404, "Registro no encontrado o ya eliminado.")
+            if code == "ROOM_HAS_FUTURE_ASSIGNMENTS":
+                raise HTTPException(409, "Tiene asignaciones futuras vigentes desde hoy. Cancélalas o reasígnalas antes de eliminar la sala.")
+            if code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(403, "No posee permiso para eliminar salas.")
+            raise RuntimeError("Error RPC de eliminación.")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, "No fue posible eliminar el registro.")

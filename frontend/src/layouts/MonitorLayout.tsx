@@ -1,12 +1,12 @@
 /**
- * HuellAPP
+ * HuellApp
  * Layout exclusivo para MONITOR.
  *
  * OBJETIVO
  * ------------------------------------------------------------
  * Mantener una experiencia propia para el monitor,
  * pero utilizando la misma estructura visual general
- * de HuellAPP.
+ * de HuellApp.
  *
  * El monitor solamente visualiza:
  * - Inicio.

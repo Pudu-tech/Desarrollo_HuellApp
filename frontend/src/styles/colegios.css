@@ -4,6 +4,17 @@
    Estilos limitados al módulo; no afectan Usuarios ni autenticación.
    ============================================================ */
 .schools-page { max-width: 1250px; margin: 0 auto; color: #1f2937; }
+/* Ficha única: pestañas responsive y formularios de Cursos/Salas. */
+.schools-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; }
+.schools-tabs button { border: 1px solid transparent; border-radius: 7px; background: transparent; padding: 10px 14px; font: inherit; color: #475569; cursor: pointer; }
+.schools-tabs button[aria-selected="true"] { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; font-weight: 600; }
+.schools-tabs button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.schools-tabs button:disabled { opacity: .6; cursor: wait; }
+.schools-resource-editor { margin-top: 20px; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.schools-resource-editor h4 { margin: 0 0 12px; }
+.schools-resource-editor > p { color: #64748b; font-size: 14px; }
+.schools-editor [hidden] { display: none; }
+@media (max-width: 650px) { .schools-tabs button { flex: 1 1 45%; padding: 10px 8px; } .schools-resource-editor { padding: 14px; } }
 .schools-heading, .schools-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .schools-heading { margin-bottom: 24px; }
 .schools-heading h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: -.5px; }
@@ -62,14 +73,7 @@
    ELIMINACIÓN LÓGICA · Controles y confirmación del colegio
    ============================================================ */
 .schools-delete-section p { color: #64748b; }
-.schools-dialog-backdrop { position: fixed; inset: 0; z-index: 1100; background: rgba(15,23,42,.52); display: grid; place-items: center; padding: 20px; }
-.schools-dialog { box-sizing: border-box; width: min(100%, 490px); background: #fff; border-radius: 12px; padding: 26px; box-shadow: 0 20px 60px rgba(15,23,42,.24); }
-.schools-dialog h2 { margin: 0 0 12px; font-size: 21px; }
-.schools-dialog p { color: #475569; line-height: 1.5; }
-.schools-dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
-.schools-danger--solid { background: #b91c1c; color: white; border-color: #b91c1c; }
-.schools-danger--solid:hover { background: #991b1b; }
-.schools-dialog button:disabled { opacity: .6; cursor: not-allowed; }
+/* Las confirmaciones se estilizan únicamente en confirmation-dialog.css. */
 
 /* ============================================================
    HUELLAPP · CONTACTOS REUTILIZABLES PARA ASIGNACIONES

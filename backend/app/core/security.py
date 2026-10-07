@@ -201,7 +201,7 @@ def require_permission(
                     """
                     id,
                     rol_permiso!inner(
-                        permisos!inner(codigo)
+                        permisos!inner(codigo,activo)
                     )
                     """
                 )
@@ -213,6 +213,7 @@ def require_permission(
                     "rol_permiso.permisos.codigo",
                     permission_code,
                 )
+                .eq("rol_permiso.permisos.activo", True)
                 .limit(1)
                 .execute()
             )

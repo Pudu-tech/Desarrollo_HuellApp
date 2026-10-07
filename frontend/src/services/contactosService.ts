@@ -1,5 +1,5 @@
 /**
- * HuellAPP · Comunicación con el backend de contactos de colegios.
+ * HuellApp · Comunicación con el backend de contactos de colegios.
  *
  * REGLAS
  * ------------------------------------------------------------

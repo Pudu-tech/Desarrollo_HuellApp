@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Mantenedor de usuarios.
  *
  * Funcionalidades:
@@ -331,7 +331,7 @@ function UsuariosPage() {
       <header className="users-heading">
         <div>
           <h1>Usuarios</h1>
-          <p>Administración de usuarios de HuellAPP.</p>
+          <p>Administración de usuarios de HuellApp.</p>
         </div>
         {!showCreateForm && !editingUser && (
           <button

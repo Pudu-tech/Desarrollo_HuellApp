@@ -42,6 +42,8 @@ REGLAS DE SEGURIDAD:
   estados iniciales ni campos de auditoría enviados por frontend.
 
 GESTIÓN HISTÓRICA DE PARTICIPANTES:
+- Los triggers escolares impiden crear/reabrir con colegios o recursos eliminados.
+- Se conserva el contrato de reemplazo de hasta dos contactos por asignación.
 - quitar un participante NO elimina físicamente el registro;
 - se utiliza activo=false + deleted_at;
 - la asistencia histórica se conserva;
@@ -261,7 +263,7 @@ def _usuario_tiene_permiso(
     permission_code: str,
 ) -> bool:
     """
-    Comprueba si un rol posee un permiso determinado.
+    Comprueba si un rol posee un permiso activo determinado.
     """
 
     response = (
@@ -270,7 +272,7 @@ def _usuario_tiene_permiso(
             """
             id,
             rol_permiso!inner(
-                permisos!inner(codigo)
+                permisos!inner(codigo,activo)
             )
             """
         )
@@ -279,6 +281,7 @@ def _usuario_tiene_permiso(
             "rol_permiso.permisos.codigo",
             permission_code,
         )
+        .eq("rol_permiso.permisos.activo", True)
         .limit(1)
         .execute()
     )
@@ -1844,7 +1847,16 @@ async def actualizar_asignacion(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        if "ASSIGNMENT_RECONFIRMATION_UNAVAILABLE" in str(exc):
+            raise HTTPException(409, "Solo se pueden cambiar las condiciones de actividades futuras y abiertas, sin asistencia informada.") from exc
+        if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
+            raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
+        if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El colegio, curso, sala o contacto no está disponible o no pertenece al contexto escolar.",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible actualizar la asignación.",
@@ -2128,7 +2140,14 @@ async def reabrir_asignacion(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
+            raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
+        if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El colegio, curso, sala o contacto no está disponible o no pertenece al contexto escolar.",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible reabrir la asignación.",
@@ -3108,7 +3127,14 @@ async def crear_asignacion(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
+            raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
+        if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El colegio, curso, sala o contacto no está disponible o no pertenece al contexto escolar.",
+            )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible crear la asignación.",

@@ -833,12 +833,13 @@ async def eliminar_colegio(
         require_permission("DELETE_SCHOOL")
     ),
 ) -> None:
-    """Elimina lógicamente un colegio mediante la RPC de la migración 041.
+    """Elimina colegio y recursos mediante la RPC ampliada por la migración 045.
 
     La autorización se comprueba en FastAPI y nuevamente en PostgreSQL.
     La RPC bloquea el colegio, protege las asignaciones futuras activas y
     registra los valores anteriores/posteriores y el actor en auditoría.
-    No elimina físicamente colegios ni modifica sus relaciones históricas.
+    Archiva cursos, salas y contactos, con auditoría por cada entidad afectada.
+    Conserva las asignaciones y relaciones históricas sin borrado físico.
 
     Returns:
         HTTP 204 sin contenido cuando la transacción se completa.
@@ -877,7 +878,8 @@ async def eliminar_colegio(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se puede eliminar el colegio porque tiene "
-                        "asignaciones futuras activas."
+                        "asignaciones futuras vigentes. Cancélalas o reasígnalas "
+                        "antes de eliminar el establecimiento."
                     ),
                 )
 

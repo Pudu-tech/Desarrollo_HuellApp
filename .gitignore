@@ -151,7 +151,8 @@ pnpm-debug.log*
 # parte de .vscode.
 # ------------------------------------------------------------
 
-.vscode/
+.vscode/*
+!.vscode/settings.json
 .idea/
 
 

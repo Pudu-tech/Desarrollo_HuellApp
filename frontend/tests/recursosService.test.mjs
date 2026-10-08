@@ -13,6 +13,44 @@ import ts from 'typescript'
 
 const serviceDirectory = fileURLToPath(new URL('../src/services/', import.meta.url))
 
+test('Quitar participante archiva solo la participación elegida mediante la API', async () => {
+  const { service, requests } = await harness('asignacionesService')
+  await service.removeParticipante('assignment', 'participant')
+  assert.equal(requests[0].method, 'DELETE')
+  assert.equal(requests[0].url, 'https://test.local/asignaciones/assignment/participantes/participant')
+  assert.equal(requests[0].headers.Authorization, 'Bearer test-session')
+})
+
+test('Agregar participantes sucesivos no reemplaza a los existentes', async () => {
+  const { service, requests } = await harness('asignacionesService')
+  await service.getOpcionesParticipantes()
+  await service.addParticipante('assignment', 'monitor-2', 'relator')
+  await service.addParticipante('assignment', 'monitor-3', 'relator')
+  assert.equal(requests[0].url, 'https://test.local/catalogos/asignaciones/gestion-participantes')
+  for (const [index, usuario] of [[1, 'monitor-2'], [2, 'monitor-3']]) {
+    assert.equal(requests[index].method, 'POST')
+    assert.equal(requests[index].url, 'https://test.local/asignaciones/assignment/participantes')
+    assert.deepEqual(JSON.parse(requests[index].body), { usuario_id: usuario, tipo_participacion_id: 'relator' })
+  }
+})
+
+test('Reasignación usa el participante anterior y envía solo el usuario nuevo', async () => {
+  const { service, requests } = await harness('asignacionesService')
+  await service.getMonitoresReasignacion()
+  await service.reassignParticipante('assignment', 'old-participant', 'new-monitor')
+  assert.equal(requests[0].url, 'https://test.local/catalogos/asignaciones/reasignacion/participantes')
+  assert.equal(requests[1].method, 'POST')
+  assert.equal(requests[1].url, 'https://test.local/asignaciones/assignment/participantes/old-participant/reasignar')
+  assert.deepEqual(JSON.parse(requests[1].body), { nuevo_usuario_id: 'new-monitor' })
+})
+
+test('Eliminar asignación usa DELETE autenticado y acepta 204 sin cuerpo', async () => {
+  const { service, requests } = await harness('asignacionesService', { status: 204 })
+  await service.deleteAsignacion('assignment')
+  assert.equal(requests[0].method, 'DELETE')
+  assert.equal(requests[0].url, 'https://test.local/asignaciones/assignment')
+})
+
 test('Edición envía PATCH y consulta catálogos bajo permisos de edición', async () => {
   const { service, requests } = await harness('asignacionesService')
   await service.updateAsignacion('assignment', { fecha: '2026-12-01' })
@@ -82,7 +120,8 @@ test('El catálogo utiliza eliminación lógica HTTP 204 sin leer un cuerpo vac�
 /** Carga los servicios reales, reemplazando solamente Auth y fetch. */
 async function harness(name, { session = { access_token: 'test-session' }, response = { ok: true, status: 200, json: async () => ({ id: 'resource' }) } } = {}) {
   const requests = []
-  const context = vm.createContext({ fetch: async (url, options) => { requests.push({ url, ...options }); return response } })
+  const clone = () => ({ ...response, clone })
+  const context = vm.createContext({ Headers, fetch: async (url, options) => { requests.push({ url, ...options }); return clone() } })
   const cache = new Map()
   const auth = new vm.SyntheticModule(['supabase'], function () {
     this.setExport('supabase', { auth: { getSession: async () => ({ data: { session }, error: null }) } })
@@ -206,7 +245,7 @@ test('Las reglas bloquean participantes duplicados, contactos excesivos y horari
   const { service } = await harness('../components/asignaciones/asignacionForm')
   assert.match(service.validarAsignacion({ ...meeting(), participantes: [] }, 'REUNION'), /participante/)
   assert.match(service.validarAsignacion({ ...meeting(), participantes: [meeting().participantes[0], meeting().participantes[0]] }, 'REUNION'), /repetir/)
-  assert.match(service.validarAsignacion({ ...meeting(), contactos: [1, 2, 3].map((n) => ({ contacto_colegio_id: `${n}` })) }, 'REUNION'), /dos contactos/)
+  assert.equal(service.validarAsignacion({ ...meeting(), contactos: [1, 2, 3, 4].map((n) => ({ contacto_colegio_id: `${n}` })) }, 'REUNION'), null)
   assert.match(service.validarAsignacion({ ...meeting(), hora_fin: '08:00' }, 'REUNION'), /posterior/)
   assert.match(service.validarAsignacion({ ...meeting(), contactos: [] }, 'REUNION'), /contacto/)
 })

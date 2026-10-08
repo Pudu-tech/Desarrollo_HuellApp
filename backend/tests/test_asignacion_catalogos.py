@@ -58,7 +58,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
         db = BaseSimulada({"ramos": [{"id": subject, "nombre": "Asignatura", "nivel_curso_id": None,
                                       "ramo_nivel": [{"nivel_curso_id": first}, {"nivel_curso_id": second}]}]})
         with patch.object(api, "get_supabase_client", return_value=db):
-            result = await api.listar_opciones_creacion(SimpleNamespace(role_code="SUPERADMIN"))
+            result = api.listar_opciones_creacion(SimpleNamespace(role_code="SUPERADMIN"))
         self.assertEqual(str(result.ramos[0].id), subject)
         self.assertEqual([str(level) for level in result.ramos[0].nivel_ids], [first, second])
 
@@ -74,7 +74,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
             if tipo_codigo == "CAPACITACION":
                 raise HTTPException(403, "Sin permiso")
         with patch.object(api, "get_supabase_client", return_value=db), patch.object(api, "_validar_permiso_tipo_actividad", side_effect=permiso):
-            result = await api.listar_opciones_creacion(SimpleNamespace(role_code="COORDINADOR"))
+            result = api.listar_opciones_creacion(SimpleNamespace(role_code="COORDINADOR"))
         self.assertEqual([item.codigo for item in result.tipos_actividad], ["REUNION"])
         self.assertEqual(str(result.participantes[0].id), user_id)
         self.assertNotIn("email", result.participantes[0].model_dump())
@@ -87,7 +87,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
         school = uuid4()
         db = BaseSimulada({})
         with patch.object(api, "get_supabase_client", return_value=db), patch.object(api, "_obtener_colegio_activo") as validate:
-            result = await api.listar_recursos_colegio_asignacion(school, SimpleNamespace())
+            result = api.listar_recursos_colegio_asignacion(school, SimpleNamespace())
         validate.assert_called_once_with(db, colegio_id=school)
         self.assertEqual(result.contactos, [])
         for table in ("cursos_colegio", "salas", "contactos_colegio"):
@@ -99,7 +99,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
         subject = uuid4()
         db = BaseSimulada({})
         with patch.object(api, "get_supabase_client", return_value=db), patch.object(api, "_validar_ramo_activo") as validate:
-            await api.listar_espacios_asignacion(subject, SimpleNamespace())
+            api.listar_espacios_asignacion(subject, SimpleNamespace())
         validate.assert_called_once_with(db, ramo_id=subject)
         for table in ("espacios_reflexion", "espacios_encuentro"):
             self.assertIn(("eq", "ramo_id", str(subject)), db.queries[table].calls)
@@ -107,7 +107,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_monitor_no_accede_a_catalogos_de_gestion(self):
         with self.assertRaises(HTTPException) as error:
-            await api.listar_catalogos_asignaciones(SimpleNamespace(role_code="MONITOR"))
+            api.listar_catalogos_asignaciones(SimpleNamespace(role_code="MONITOR"))
         self.assertEqual(error.exception.status_code, 403)
 
     def test_permisos_no_dependen_del_cliente(self):
@@ -115,8 +115,17 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
             dependency = route.dependant.dependencies[0].call
             captured = dict(zip(dependency.__code__.co_freevars,
                                 (cell.cell_contents for cell in dependency.__closure__)))
-            expected = "VIEW_ASSIGNMENTS" if route.path == "/catalogos/asignaciones" else "UPDATE_ASSIGNMENT" if "/edicion" in route.path else "CREATE_ASSIGNMENT"
+            expected = "VIEW_ASSIGNMENTS" if route.path == "/catalogos/asignaciones" else "REASSIGN_ASSIGNMENT" if any(path in route.path for path in ("/reasignacion", "/gestion-participantes")) else "UPDATE_ASSIGNMENT" if "/edicion" in route.path else "CREATE_ASSIGNMENT"
             self.assertEqual(captured["permission_code"], expected)
+
+    def test_agregar_ofrece_personas_activas_sin_exponer_correo(self):
+        db = BaseSimulada({'usuarios': [{'id': str(uuid4()), 'nombres': 'Ana', 'email': 'private@example.org'}]})
+        with patch.object(api, 'get_supabase_client', return_value=db):
+            result = api.opciones_gestion_participantes(SimpleNamespace())
+        self.assertNotIn('email', result['participantes'][0])
+        self.assertIn(('eq', 'activo', True), db.queries['usuarios'].calls)
+        self.assertIn(('is', 'deleted_at', 'null'), db.queries['usuarios'].calls)
+        self.assertIn(('eq', 'activo', True), db.queries['tipos_participacion'].calls)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ export interface AsignacionItem {
   lugar: string | null
   observacion: string | null
   estado_id: string
+  por_reasignar?: boolean
   activo: boolean
   created_at: string
   updated_at: string
@@ -38,7 +39,7 @@ export interface AsignacionPayload {
   contactos: Array<{ contacto_colegio_id: string }>
 }
 export interface AsignacionDetail extends AsignacionItem {
-  participantes: Array<ParticipantePayload & { id: string; estado_participacion_id: string; activo: boolean }>
+  participantes: Array<ParticipantePayload & { id: string; estado_participacion_id: string; activo: boolean; usuario_nombre?: string | null; tipo_participacion_nombre?: string | null; estado_participacion_codigo?: string | null; estado_participacion_nombre?: string | null; motivo_rechazo?: string | null; fecha_respuesta?: string | null }>
   contactos: Array<{ id: string; contacto_colegio_id: string }>
 }
 export interface CatalogosAsignacion {

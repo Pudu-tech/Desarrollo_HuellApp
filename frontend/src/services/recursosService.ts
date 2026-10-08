@@ -1,3 +1,4 @@
+import { cachedFetch } from './readCache'
 /**
  * HuellApp · Transporte común de Cursos, Salas y Asignaciones.
  * Reutiliza la sesión actual; FastAPI valida permisos y audita escrituras.
@@ -6,13 +7,14 @@
 import { supabase } from './supabase'
 
 /** Ejecuta una operación autenticada sin incorporar estado ni reglas de UI. */
-export async function recursoRequest<T>(path: string, method = 'GET', payload?: object): Promise<T> {
+export async function recursoRequest<T>(path: string, method = 'GET', payload?: object, fresh = false): Promise<T> {
   const { data: { session }, error } = await supabase.auth.getSession()
   if (error || !session?.access_token) throw new Error('Tu sesión no está disponible. Inicia sesión nuevamente.')
   const apiUrl = import.meta.env.VITE_API_URL
   if (!apiUrl) throw new Error('Falta la variable de entorno VITE_API_URL.')
-  const response = await fetch(`${apiUrl.replace(/\/+$/, '')}${path}`, {
+  const response = await cachedFetch(`${apiUrl.replace(/\/+$/, '')}${path}`, {
     method,
+    ...(fresh ? { cache: 'reload' as const } : {}),
     headers: {
       Authorization: `Bearer ${session.access_token}`,
       Accept: 'application/json',

@@ -38,7 +38,8 @@ def build_message(settings, notification, own, recipient, delivery_id):
               ("Curso", own["curso"]), ("Sala", own["sala"]), ("Asignatura", own["asignatura"]),
               ("Espacio", own.get("espacio")), ("Tu participación", own.get("tipo_participacion"))]
     title = notification.get('titulo') or 'Nueva asignación en HuellApp'
-    content = render_invitation_email(settings.normalized_frontend_url, title, fields, accept, reject)
+    content = render_invitation_email(settings.normalized_frontend_url, title, fields, accept, reject,
+                                      getattr(settings, 'brevo_email_logo_url', None))
     text = '\n'.join(f'{label}: {value}' for label, value in fields if value)
     return {"sender": {"name": settings.brevo_sender_name, "email": settings.brevo_sender_email},
             "to": [{"email": recipient["email"], "name": recipient["nombres"]}],

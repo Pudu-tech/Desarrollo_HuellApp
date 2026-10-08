@@ -1,13 +1,14 @@
+import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Listado y creación de asignaciones para roles de gestión.
  * Mantiene la presentación de Usuarios/Colegios y consulta permisos efectivos.
  * Las altas se confirman en backend y actualizan inmediatamente el listado.
  */
 import { useEffect, useMemo, useState } from 'react'
+import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 import { Link } from 'react-router-dom'
-import AsignacionCreateForm from '../components/asignaciones/AsignacionCreateForm'
-import { createAsignacion, getCatalogosAsignaciones, getOpcionesCreacion, listAsignaciones } from '../services/asignacionesService'
-import { getPermissions } from '../services/recursosService'
+import AsignacionCreateForm from '../components/asignaciones/DeferredAsignacionForm'
+import { createAsignacion, getAsignacionesResumen, getOpcionesCreacion } from '../services/asignacionesService'
 import type { AsignacionItem, AsignacionPayload, CatalogosAsignacion, OpcionesCreacion } from '../types/asignaciones'
 import '../styles/asignaciones.css'
 
@@ -33,17 +34,21 @@ export default function AsignacionesPage() {
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
   const canCreate = permissions.includes('CREATE_ASSIGNMENT')
-
+  useVisibleRefresh(async (isActive) => {
+    try {
+      const data = await getAsignacionesResumen(true)
+      if (!isActive()) return
+      setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions)
+      setError('')
+    } catch { /* Una falla temporal conserva el listado; el siguiente ciclo reintenta. */ }
+  }, !loading && !creating && !loadingOptions)
   useEffect(() => {
     let active = true
-    void Promise.allSettled([listAsignaciones(), getCatalogosAsignaciones(), getPermissions()]).then(([list, catalogs, rights]) => {
+    void getAsignacionesResumen().then((data) => {
       if (!active) return
-      if (list.status === 'fulfilled') { setItems(list.value); setError('') } else setError(messageOf(list.reason))
-      if (catalogs.status === 'fulfilled') { setCatalogos(catalogs.value); setCatalogError('') } else setCatalogError(messageOf(catalogs.reason))
-      if (rights.status === 'fulfilled') setPermissions(rights.value)
-      else { setPermissions([]); setCatalogError((previous) => previous || 'No fue posible consultar los permisos. Reintenta la carga.') }
-      setLoading(false)
-    })
+      setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions)
+      setError(''); setCatalogError(''); setLoading(false)
+    }).catch((cause: unknown) => { if (active) { setError(messageOf(cause)); setPermissions([]); setLoading(false) } })
     return () => { active = false }
   }, [revision])
 
@@ -53,7 +58,7 @@ export default function AsignacionesPage() {
   const rangoInvalido = !!desde && !!hasta && desde > hasta
   const filtered = useMemo(() => items.filter((item) => {
     if (tipoId && item.tipo_actividad_id !== tipoId) return false
-    if (estadoId && item.estado_id !== estadoId) return false
+    if (estadoId === 'POR_REASIGNAR' ? !item.por_reasignar : estadoId && (item.estado_id !== estadoId || item.por_reasignar)) return false
     if (colegioId && item.colegio_id !== colegioId) return false
     if (desde && item.fecha < desde) return false
     if (hasta && item.fecha > hasta) return false
@@ -85,7 +90,7 @@ export default function AsignacionesPage() {
     return created
   }
 
-  function refresh() { setLoading(true); setError(''); setRevision((value) => value + 1) }
+  function refresh() { clearReadCache(); setLoading(true); setError(''); setRevision((value) => value + 1) }
 
   return <section className="assignments-page">
     <header className="assignments-heading"><div><h1>Asignaciones</h1><p>Organiza actividades, establecimientos y participantes.</p></div>
@@ -101,7 +106,7 @@ export default function AsignacionesPage() {
       <div className="assignments-filters">
         <label>Buscar<input type="search" placeholder="Actividad, colegio o lugar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <label>Tipo de actividad<select value={tipoId} onChange={(event) => setTipoId(event.target.value)}><option value="">Todos los tipos</option>{catalogos?.tipos_actividad.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
-        <label>Estado<select value={estadoId} onChange={(event) => setEstadoId(event.target.value)}><option value="">Todos los estados</option>{catalogos?.estados.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
+        <label>Estado<select value={estadoId} onChange={(event) => setEstadoId(event.target.value)}><option value="">Todos los estados</option><option value="POR_REASIGNAR">Por reasignar</option>{catalogos?.estados.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Colegio<select value={colegioId} onChange={(event) => setColegioId(event.target.value)}><option value="">Todos los colegios</option>{catalogos?.colegios.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Desde<input type="date" value={desde} onChange={(event) => setDesde(event.target.value)} /></label>
         <label>Hasta<input type="date" value={hasta} onChange={(event) => setHasta(event.target.value)} /></label>
@@ -114,7 +119,7 @@ export default function AsignacionesPage() {
               <td className="assignments-name">{tipos.get(item.tipo_actividad_id)?.nombre ?? 'Actividad'}</td>
               <td>{item.colegio_id ? colegios.get(item.colegio_id) ?? 'Colegio no disponible' : item.lugar || '—'}</td>
               <td>{item.fecha.split('-').reverse().join('/')}</td><td>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</td>
-              <td><span className={`assignments-status assignments-status--${estados.get(item.estado_id)?.codigo.toLowerCase() ?? 'unknown'}`}>{estados.get(item.estado_id)?.nombre ?? 'Estado no disponible'}</span></td>
+              <td><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estados.get(item.estado_id)?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre ?? 'Estado no disponible'}</span></td>
               <td><Link className="assignments-action" to={`/app/asignaciones/${item.id}`}>Ver detalle</Link></td>
             </tr>)}</tbody></table></div>}
     </div>}

@@ -1,3 +1,4 @@
+import { clearReadCache } from './readCache'
 import { supabase } from './supabase'
 
 import type { AuthenticatedUser } from '../types/auth'
@@ -12,6 +13,7 @@ export async function login(
   email: string,
   password: string,
 ): Promise<AuthenticatedUser> {
+  clearReadCache()
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -45,6 +47,7 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
+  clearReadCache()
   await supabase.auth.signOut()
 }
 

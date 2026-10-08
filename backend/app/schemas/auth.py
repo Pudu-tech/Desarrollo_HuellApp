@@ -14,7 +14,7 @@ SECURITY:
 
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 # Datos del perfil autenticado que consume /auth/me y la autorización por rol.
@@ -44,3 +44,4 @@ class AuthenticatedUser(BaseModel):
     nombres: str
     apellido_paterno: str
     role_code: str
+    effective_permissions: frozenset[str] = Field(default_factory=frozenset, exclude=True)

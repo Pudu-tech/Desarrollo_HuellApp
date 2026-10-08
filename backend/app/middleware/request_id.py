@@ -15,6 +15,7 @@ SECURITY:
 """
 
 from uuid import uuid4
+from time import perf_counter
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -51,9 +52,11 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
         request.state.request_id = request_id
 
         # Continúa con el procesamiento normal de FastAPI.
+        started = perf_counter()
         response = await call_next(request)
 
         # Devuelve el identificador para facilitar soporte y trazabilidad.
         response.headers["X-Request-ID"] = str(request_id)
+        response.headers["Server-Timing"] = f"app;dur={(perf_counter() - started) * 1000:.1f}"
 
         return response

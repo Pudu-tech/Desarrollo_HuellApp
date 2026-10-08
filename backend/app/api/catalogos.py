@@ -53,7 +53,7 @@ class NivelCursoItem(BaseModel):
 
 
 @router.get("/niveles-curso", response_model=list[NivelCursoItem])
-async def listar_niveles_curso(
+def listar_niveles_curso(
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_COURSES")),
 ) -> list[NivelCursoItem]:
     """Consulta la fuente real de niveles activos, ordenada por orden académico."""
@@ -69,7 +69,7 @@ async def listar_niveles_curso(
 
 
 @router.get("/regiones", response_model=list[RegionItem])
-async def listar_regiones(
+def listar_regiones(
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOLS")),
 ) -> list[RegionItem]:
     """Lista regiones activas ordenadas por nombre."""
@@ -91,7 +91,7 @@ async def listar_regiones(
 
 
 @router.get("/comunas", response_model=list[ComunaItem])
-async def listar_comunas(
+def listar_comunas(
     region_id: UUID = Query(..., description="UUID de la región seleccionada"),
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOLS")),
 ) -> list[ComunaItem]:
@@ -133,7 +133,7 @@ async def listar_comunas(
 
 
 @router.get("/tipos-dependencia", response_model=list[TipoDependenciaItem])
-async def listar_tipos_dependencia(
+def listar_tipos_dependencia(
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOLS")),
 ) -> list[TipoDependenciaItem]:
     """Lista los tipos de dependencia activos."""

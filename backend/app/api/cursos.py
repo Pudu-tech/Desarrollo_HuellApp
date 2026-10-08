@@ -220,7 +220,7 @@ def _obtener_nivel_activo(
         },
     },
 )
-async def listar_cursos(
+def listar_cursos(
     colegio_id: UUID | None = None,
     nivel_curso_id: UUID | None = None,
     anio: int | None = None,
@@ -325,7 +325,7 @@ async def listar_cursos(
         },
     },
 )
-async def obtener_curso(
+def obtener_curso(
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_COURSES")
@@ -389,7 +389,7 @@ async def obtener_curso(
         500: {"description": "Error interno al crear el curso."},
     },
 )
-async def crear_curso(
+def crear_curso(
     request: Request,
     payload: CursoCreate,
     current_user: AuthenticatedUser = Depends(
@@ -511,7 +511,7 @@ async def crear_curso(
         500: {"description": "Error interno al actualizar el curso."},
     },
 )
-async def actualizar_curso(
+def actualizar_curso(
     request: Request,
     curso_id: UUID,
     payload: CursoUpdate,
@@ -637,7 +637,7 @@ async def actualizar_curso(
         500: {"description": "Error interno al activar el curso."},
     },
 )
-async def activar_curso(
+def activar_curso(
     request: Request,
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -739,7 +739,7 @@ async def activar_curso(
         500: {"description": "Error interno al desactivar el curso."},
     },
 )
-async def desactivar_curso(
+def desactivar_curso(
     request: Request,
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -820,7 +820,7 @@ async def desactivar_curso(
         409: {"description": "Tiene asignaciones futuras activas."},
     },
 )
-async def eliminar_curso(
+def eliminar_curso(
     request: Request,
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(require_permission("DELETE_COURSE")),

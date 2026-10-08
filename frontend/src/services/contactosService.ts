@@ -1,3 +1,4 @@
+import { cachedFetch } from './readCache'
 /**
  * HuellApp · Comunicación con el backend de contactos de colegios.
  *
@@ -19,7 +20,7 @@ const apiUrl = configuredUrl.replace(/\/+$/, '')
 async function contactRequest<T>(path: string, method = 'GET', payload?: object): Promise<T> {
   const { data: { session }, error } = await supabase.auth.getSession()
   if (error || !session?.access_token) throw new Error('Tu sesión no está disponible. Inicia sesión nuevamente.')
-  const response = await fetch(`${apiUrl}${path}`, {
+  const response = await cachedFetch(`${apiUrl}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${session.access_token}`,

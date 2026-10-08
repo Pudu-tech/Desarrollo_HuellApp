@@ -1,3 +1,4 @@
+import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Estado compartido de los mantenedores de recursos del colegio.
  * Las operaciones actualizan la lista con la respuesta confirmada del backend.
@@ -52,7 +53,7 @@ export function useRecursosColegio<T extends { id: string }>(
     }
   }
 
-  function refresh() { setLoading(true); setRevision((value) => value + 1) }
+  function refresh() { clearReadCache(); setLoading(true); setRevision((value) => value + 1) }
   function clearFeedback() { setError(''); setMessage('') }
   return { items, setItems, loading, loadError, error, setError, message, working, run, refresh, clearFeedback }
 }

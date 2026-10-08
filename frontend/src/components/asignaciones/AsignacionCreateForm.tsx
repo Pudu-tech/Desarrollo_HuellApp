@@ -22,7 +22,7 @@ interface Props {
 /** Los valores vacíos son selecciones pendientes; nunca UUID ficticios. */
 const emptyPayload = (): AsignacionPayload => ({
   tipo_actividad_id: '', colegio_id: null, curso_colegio_id: null, sala_id: null, ramo_id: null,
-  espacio_reflexion_id: null, espacio_encuentro_id: null, fecha: '', hora_inicio: '', hora_fin: '',
+  espacio_reflexion_id: null, espacio_encuentro_id: null, fecha: '', hora_inicio: '08:00', hora_fin: '08:00',
   lugar: null, observacion: null, participantes: [], contactos: [],
 })
 
@@ -119,10 +119,10 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
           {colegio.loading && <p role="status">Cargando recursos del colegio…</p>}
           {academica && colegio.data && (!colegio.data.cursos.length || !colegio.data.salas.length) && <p className="assignments-warning">Esta actividad requiere cursos y salas activos. Completa los recursos que faltan desde la ficha del colegio.</p>}
           {colegio.error && <div role="alert"><p className="assignments-error">{colegio.error}</p><button className="assignments-secondary" type="button" onClick={colegio.retry}>Reintentar recursos</button></div>}
-          {colegio.data && <><p>Selecciona una o dos personas de contacto.</p><div className="assignments-contacts">
+          {colegio.data && <><p>Selecciona las personas de contacto que correspondan.</p><div className="assignments-contacts">
             {colegio.data.contactos.map((item) => {
               const checked = form.contactos.some((contacto) => contacto.contacto_colegio_id === item.id)
-              return <label key={item.id}><input type="checkbox" checked={checked} disabled={!checked && form.contactos.length >= 2} onChange={(event) => change('contactos', event.target.checked ? [...form.contactos, { contacto_colegio_id: item.id }] : form.contactos.filter((contacto) => contacto.contacto_colegio_id !== item.id))} />
+              return <label key={item.id}><input type="checkbox" checked={checked} onChange={(event) => change('contactos', event.target.checked ? [...form.contactos, { contacto_colegio_id: item.id }] : form.contactos.filter((contacto) => contacto.contacto_colegio_id !== item.id))} />
                 {[item.nombre, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ')}{item.cargo ? ` · ${item.cargo}` : ''}
               </label>
             })}

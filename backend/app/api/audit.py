@@ -41,7 +41,7 @@ router = APIRouter(
         },
     },
 )
-async def list_audit_logs(
+def list_audit_logs(
     limit: int = Query(
         default=50,
         ge=1,

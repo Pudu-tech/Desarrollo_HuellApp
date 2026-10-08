@@ -73,8 +73,14 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
       selected ? 'Curso actualizado correctamente.' : 'Curso creado correctamente.',
       (updated) => {
         state.setItems((items) => selected ? items.map((item) => item.id === updated.id ? updated : item) : [...items, updated])
-        setSelected(updated)
-        setForm(toForm(updated))
+        if (selected) {
+          setSelected(updated)
+          setForm(toForm(updated))
+        } else {
+          setSelected(null)
+          setForm(emptyForm())
+          setShowForm(false)
+        }
       },
     )
   }

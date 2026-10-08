@@ -23,7 +23,7 @@ def proyectar_ramo(row: dict) -> dict:
 
 
 @router.get("", response_model=CatalogoAcademico)
-async def consultar_catalogo(_actor: AuthenticatedUser = Depends(require_permission("VIEW_ACADEMIC_CATALOG"))):
+def consultar_catalogo(_actor: AuthenticatedUser = Depends(require_permission("VIEW_ACADEMIC_CATALOG"))):
     try:
         db = get_supabase_client()
         def recursos(table, extra=""):
@@ -84,26 +84,26 @@ def ejecutar_operacion(entidad, accion, registro_id, datos, actor, request):
 
 
 @router.post("/{entidad}", response_model=RecursoAcademicoItem, status_code=201)
-async def crear_recurso(entidad: Entidad, datos: RecursoAcademicoDatos, request: Request,
+def crear_recurso(entidad: Entidad, datos: RecursoAcademicoDatos, request: Request,
                         actor: AuthenticatedUser = Depends(require_permission("CREATE_ACADEMIC_CATALOG"))):
     return ejecutar_operacion(entidad, "CREATE", None, datos, actor, request)
 
 
 @router.put("/{entidad}/{registro_id}", response_model=RecursoAcademicoItem)
-async def editar_recurso(entidad: Entidad, registro_id: UUID, datos: RecursoAcademicoDatos, request: Request,
+def editar_recurso(entidad: Entidad, registro_id: UUID, datos: RecursoAcademicoDatos, request: Request,
                          actor: AuthenticatedUser = Depends(require_permission("UPDATE_ACADEMIC_CATALOG"))):
     return ejecutar_operacion(entidad, "UPDATE", registro_id, datos, actor, request)
 
 
 @router.patch("/{entidad}/{registro_id}/{accion}", response_model=RecursoAcademicoItem)
-async def cambiar_estado(entidad: Entidad, registro_id: UUID, accion: Literal["activate", "deactivate"], request: Request,
+def cambiar_estado(entidad: Entidad, registro_id: UUID, accion: Literal["activate", "deactivate"], request: Request,
                          actor: AuthenticatedUser = Depends(get_current_user)):
     # Dependencia parametrizada: usa exactamente el permiso de la acción solicitada.
-    await require_permission(accion.upper() + "_ACADEMIC_CATALOG")(actor)
+    require_permission(accion.upper() + "_ACADEMIC_CATALOG")(actor)
     return ejecutar_operacion(entidad, accion.upper(), registro_id, None, actor, request)
 
 
 @router.delete("/{entidad}/{registro_id}", status_code=204)
-async def eliminar_recurso(entidad: Entidad, registro_id: UUID, request: Request,
+def eliminar_recurso(entidad: Entidad, registro_id: UUID, request: Request,
                           actor: AuthenticatedUser = Depends(require_permission("DELETE_ACADEMIC_CATALOG"))):
     ejecutar_operacion(entidad, "DELETE", registro_id, None, actor, request)

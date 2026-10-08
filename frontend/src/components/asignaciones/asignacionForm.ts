@@ -12,7 +12,7 @@ export function validarAsignacion(payload: AsignacionPayload, codigo: string): s
   if (payload.hora_fin <= payload.hora_inicio) return 'La hora de término debe ser posterior a la hora de inicio.'
   if (!payload.participantes.length || payload.participantes.some((item) => !item.usuario_id || !item.tipo_participacion_id)) return 'Selecciona al menos un participante y su tipo de participación.'
   if (new Set(payload.participantes.map((item) => item.usuario_id)).size !== payload.participantes.length) return 'No puedes repetir un participante.'
-  if (payload.contactos.length > 2 || new Set(payload.contactos.map((item) => item.contacto_colegio_id)).size !== payload.contactos.length) return 'Selecciona como máximo dos contactos diferentes.'
+  if (new Set(payload.contactos.map((item) => item.contacto_colegio_id)).size !== payload.contactos.length) return 'Selecciona contactos diferentes.'
   if (TIPOS_ESCOLARES.has(codigo)) {
     if (!payload.colegio_id || !payload.contactos.length) return 'Selecciona un colegio y al menos una persona de contacto.'
     if (payload.lugar) return 'Las actividades escolares no admiten un lugar independiente.'

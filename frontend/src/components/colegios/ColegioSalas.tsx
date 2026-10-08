@@ -61,8 +61,14 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
       selected ? 'Sala actualizada correctamente.' : 'Sala creada correctamente.',
       (updated) => {
         state.setItems((items) => selected ? items.map((item) => item.id === updated.id ? updated : item) : [...items, updated])
-        setSelected(updated)
-        setForm(toForm(updated))
+        if (selected) {
+          setSelected(updated)
+          setForm(toForm(updated))
+        } else {
+          setSelected(null)
+          setForm(emptyForm())
+          setShowForm(false)
+        }
       },
     )
   }

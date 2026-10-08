@@ -26,8 +26,8 @@ se revierten. Los enlaces anteriores no pueden responder la nueva versión.
 El correo nuevo dice **Asignación actualizada en HuellApp** y tiene la tarjeta
 blanca, logo, teal y coral de recuperación de contraseña. La página pública usa
 `auth-pages.css` junto con estilos específicos de invitación. El correo usa
-tablas y estilos inline. El logo apunta al FRONTEND_URL configurado; debe ser
-una URL pública para que clientes de correo remotos lo carguen. En localhost,
+tablas y estilos inline. El logo usa BREVO_EMAIL_LOGO_URL, por defecto el PNG
+público del sitio oficial de Fundación Huella, independientemente de FRONTEND_URL. En localhost,
 algunos clientes lo bloquean; el nombre HuellApp sigue visible.
 
 Tras aplicar 048, reiniciar API y worker. Las invitaciones nuevas usan la nueva

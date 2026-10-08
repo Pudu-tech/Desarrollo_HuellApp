@@ -47,6 +47,17 @@ class NotificationTests(unittest.TestCase):
         self.assertIn('&lt;script&gt;', payload['htmlContent'])
         self.assertIn('/responder-participacion#token=', payload['htmlContent'])
         self.assertEqual(payload['headers']['idempotencyKey'], 'delivery-id')
+        self.assertNotIn('src="http://localhost', payload['htmlContent'])
+        self.assertIn('https://www.fundacionhuella.cl/web/image/website/1/logo?mimetype=image/png', payload['htmlContent'])
+
+    def test_logo_configurado_no_depende_del_frontend_local(self):
+        self.settings.brevo_email_logo_url = 'https://assets.example.org/logo-huella.png'
+        with patch.object(service, 'get_settings', return_value=self.settings):
+            payload = worker.build_message(self.settings, self.notification, self.own,
+                                          {'email': 'participant@example.org', 'nombres': 'Persona'}, 'delivery-id')
+        self.assertIn('src="https://assets.example.org/logo-huella.png"', payload['htmlContent'])
+        self.assertNotIn('/web/image/', payload['htmlContent'])
+        self.assertNotIn('src="http://localhost', payload['htmlContent'])
 
     def test_body_no_admite_actor_canal_y_rechazo_requiere_motivo(self):
         with self.assertRaises(ValidationError):

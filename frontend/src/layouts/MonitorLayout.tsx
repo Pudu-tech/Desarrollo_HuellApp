@@ -21,11 +21,11 @@
  */
 
 import {
-  Outlet,
   useNavigate,
 } from 'react-router-dom'
 
 import Sidebar from '../components/navigation/Sidebar'
+import SectionOutlet from '../components/navigation/SectionOutlet'
 
 import { useAuth } from '../contexts/AuthContext'
 
@@ -80,7 +80,7 @@ function MonitorLayout() {
       />
 
       <main className="app-content">
-        <Outlet />
+        <SectionOutlet />
       </main>
     </div>
   )

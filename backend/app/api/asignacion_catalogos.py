@@ -6,6 +6,7 @@ Los catálogos de lectura conservan nombres de colegios eliminados para que
 las asignaciones históricas sigan siendo comprensibles.
 """
 from uuid import UUID
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import require_permission
 from app.core.supabase import get_supabase_client
@@ -28,7 +29,7 @@ def _datos(query) -> list[dict]:
 
 
 @router.get("", response_model=CatalogosAsignacion)
-async def listar_catalogos_asignaciones(
+def listar_catalogos_asignaciones(
     actor: AuthenticatedUser = Depends(require_permission("VIEW_ASSIGNMENTS")),
 ) -> CatalogosAsignacion:
     """Consulta nombres para gestión; MONITOR conserva su flujo propio."""
@@ -36,20 +37,42 @@ async def listar_catalogos_asignaciones(
         raise HTTPException(403, "Estos catálogos corresponden a la gestión de asignaciones.")
     try:
         db = get_supabase_client()
-        return CatalogosAsignacion.model_validate({
-            "tipos_actividad": _datos(db.table("tipos_actividad").select("id,codigo,nombre").order("nombre")),
-            "estados": _datos(db.table("estados_asignacion").select("id,codigo,nombre").order("orden")),
-            "colegios": _datos(db.table("colegios").select("id,nombre").order("nombre")),
-        })
+        queries = {
+            "tipos_actividad": db.table("tipos_actividad").select("id,codigo,nombre").order("nombre"),
+            "estados": db.table("estados_asignacion").select("id,codigo,nombre").order("orden"),
+            "colegios": db.table("colegios").select("id,nombre").order("nombre"),
+        }
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            futures = {key: executor.submit(_datos, query) for key, query in queries.items()}
+            data = {key: future.result() for key, future in futures.items()}
+        return CatalogosAsignacion.model_validate(data)
     except Exception as exc:
         raise HTTPException(500, "No fue posible cargar los catálogos de asignaciones.") from exc
 
 
 @router.get("/creacion", response_model=OpcionesCreacionAsignacion)
-async def listar_opciones_creacion(
+def listar_opciones_creacion(
     actor: AuthenticatedUser = Depends(require_permission("CREATE_ASSIGNMENT")),
 ) -> OpcionesCreacionAsignacion:
     return _opciones_formulario(actor, filtrar_tipos=True)
+
+
+@router.get('/reasignacion/participantes')
+def opciones_reasignacion(_actor: AuthenticatedUser = Depends(require_permission('REASSIGN_ASSIGNMENT'))):
+    rows = _datos(get_supabase_client().table('usuarios').select('id,nombres,apellido_paterno,apellido_materno,roles!inner(codigo)')
+                  .eq('activo', True).is_('deleted_at', 'null').eq('roles.codigo', 'MONITOR').order('nombres'))
+    return [{key: user.get(key) for key in ('id', 'nombres', 'apellido_paterno', 'apellido_materno')} for user in rows]
+
+
+@router.get('/gestion-participantes')
+def opciones_gestion_participantes(_actor: AuthenticatedUser = Depends(require_permission('REASSIGN_ASSIGNMENT'))):
+    db = get_supabase_client()
+    users = _datos(db.table('usuarios').select('id,nombres,apellido_paterno,apellido_materno,roles!inner(codigo)')
+                   .eq('activo', True).is_('deleted_at', 'null').in_('roles.codigo', ['DIRECTIVA', 'COORDINADOR', 'MONITOR']).order('nombres'))
+    return {
+        'participantes': [{key: person.get(key) for key in ('id', 'nombres', 'apellido_paterno', 'apellido_materno')} for person in users],
+        'tipos_participacion': _datos(db.table('tipos_participacion').select('id,codigo,nombre').eq('activo', True).order('nombre')),
+    }
 
 
 def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> OpcionesCreacionAsignacion:
@@ -87,23 +110,23 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
 
 
 @router.get("/edicion", response_model=OpcionesCreacionAsignacion)
-async def opciones_edicion(actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
+def opciones_edicion(actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
     """El tipo queda fijo al editar; no exige privilegios de creación."""
     return _opciones_formulario(actor, filtrar_tipos=False)
 
 
 @router.get("/edicion/colegios/{colegio_id}", response_model=OpcionesColegioAsignacion)
-async def recursos_edicion(colegio_id: UUID, actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
-    return await listar_recursos_colegio_asignacion(colegio_id, actor)
+def recursos_edicion(colegio_id: UUID, actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
+    return listar_recursos_colegio_asignacion(colegio_id, actor)
 
 
 @router.get("/edicion/ramos/{ramo_id}/espacios", response_model=OpcionesEspaciosAsignacion)
-async def espacios_edicion(ramo_id: UUID, actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
-    return await listar_espacios_asignacion(ramo_id, actor)
+def espacios_edicion(ramo_id: UUID, actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
+    return listar_espacios_asignacion(ramo_id, actor)
 
 
 @router.get("/colegios/{colegio_id}", response_model=OpcionesColegioAsignacion)
-async def listar_recursos_colegio_asignacion(
+def listar_recursos_colegio_asignacion(
     colegio_id: UUID,
     _actor: AuthenticatedUser = Depends(require_permission("CREATE_ASSIGNMENT")),
 ) -> OpcionesColegioAsignacion:
@@ -126,7 +149,7 @@ async def listar_recursos_colegio_asignacion(
 
 
 @router.get("/ramos/{ramo_id}/espacios", response_model=OpcionesEspaciosAsignacion)
-async def listar_espacios_asignacion(
+def listar_espacios_asignacion(
     ramo_id: UUID,
     _actor: AuthenticatedUser = Depends(require_permission("CREATE_ASSIGNMENT")),
 ) -> OpcionesEspaciosAsignacion:

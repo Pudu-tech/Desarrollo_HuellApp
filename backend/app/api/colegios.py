@@ -259,7 +259,7 @@ def _validar_relaciones_colegio(
         },
     },
 )
-async def listar_colegios(
+def listar_colegios(
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_SCHOOLS")
     ),
@@ -320,7 +320,7 @@ async def listar_colegios(
         },
     },
 )
-async def obtener_colegio(
+def obtener_colegio(
     colegio_id: UUID,
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_SCHOOLS")
@@ -379,7 +379,7 @@ async def obtener_colegio(
         500: {"description": "Error interno al crear el colegio."},
     },
 )
-async def crear_colegio(
+def crear_colegio(
     request: Request,
     payload: ColegioCreate,
     current_user: AuthenticatedUser = Depends(
@@ -489,7 +489,7 @@ async def crear_colegio(
         500: {"description": "Error interno al actualizar el colegio."},
     },
 )
-async def actualizar_colegio(
+def actualizar_colegio(
     request: Request,
     colegio_id: UUID,
     payload: ColegioUpdate,
@@ -652,7 +652,7 @@ async def actualizar_colegio(
         500: {"description": "Error interno al activar el colegio."},
     },
 )
-async def activar_colegio(
+def activar_colegio(
     request: Request,
     colegio_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -741,7 +741,7 @@ async def activar_colegio(
         500: {"description": "Error interno al desactivar el colegio."},
     },
 )
-async def desactivar_colegio(
+def desactivar_colegio(
     request: Request,
     colegio_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -826,7 +826,7 @@ async def desactivar_colegio(
         500: {"description": "Error interno al eliminar el colegio."},
     },
 )
-async def eliminar_colegio(
+def eliminar_colegio(
     request: Request,
     colegio_id: UUID,
     current_user: AuthenticatedUser = Depends(

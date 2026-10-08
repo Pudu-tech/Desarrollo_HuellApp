@@ -25,6 +25,8 @@ import type {
   UserUpdatePayload,
 } from '../../types/users'
 import { useConfirmation } from '../../hooks/useConfirmation'
+import { useAuth } from '../../contexts/AuthContext'
+import { resendPasswordInvitation } from '../../services/usersService'
 
 
 interface UserEditFormProps {
@@ -105,6 +107,7 @@ function UserEditForm({
   onCancel,
 }: UserEditFormProps) {
   const { confirm, confirmationDialog } = useConfirmation()
+  const { user: actor } = useAuth()
   const [form, setForm] =
     useState<EditFormState>(() =>
       createFormState(user),
@@ -129,6 +132,7 @@ function UserEditForm({
       | 'role'
       | 'status'
       | 'delete'
+      | 'invitation'
       | null
     >(null)
 
@@ -140,18 +144,32 @@ function UserEditForm({
 
 
   useEffect(() => {
-    setCurrentUser(user)
-    setForm(createFormState(user))
-    setShowEmailEditor(false)
-    setNewEmail('')
-    setConfirmEmail('')
-    setError(null)
-    setSuccess(null)
+    let active = true
+    void Promise.resolve().then(() => {
+      if (!active) return
+      setCurrentUser(user)
+      setForm(createFormState(user))
+      setShowEmailEditor(false)
+      setNewEmail('')
+      setConfirmEmail('')
+      setError(null)
+      setSuccess(null)
+    })
+    return () => { active = false }
   }, [user])
 
 
   const isLoading =
     loadingAction !== null
+
+  async function sendInvitation() {
+    if (!await confirm({ title: 'Enviar nueva invitación', confirmLabel: 'Enviar correo',
+      message: `Se enviará a ${currentUser.email} un enlace para establecer o restablecer su contraseña.` })) return
+    setLoadingAction('invitation'); setError(null); setSuccess(null)
+    try { await resendPasswordInvitation(currentUser.id); setSuccess('Correo de recuperación solicitado. El usuario debe abrir el enlace nuevo.') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible enviar la invitación.') }
+    finally { setLoadingAction(null) }
+  }
 
 
   const updateField = <
@@ -481,6 +499,9 @@ function UserEditForm({
   return (
     <section className="users-editor">
       {confirmationDialog}
+      {['SUPERADMIN', 'DIRECTIVA'].includes(actor?.role_code ?? '') && !(actor?.role_code === 'DIRECTIVA' && currentUser.roles.codigo === 'SUPERADMIN') &&
+        <div className="users-form-section"><h4>Acceso y contraseña</h4><p>Envía un enlace nuevo si la invitación anterior venció o falló.</p>
+          <button type="button" className="users-secondary" disabled={isLoading || !currentUser.activo} onClick={() => void sendInvitation()}>{loadingAction === 'invitation' ? 'Enviando…' : 'Enviar nueva invitación'}</button></div>}
       <h3>
         Editar usuario
       </h3>

@@ -24,7 +24,7 @@ class SchoolManagementTests(unittest.IsolatedAsyncioTestCase):
         level = {"id": str(uuid4()), "codigo": "NIVEL_TEST", "nombre": "Nivel de prueba", "orden": 1}
         client.table.return_value.select.return_value.eq.return_value.order.return_value.execute.return_value.data = [level]
         with patch.object(catalogos, "get_supabase_client", return_value=client):
-            items = await catalogos.listar_niveles_curso(SimpleNamespace())
+            items = catalogos.listar_niveles_curso(SimpleNamespace())
         client.table.assert_called_once_with("niveles_curso")
         client.table.return_value.select.return_value.eq.assert_called_once_with("activo", True)
         client.table.return_value.select.return_value.eq.return_value.order.assert_called_once_with("orden")
@@ -44,10 +44,10 @@ class SchoolManagementTests(unittest.IsolatedAsyncioTestCase):
             client.rpc.return_value.execute.return_value.data = result
             with patch.object(colegios, "get_supabase_client", return_value=client):
                 if expected is None:
-                    self.assertIsNone(await colegios.eliminar_colegio(request, school, SimpleNamespace(id=actor)))
+                    self.assertIsNone(colegios.eliminar_colegio(request, school, SimpleNamespace(id=actor)))
                 else:
                     with self.assertRaises(HTTPException) as error:
-                        await colegios.eliminar_colegio(request, school, SimpleNamespace(id=actor))
+                        colegios.eliminar_colegio(request, school, SimpleNamespace(id=actor))
                     self.assertEqual(error.exception.status_code, expected)
             name, params = client.rpc.call_args.args
             self.assertEqual(name, "eliminar_colegio_atomico")

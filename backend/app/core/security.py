@@ -31,7 +31,7 @@ bearer_scheme = HTTPBearer(
 )
 
 
-async def get_current_user(
+def get_current_user(
     credentials: HTTPAuthorizationCredentials | None = Depends(
         bearer_scheme
     ),
@@ -96,7 +96,7 @@ async def get_current_user(
                 apellido_paterno,
                 activo,
                 deleted_at,
-                roles!inner(codigo)
+                roles!inner(codigo,rol_permiso(permisos(codigo,activo)))
                 """
             )
             .eq(
@@ -150,6 +150,10 @@ async def get_current_user(
                 "apellido_paterno"
             ],
             role_code=role_data["codigo"],
+            effective_permissions=frozenset(
+                permission["codigo"] for relation in (role_data.get("rol_permiso") or [])
+                if (permission := relation.get("permisos")) and permission.get("activo")
+            ),
         )
 
     except HTTPException:
@@ -182,7 +186,7 @@ def require_permission(
     - No se confía en permisos enviados por frontend.
     """
 
-    async def permission_dependency(
+    def permission_dependency(
         current_user: AuthenticatedUser = Depends(
             get_current_user
         ),
@@ -192,55 +196,10 @@ def require_permission(
         el permiso requerido.
         """
 
-        supabase = get_supabase_client()
-
-        try:
-            response = (
-                supabase.table("roles")
-                .select(
-                    """
-                    id,
-                    rol_permiso!inner(
-                        permisos!inner(codigo,activo)
-                    )
-                    """
-                )
-                .eq(
-                    "codigo",
-                    current_user.role_code,
-                )
-                .eq(
-                    "rol_permiso.permisos.codigo",
-                    permission_code,
-                )
-                .eq("rol_permiso.permisos.activo", True)
-                .limit(1)
-                .execute()
-            )
-
-            if not response.data:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=(
-                        "No posee permisos para "
-                        "realizar esta acción."
-                    ),
-                )
-
-            return current_user
-
-        except HTTPException:
-            raise
-
-        except Exception:
-            raise HTTPException(
-                status_code=(
-                    status.HTTP_500_INTERNAL_SERVER_ERROR
-                ),
-                detail=(
-                    "No fue posible validar los "
-                    "permisos del usuario."
-                ),
-            )
+        # El perfil y los permisos se consultan juntos en esta misma solicitud.
+        # No se cachean entre solicitudes: una revocación se aplica en la siguiente.
+        if permission_code not in current_user.effective_permissions:
+            raise HTTPException(403, "No posee permisos para realizar esta acción.")
+        return current_user
 
     return permission_dependency

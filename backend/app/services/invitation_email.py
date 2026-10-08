@@ -5,11 +5,14 @@ Tablas y estilos inline para clientes de correo. Escapa todos los datos y URLs.
 from html import escape
 
 
-def render_invitation_email(frontend_url, title, fields, accept_url, reject_url):
+DEFAULT_EMAIL_LOGO_URL = 'https://www.fundacionhuella.cl/web/image/website/1/logo?mimetype=image/png'
+
+
+def render_invitation_email(frontend_url, title, fields, accept_url, reject_url, logo_url=None):
     rows=''.join(f'<tr><td style="padding:8px 0;color:#245f6b;font-size:13px">{escape(str(label))}</td>'
                 f'<td style="padding:8px 0 8px 16px;color:#111111;font-size:14px">{escape(str(value))}</td></tr>'
                 for label,value in fields if value)
-    logo=escape(frontend_url+'/logo-huella.png',quote=True)
+    logo=escape(logo_url or DEFAULT_EMAIL_LOGO_URL,quote=True)
     return f'''<!doctype html><html lang="es"><body style="margin:0;padding:24px;background:#f4f6f7;font-family:Arial,sans-serif">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #dbe3e6;border-radius:18px">

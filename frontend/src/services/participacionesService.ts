@@ -8,6 +8,7 @@ export interface ParticipacionPropia {
   colegio: string | null; curso: string | null; sala: string | null; asignatura: string | null
   lugar: string | null; observacion: string | null; admite_respuesta: boolean
   espacio: string | null; tipo_participacion: string | null
+  recibida_at: string | null; actualizada_at: string | null; ultima_invitacion_at: string | null
 }
 export interface RespuestaParticipacion { accion: 'ACCEPT' | 'REJECT'; motivo: string | null }
 export interface ResultadoRespuesta { estado: string; ya_respondida: boolean }

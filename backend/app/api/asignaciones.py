@@ -127,6 +127,34 @@ router = APIRouter(
 )
 
 
+@router.delete("/{asignacion_id}", status_code=status.HTTP_204_NO_CONTENT)
+def eliminar_asignacion(request: Request, asignacion_id: UUID,
+                              current_user: AuthenticatedUser = Depends(require_permission("DELETE_ASSIGNMENT"))) -> None:
+    """Retira la asignación preservando su historial; solo administradores."""
+    if current_user.role_code not in {"SUPERADMIN", "DIRECTIVA"}:
+        raise HTTPException(403, "Solo Superadmin y Directiva pueden eliminar asignaciones.")
+    try:
+        request_id = getattr(request.state, "request_id", None)
+        result = get_supabase_client().rpc("eliminar_asignacion_atomica", {
+            "p_asignacion_id": str(asignacion_id), "p_actor_user_id": str(current_user.id),
+            "p_request_id": str(request_id) if request_id else None,
+            "p_ip_address": request.client.host if request.client else None,
+            "p_user_agent": request.headers.get("user-agent"),
+        }).execute().data
+        if not isinstance(result, dict):
+            raise RuntimeError("Respuesta de eliminación inválida")
+        if result.get("ok") is not True:
+            if result.get("error_code") == "NOT_FOUND":
+                raise HTTPException(404, "La asignación no existe o ya fue eliminada.")
+            if result.get("error_code") in {"FORBIDDEN", "ACTOR_NOT_FOUND"}:
+                raise HTTPException(403, "No puedes eliminar esta asignación.")
+            raise RuntimeError("Eliminación no completada")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, "No fue posible eliminar la asignación.")
+
+
 # ============================================================
 # CAMPOS CONSULTADOS
 # ============================================================
@@ -168,6 +196,28 @@ CONTACTO_ASIGNACION_SELECT = """
 id,
 contacto_colegio_id
 """
+
+PARTICIPANTE_DETALLE_SELECT = PARTICIPANTE_SELECT + """,
+usuario:usuarios!usuario_id(nombres,apellido_paterno,apellido_materno),
+tipo:tipos_participacion!tipo_participacion_id(nombre),
+estado:estados_participacion!estado_participacion_id(codigo,nombre)
+"""
+
+
+def _participante_detalle(item: dict) -> dict:
+    usuario = item.get("usuario") or {}
+    estado = item.get("estado") or {}
+    return {**item,
+            "usuario_nombre": " ".join(filter(None, [usuario.get("nombres"), usuario.get("apellido_paterno"), usuario.get("apellido_materno")])) or None,
+            "tipo_participacion_nombre": (item.get("tipo") or {}).get("nombre"),
+            "estado_participacion_codigo": estado.get("codigo"),
+            "estado_participacion_nombre": estado.get("nombre")}
+
+
+def _por_reasignar(item: dict, participantes: list[dict]) -> bool:
+    activos = [p for p in participantes if p.get("activo") and not p.get("deleted_at")]
+    return bool(item.get("activo") and (item.get("estado") or {}).get("codigo") == "PENDIENTE"
+                and len(activos) == 1 and (activos[0].get("estado") or {}).get("codigo") == "RECHAZADA")
 
 
 ASISTENCIA_SELECT = """
@@ -1087,7 +1137,7 @@ def _obtener_detalle_asignacion(
 
     response = (
         supabase.table("asignaciones")
-        .select(ASIGNACION_SELECT)
+        .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo)")
         .eq("id", str(asignacion_id))
         .is_("deleted_at", "null")
         .limit(1)
@@ -1102,7 +1152,7 @@ def _obtener_detalle_asignacion(
 
     participantes_response = (
         supabase.table("asignacion_participantes")
-        .select(PARTICIPANTE_SELECT)
+        .select(PARTICIPANTE_DETALLE_SELECT)
         .eq("asignacion_id", str(asignacion_id))
         .eq("activo", True)
         .is_("deleted_at", "null")
@@ -1119,8 +1169,9 @@ def _obtener_detalle_asignacion(
     return AsignacionDetail.model_validate(
         {
             **response.data[0],
+            "por_reasignar": _por_reasignar(response.data[0], participantes_response.data or []),
             "participantes": [
-                ParticipanteSummary.model_validate(item)
+                ParticipanteSummary.model_validate(_participante_detalle(item))
                 for item in (participantes_response.data or [])
             ],
             "contactos": [
@@ -1479,7 +1530,7 @@ def _obtener_asistencia_actualizada(
     "",
     response_model=list[AsignacionListItem],
 )
-async def listar_asignaciones(
+def listar_asignaciones(
     tipo_actividad_id: UUID | None = None,
     colegio_id: UUID | None = None,
     estado_id: UUID | None = None,
@@ -1499,7 +1550,7 @@ async def listar_asignaciones(
     try:
         query = (
             supabase.table("asignaciones")
-            .select(ASIGNACION_SELECT)
+            .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,estado:estados_participacion!estado_participacion_id(codigo))")
             .is_("deleted_at", "null")
         )
 
@@ -1558,7 +1609,7 @@ async def listar_asignaciones(
         )
 
         return [
-            AsignacionListItem.model_validate(item)
+            AsignacionListItem.model_validate({**item, "por_reasignar": _por_reasignar(item, item.get("participaciones") or [])})
             for item in (response.data or [])
         ]
 
@@ -1577,11 +1628,27 @@ async def listar_asignaciones(
 # ============================================================
 
 
+@router.get("/resumen")
+def resumen_asignaciones(current_user: AuthenticatedUser = Depends(require_permission("VIEW_ASSIGNMENTS"))):
+    """Carga administrativa en una petición autenticada, sin repetir identidad/permisos."""
+    from app.api.asignacion_catalogos import listar_catalogos_asignaciones
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        listado = executor.submit(listar_asignaciones, current_user=current_user)
+        catalogos = executor.submit(listar_catalogos_asignaciones, current_user)
+        items, opciones = listado.result(), catalogos.result()
+    return {
+        "items": items,
+        "catalogos": opciones,
+        "permissions": sorted(current_user.effective_permissions),
+    }
+
+
 @router.get(
     "/{asignacion_id}",
     response_model=AsignacionDetail,
 )
-async def obtener_asignacion(
+def obtener_asignacion(
     asignacion_id: UUID,
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_ASSIGNMENTS")
@@ -1640,7 +1707,7 @@ async def obtener_asignacion(
     "/{asignacion_id}",
     response_model=AsignacionDetail,
 )
-async def actualizar_asignacion(
+def actualizar_asignacion(
     request: Request,
     asignacion_id: UUID,
     payload: AsignacionUpdate,
@@ -1873,7 +1940,7 @@ async def actualizar_asignacion(
     "/{asignacion_id}/cancelar",
     response_model=AsignacionDetail,
 )
-async def cancelar_asignacion(
+def cancelar_asignacion(
     request: Request,
     asignacion_id: UUID,
     payload: AsignacionCancelacionRequest,
@@ -1998,7 +2065,7 @@ async def cancelar_asignacion(
     "/{asignacion_id}/reabrir",
     response_model=AsignacionDetail,
 )
-async def reabrir_asignacion(
+def reabrir_asignacion(
     request: Request,
     asignacion_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -2164,7 +2231,7 @@ async def reabrir_asignacion(
     response_model=ParticipanteSummary,
     status_code=status.HTTP_201_CREATED,
 )
-async def agregar_participante(
+def agregar_participante(
     request: Request,
     asignacion_id: UUID,
     payload: ParticipanteCreate,
@@ -2364,7 +2431,7 @@ async def agregar_participante(
     "/{asignacion_id}/participantes/{participante_id}",
     response_model=ParticipanteSummary,
 )
-async def quitar_participante(
+def quitar_participante(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -2517,7 +2584,7 @@ async def quitar_participante(
     "/{asignacion_id}/participantes/{participante_id}/tipo",
     response_model=ParticipanteSummary,
 )
-async def cambiar_tipo_participacion(
+def cambiar_tipo_participacion(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -2714,7 +2781,7 @@ async def cambiar_tipo_participacion(
     response_model=ParticipanteSummary,
     status_code=status.HTTP_201_CREATED,
 )
-async def reasignar_participante(
+def reasignar_participante(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -2914,7 +2981,7 @@ async def reasignar_participante(
     response_model=AsignacionDetail,
     status_code=status.HTTP_201_CREATED,
 )
-async def crear_asignacion(
+def crear_asignacion(
     request: Request,
     payload: AsignacionCreate,
     current_user: AuthenticatedUser = Depends(
@@ -3151,7 +3218,7 @@ async def crear_asignacion(
     "/{asignacion_id}/participaciones/{participante_id}/aceptar",
     response_model=ParticipanteSummary,
 )
-async def aceptar_participacion(
+def aceptar_participacion(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -3312,7 +3379,7 @@ async def aceptar_participacion(
     "/{asignacion_id}/participaciones/{participante_id}/rechazar",
     response_model=ParticipanteSummary,
 )
-async def rechazar_participacion(
+def rechazar_participacion(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -3494,7 +3561,7 @@ async def rechazar_participacion(
     response_model=ParticipanteSummary,
     status_code=status.HTTP_201_CREATED,
 )
-async def reabrir_participacion(
+def reabrir_participacion(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -3696,7 +3763,7 @@ async def reabrir_participacion(
     "/{asignacion_id}/participaciones/{participante_id}/asistencia",
     response_model=AsistenciaSummary,
 )
-async def registrar_asistencia_propia(
+def registrar_asistencia_propia(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,
@@ -3933,7 +4000,7 @@ async def registrar_asistencia_propia(
     "/{asignacion_id}/participaciones/{participante_id}/asistencia/regularizar",
     response_model=AsistenciaSummary,
 )
-async def regularizar_asistencia(
+def regularizar_asistencia(
     request: Request,
     asignacion_id: UUID,
     participante_id: UUID,

@@ -185,7 +185,7 @@ def _obtener_colegio_activo(
         },
     },
 )
-async def listar_salas(
+def listar_salas(
     colegio_id: UUID | None = None,
     activo: bool | None = None,
     current_user: AuthenticatedUser = Depends(
@@ -265,7 +265,7 @@ async def listar_salas(
         },
     },
 )
-async def obtener_sala(
+def obtener_sala(
     sala_id: UUID,
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_ROOMS")
@@ -329,7 +329,7 @@ async def obtener_sala(
         500: {"description": "Error interno al crear la sala."},
     },
 )
-async def crear_sala(
+def crear_sala(
     request: Request,
     payload: SalaCreate,
     current_user: AuthenticatedUser = Depends(
@@ -448,7 +448,7 @@ async def crear_sala(
         500: {"description": "Error interno al actualizar la sala."},
     },
 )
-async def actualizar_sala(
+def actualizar_sala(
     request: Request,
     sala_id: UUID,
     payload: SalaUpdate,
@@ -575,7 +575,7 @@ async def actualizar_sala(
         500: {"description": "Error interno al activar la sala."},
     },
 )
-async def activar_sala(
+def activar_sala(
     request: Request,
     sala_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -672,7 +672,7 @@ async def activar_sala(
         500: {"description": "Error interno al desactivar la sala."},
     },
 )
-async def desactivar_sala(
+def desactivar_sala(
     request: Request,
     sala_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -753,7 +753,7 @@ async def desactivar_sala(
         409: {"description": "Tiene asignaciones futuras activas."},
     },
 )
-async def eliminar_sala(
+def eliminar_sala(
     request: Request,
     sala_id: UUID,
     current_user: AuthenticatedUser = Depends(require_permission("DELETE_ROOM")),

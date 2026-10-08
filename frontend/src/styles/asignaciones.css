@@ -15,6 +15,10 @@
 .assignments-page label { display: flex; flex-direction: column; gap: 7px; font-size: 13px; font-weight: 600; color: #475569; }
 .assignments-page input, .assignments-page select, .assignments-page textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 10px 11px; font: inherit; font-size: 14px; font-weight: 400; color: #1f2937; background: #fff; border: 1px solid #cbd5e1; border-radius: 7px; }
 .assignments-page select:disabled { background: #f8fafc; color: #94a3b8; }
+.assignments-personal-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.assignments-personal-toolbar label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; color: #64748b; }
+.assignments-personal-toolbar select { width: auto; max-width: 100%; padding: 5px 8px; font-size: 12px; border-color: #e2e8f0; border-radius: 6px; }
+.assignments-personal-toolbar input[type="checkbox"] { width: 14px; height: 14px; margin: 0; padding: 0; }
 .assignments-page textarea { resize: vertical; }
 .assignments-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .assignments-form-section { border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 20px; }
@@ -43,6 +47,11 @@
 .assignments-success { background: #ecfdf5; color: #047857; }
 .assignments-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .assignments-detail-grid dt { color: #64748b; font-size: 13px; }
+.assignments-status--por_reasignar, .assignments-status--rechazada { background: #fef2f2; color: #b91c1c; }
+.assignments-status--aceptada { background: #ecfdf5; color: #047857; }
+.assignments-response-reason { max-width: 360px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.assignments-delete { margin-left: 12px; padding: 7px 10px; border: 1px solid #fecaca; border-radius: 7px; color: #b91c1c; background: #fff; font: inherit; cursor: pointer; }
+.assignments-delete:disabled { opacity: .6; cursor: wait; }
 .assignments-detail-grid dd { margin: 5px 0 0; overflow-wrap: anywhere; }
 @media (max-width: 800px) { .assignments-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 650px) { .assignments-heading, .assignments-panel-heading { flex-direction: column; align-items: flex-start; } .assignments-panel, .assignments-editor { padding: 16px; } .assignments-filters, .assignments-form-grid, .assignments-participant-row, .assignments-detail-grid { grid-template-columns: 1fr; } .assignments-table { min-width: 750px; } }

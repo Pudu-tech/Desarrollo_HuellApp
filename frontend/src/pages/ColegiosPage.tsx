@@ -1,3 +1,4 @@
+import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Mantenedor de colegios.
  *
@@ -81,24 +82,21 @@ function ColegiosPage() {
  * Carga colegios y catálogos en paralelo sin ocultar errores parciales.
  */
   const loadData = async () => {
-    const [schools, regions, types] = await Promise.allSettled([
-      getColegios(), getRegiones(), getTiposDependencia(),
-    ])
-    if (schools.status === 'fulfilled') {
-      setColegios(schools.value)
-    } else {
-      setError(getErrorMessage(schools.reason))
-    }
+    const schools = getColegios().then(setColegios)
+      .catch((cause: unknown) => setError(getErrorMessage(cause)))
+      .finally(() => setLoading(false))
+    const [regions, types] = await Promise.allSettled([getRegiones(), getTiposDependencia()])
     if (regions.status === 'fulfilled') setRegiones(regions.value)
     if (types.status === 'fulfilled') setDependencias(types.value)
     if (regions.status === 'rejected' || types.status === 'rejected') {
       setCatalogError('No se pudieron cargar todos los catálogos. Reintenta para recuperar los filtros.')
     }
-    setLoading(false)
+    await schools
   }
 
   /** La recarga explícita restablece los mensajes fuera del efecto inicial. */
   const refreshData = () => {
+    clearReadCache()
     setLoading(true)
     setError(null)
     setCatalogError(null)
@@ -174,8 +172,8 @@ function ColegiosPage() {
     setLoadingComunas(false)
     setEstado('todos')
     setCreating(false)
-    // Los contactos requieren el UUID generado; abrir edición tras el alta.
-    setEditing(created)
+    setEditing(null)
+    setNotice('Colegio creado correctamente. Puedes abrir Editar para agregar sus contactos, cursos y salas.')
     return created
   }
 

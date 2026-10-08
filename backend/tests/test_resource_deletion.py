@@ -23,7 +23,7 @@ class ResourceDeletionTests(unittest.IsolatedAsyncioTestCase):
             client.rpc.return_value.execute.side_effect = failure
         with patch.object(module, "get_supabase_client", return_value=client):
             function = module.eliminar_curso if module is cursos else module.eliminar_sala
-            response = await function(request, resource_id, SimpleNamespace(id=actor_id))
+            response = function(request, resource_id, SimpleNamespace(id=actor_id))
         name, payload = client.rpc.call_args.args
         entity = "curso" if module is cursos else "sala"
         self.assertEqual(name, "eliminar_curso_atomico" if module is cursos else "eliminar_sala_atomica")

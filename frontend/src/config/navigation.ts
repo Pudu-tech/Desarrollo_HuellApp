@@ -60,7 +60,7 @@ export const ADMIN_NAVIGATION_ITEMS:
     {
       label: 'Catálogo académico',
       path: '/app/catalogo-academico',
-      allowedRoles: ['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'],
+      allowedRoles: ['SUPERADMIN', 'DIRECTIVA'],
     },
     {
       label: 'Mis asignaciones',
@@ -72,6 +72,7 @@ export const ADMIN_NAVIGATION_ITEMS:
       path: '/app/auditoria',
       allowedRoles: [
         'SUPERADMIN',
+        'DIRECTIVA',
       ],
     },
   ]

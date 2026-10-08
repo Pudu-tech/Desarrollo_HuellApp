@@ -1,3 +1,4 @@
+import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp
  * Mantenedor de usuarios.
@@ -94,7 +95,9 @@ function UsuariosPage() {
 
 
   useEffect(() => {
-    void loadUsers()
+    let active = true
+    void Promise.resolve().then(() => { if (active) return loadUsers() })
+    return () => { active = false }
   }, [])
 
 
@@ -404,7 +407,7 @@ function UsuariosPage() {
           <button
             type="button"
             className="users-secondary"
-            onClick={() => { void loadUsers() }}
+            onClick={() => { clearReadCache(); void loadUsers() }}
             disabled={loading}
           >
             Actualizar

@@ -1,3 +1,4 @@
+import { cachedFetch } from './readCache'
 /**
  * HuellApp · Cliente HTTP de colegios y catálogos.
  *
@@ -43,7 +44,7 @@ async function requestJson<T>(path: string): Promise<T> {
     throw new Error('Tu sesión no está disponible. Inicia sesión nuevamente.')
   }
 
-  const response = await fetch(`${apiUrl}${path}`, {
+  const response = await cachedFetch(`${apiUrl}${path}`, {
     method: 'GET',
     headers: {
       Authorization: `Bearer ${session.access_token}`,
@@ -87,7 +88,7 @@ export const getTiposDependencia = () =>
 async function writeColegio(method: 'POST' | 'PATCH', path: string, body?: object): Promise<ColegioListItem> {
   const { data: { session }, error } = await supabase.auth.getSession()
   if (error || !session?.access_token) throw new Error('Tu sesión no está disponible. Inicia sesión nuevamente.')
-  const response = await fetch(`${apiUrl}${path}`, {
+  const response = await cachedFetch(`${apiUrl}${path}`, {
     method,
     headers: {
       Authorization: `Bearer ${session.access_token}`,
@@ -139,7 +140,7 @@ export async function deleteColegio(id: string): Promise<void> {
     throw new Error('Tu sesión no está disponible. Inicia sesión nuevamente.')
   }
 
-  const response = await fetch(`${apiUrl}/colegios/${encodeURIComponent(id)}`, {
+  const response = await cachedFetch(`${apiUrl}/colegios/${encodeURIComponent(id)}`, {
     method: 'DELETE',
     headers: {
       Authorization: `Bearer ${session.access_token}`,

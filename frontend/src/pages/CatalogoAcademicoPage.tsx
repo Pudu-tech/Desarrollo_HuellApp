@@ -1,3 +1,4 @@
+import { clearReadCache } from '../services/readCache'
 /** HuellApp · Mantenedor transversal de asignaturas y sus espacios.
  * Respeta permisos efectivos, confirmaciones comunes e historial de asignaciones.
  */
@@ -86,7 +87,7 @@ export default function CatalogoAcademicoPage() {
     <nav className="academic-tabs" aria-label="Secciones del catálogo">{tabs.map((item) => <button key={item.key} aria-current={tab === item.key ? 'page' : undefined} disabled={busy || !!editor} onClick={() => { setTab(item.key); setSearch(''); setState(''); setNotice('') }}>{item.label}</button>)}</nav>
     {editor && data ? <RecursoAcademicoForm entidad={tab} recurso={editor.recurso} asignatura={subject} niveles={data.niveles} onSave={save} onCancel={() => setEditor(null)} /> : <div className="assignments-panel">
       <div className="assignments-panel-heading"><div><h2>{tabs.find((item) => item.key === tab)?.label}</h2><p>{loading ? 'Cargando…' : `${items.length} recursos`}</p></div>
-        <button className="assignments-secondary" disabled={busy || loading} onClick={() => { setLoading(true); setRevision((value) => value + 1) }}>Actualizar</button></div>
+        <button className="assignments-secondary" disabled={busy || loading} onClick={() => { clearReadCache(); setLoading(true); setRevision((value) => value + 1) }}>Actualizar</button></div>
       <div className="assignments-filters">
         {!isSubject && <label>Asignatura<select value={subjectId} disabled={!ready} onChange={(event) => setSubjectId(event.target.value)}><option value="">Seleccionar asignatura</option>{data?.asignaturas.map((item) => <option key={item.id} value={item.id}>{item.nombre}{!item.activo ? ' (inactiva)' : ''}</option>)}</select></label>}
         <label>Buscar<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre" /></label>

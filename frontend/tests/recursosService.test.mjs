@@ -13,6 +13,19 @@ import ts from 'typescript'
 
 const serviceDirectory = fileURLToPath(new URL('../src/services/', import.meta.url))
 
+test('Asistencia usa rutas propias y regularización auditada sin enviar actor', async () => {
+  const { service, requests } = await harness('asistenciasService')
+  await service.getAsistenciaPropia('assignment')
+  await service.reportAsistencia('assignment', 'participant', { estado: 'PRESENTE', latitud: -33, longitud: -70 })
+  await service.regularizarAsistencia('assignment', 'participant', { estado: 'AUSENTE', motivo: 'Enfermedad', motivo_regularizacion: 'Corrección solicitada' })
+  assert.equal(requests[0].url, 'https://test.local/asistencias/propia/assignment')
+  assert.equal(requests[1].method, 'POST')
+  assert.equal(requests[2].method, 'PATCH')
+  assert.equal(requests[2].url, 'https://test.local/asignaciones/assignment/participaciones/participant/asistencia/regularizar')
+  assert.equal(JSON.parse(requests[2].body).motivo_regularizacion, 'Corrección solicitada')
+  assert.equal(JSON.parse(requests[2].body).actor_user_id, undefined)
+})
+
 test('Quitar participante archiva solo la participación elegida mediante la API', async () => {
   const { service, requests } = await harness('asignacionesService')
   await service.removeParticipante('assignment', 'participant')

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import ParticipationCard from '../components/asignaciones/ParticipationCard'
+import AttendanceCard from '../components/asignaciones/AttendanceCard'
 import PersonalAssignmentInfo from '../components/asignaciones/PersonalAssignmentInfo'
 import { getMiParticipacion, type ParticipacionPropia } from '../services/participacionesService'
 import '../styles/asignaciones.css'
@@ -26,6 +27,6 @@ export default function MiParticipacionPage({ monitor = false }: { monitor?: boo
   return <section className="assignments-page"><header className="assignments-heading"><div><h1>Mi asignación</h1><p>Tu respuesta es la misma en todos los canales.</p></div>
     <Link className="assignments-action" to={monitor ? '/app/monitor/asignaciones' : '/app/mis-asignaciones'}>Volver a mis asignaciones</Link></header>
     <div className="assignments-panel">{!current ? <p role="status">Cargando…</p> : current.error ? <p className="assignments-error" role="alert">{current.error}</p>
-      : current.info && <><PersonalAssignmentInfo info={current.info} /><ParticipationCard key={current.info.invitacion_version} info={current.info} onUpdate={() => setRevision((value) => value + 1)} /></>}</div>
+      : current.info && <><PersonalAssignmentInfo info={current.info} /><ParticipationCard key={current.info.invitacion_version} info={current.info} onUpdate={() => setRevision((value) => value + 1)} /><AttendanceCard key={current.info.participante_id} info={current.info} /></>}</div>
   </section>
 }

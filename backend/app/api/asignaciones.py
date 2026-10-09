@@ -3975,6 +3975,9 @@ def registrar_asistencia_propia(
                 "la operación."
             )
 
+        from app.services.attendance_location import enrich_attendance
+        enrich_attendance(supabase, participante_id, payload.latitud, payload.longitud)
+
         return _obtener_asistencia_actualizada(
             supabase,
             participante_id=participante_id,
@@ -4024,6 +4027,9 @@ def regularizar_asistencia(
     La regularización administrativa no modifica las coordenadas GPS
     históricas almacenadas en la asistencia.
     """
+
+    if current_user.role_code not in ('SUPERADMIN', 'DIRECTIVA'):
+        raise HTTPException(403, 'Solo Superadmin y Directiva pueden regularizar asistencia.')
 
     supabase = get_supabase_client()
 

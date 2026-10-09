@@ -13,6 +13,7 @@
  */
 
 import type {
+  AppRole,
   NavigationItem,
 } from '../types/navigation'
 
@@ -76,6 +77,18 @@ export const ADMIN_NAVIGATION_ITEMS:
       ],
     },
   ]
+
+/** Mantiene Asistencia penúltima en el menú efectivo de cada rol. */
+export function navigationForRole(role: AppRole): NavigationItem[] {
+  const items = (role === 'MONITOR' ? MONITOR_NAVIGATION_ITEMS : ADMIN_NAVIGATION_ITEMS)
+    .filter((item) => item.allowedRoles.includes(role))
+  if (['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'].includes(role)) {
+    items.splice(Math.max(0, items.length - 1), 0, {
+      label: 'Asistencia', path: '/app/asistencia', allowedRoles: ['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'],
+    })
+  }
+  return items
+}
 
 
 // ============================================================

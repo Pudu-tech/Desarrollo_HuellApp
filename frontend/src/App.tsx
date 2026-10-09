@@ -64,6 +64,7 @@ import MonitorLayout from './layouts/MonitorLayout'
 const AccesoDenegadoPage = loadPage(() => import('./pages/AccesoDenegadoPage'))
 const AsignacionDetallePage = loadPage(() => import('./pages/AsignacionDetallePage'))
 const AsignacionesPage = loadPage(() => import('./pages/AsignacionesPage'))
+const AsistenciaPage = loadPage(() => import('./pages/AsistenciaPage'))
 const AuditoriaPage = loadPage(() => import('./pages/AuditoriaPage'))
 const ColegiosPage = loadPage(() => import('./pages/ColegiosPage'))
 const CatalogoAcademicoPage = loadPage(() => import('./pages/CatalogoAcademicoPage'))
@@ -271,6 +272,10 @@ function App() {
               }
             />
 
+            <Route
+              path="asistencia"
+              element={<RoleRoute allowedRoles={['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR']}><AsistenciaPage /></RoleRoute>}
+            />
             <Route
               path="auditoria"
               element={

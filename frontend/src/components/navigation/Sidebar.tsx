@@ -20,8 +20,7 @@
 import SidebarItem from './SidebarItem'
 
 import {
-  ADMIN_NAVIGATION_ITEMS,
-  MONITOR_NAVIGATION_ITEMS,
+  navigationForRole,
 } from '../../config/navigation'
 
 import type {
@@ -47,10 +46,7 @@ function Sidebar({
    * Los demás roles utilizan la navegación
    * administrativa.
    */
-  const navigationItems =
-    role === 'MONITOR'
-      ? MONITOR_NAVIGATION_ITEMS
-      : ADMIN_NAVIGATION_ITEMS
+  const navigationItems = navigationForRole(role)
 
 
   /**

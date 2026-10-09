@@ -73,6 +73,8 @@ app.add_middleware(
 # ============================================================
 
 # Registra los endpoints relacionados con el estado del servicio.
+from app.api.asistencias import router as asistencias_router
+app.include_router(asistencias_router)
 app.include_router(health_router)
 
 # Registra los endpoints protegidos relacionados con autenticación.

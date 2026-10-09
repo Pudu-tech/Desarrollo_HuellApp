@@ -70,7 +70,7 @@ def _gestionar(request: Request, accion: str, colegio_id: UUID,
 
 
 @router.get("", response_model=list[ContactoItem])
-async def listar_contactos(colegio_id: UUID, incluir_inactivos: bool = False,
+def listar_contactos(colegio_id: UUID, incluir_inactivos: bool = False,
                            _actor: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOL_CONTACTS"))):
     """Lista contactos reutilizables; solo usuarios gestores ven los inactivos."""
     if incluir_inactivos and _actor.role_code not in ("SUPERADMIN", "DIRECTIVA"):
@@ -94,7 +94,7 @@ async def listar_contactos(colegio_id: UUID, incluir_inactivos: bool = False,
 
 
 @router.post("", response_model=ContactoItem, status_code=status.HTTP_201_CREATED)
-async def crear_contacto(request: Request, colegio_id: UUID, payload: ContactoCreate,
+def crear_contacto(request: Request, colegio_id: UUID, payload: ContactoCreate,
                          actor: AuthenticatedUser = Depends(require_permission("CREATE_SCHOOL_CONTACT"))):
     """Crea un contacto y audita el alta en una misma transacción."""
     data = payload.model_dump(mode="json")
@@ -103,7 +103,7 @@ async def crear_contacto(request: Request, colegio_id: UUID, payload: ContactoCr
 
 
 @router.patch("/{contacto_id}", response_model=ContactoItem)
-async def editar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
+def editar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
                           payload: ContactoUpdate,
                           actor: AuthenticatedUser = Depends(require_permission("UPDATE_SCHOOL_CONTACT"))):
     """Actualiza únicamente los campos enviados por el cliente."""
@@ -115,7 +115,7 @@ async def editar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
 
 
 @router.post("/{contacto_id}/activar", response_model=ContactoItem)
-async def activar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
+def activar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
                            actor: AuthenticatedUser = Depends(require_permission("UPDATE_SCHOOL_CONTACT"))):
     """Reactiva un contacto conservando sus relaciones y su UUID."""
     _gestionar(request, "ACTIVATE", colegio_id, actor, contacto_id)
@@ -123,7 +123,7 @@ async def activar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID
 
 
 @router.post("/{contacto_id}/desactivar", response_model=ContactoItem)
-async def desactivar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
+def desactivar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
                               actor: AuthenticatedUser = Depends(require_permission("UPDATE_SCHOOL_CONTACT"))):
     """Desactiva solo si no existen asignaciones futuras vigentes."""
     _gestionar(request, "DEACTIVATE", colegio_id, actor, contacto_id)
@@ -131,7 +131,7 @@ async def desactivar_contacto(request: Request, colegio_id: UUID, contacto_id: U
 
 
 @router.delete("/{contacto_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def eliminar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
+def eliminar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
                             actor: AuthenticatedUser = Depends(require_permission("DELETE_SCHOOL_CONTACT"))):
     """Eliminación lógica restringida; la RPC registra DELETE_SCHOOL_CONTACT."""
     _gestionar(request, "DELETE", colegio_id, actor, contacto_id)

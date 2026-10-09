@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Tipos utilizados por el módulo de usuarios.
  */
 

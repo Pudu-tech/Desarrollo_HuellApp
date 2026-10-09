@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Sidebar principal de la aplicación.
  *
  * RESPONSABILIDADES
@@ -67,7 +67,7 @@ function Sidebar({
     <aside className="sidebar">
       <div className="sidebar__header">
         <h1 className="sidebar__title">
-          HuellAPP
+          HuellApp
         </h1>
 
         <span className="sidebar__subtitle">

@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Página para rutas inexistentes.
  */
 
@@ -11,7 +11,7 @@ function NotFoundPage() {
       <h1>Página no encontrada</h1>
 
       <Link to="/app">
-        Volver a HuellAPP
+        Volver a HuellApp
       </Link>
     </main>
   )

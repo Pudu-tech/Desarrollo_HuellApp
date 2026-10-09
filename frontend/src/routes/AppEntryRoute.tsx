@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Redirección inicial según rol.
  *
  * FLUJO

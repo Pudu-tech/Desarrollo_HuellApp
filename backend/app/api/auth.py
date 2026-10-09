@@ -23,8 +23,16 @@ router = APIRouter(
 )
 
 
+@router.get("/permissions", response_model=list[str])
+def get_authenticated_permissions(
+    current_user: AuthenticatedUser = Depends(get_current_user),
+) -> list[str]:
+    """Permisos efectivos de la sesión para presentar acciones en la UI."""
+    return sorted(current_user.effective_permissions)
+
+
 @router.get("/me", response_model=AuthenticatedUser)
-async def get_authenticated_user(
+def get_authenticated_user(
     current_user: AuthenticatedUser = Depends(get_current_user),
 ) -> AuthenticatedUser:
     """

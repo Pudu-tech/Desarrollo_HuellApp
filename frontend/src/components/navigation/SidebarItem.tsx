@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Elemento individual de navegación del sidebar.
  */
 

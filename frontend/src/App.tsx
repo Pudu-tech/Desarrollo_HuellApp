@@ -1,5 +1,6 @@
+import { lazy, Suspense, type ComponentType } from 'react'
 /**
- * HuellAPP
+ * HuellApp
  * Configuración principal de rutas con separación por rol.
  *
  * ROLES
@@ -8,8 +9,7 @@
  * - Inicio
  * - Usuarios
  * - Colegios
- * - Cursos
- * - Salas
+ * - Cursos y Salas dentro de la ficha de Colegios
  * - Asignaciones
  * - Auditoría
  *
@@ -17,8 +17,7 @@
  * - Inicio
  * - Usuarios
  * - Colegios
- * - Cursos
- * - Salas
+ * - Cursos y Salas dentro de la ficha de Colegios
  * - Asignaciones
  *
  * COORDINADOR
@@ -62,28 +61,37 @@ import { AuthProvider } from './contexts/AuthContext'
 import AppLayout from './layouts/AppLayout'
 import MonitorLayout from './layouts/MonitorLayout'
 
-import AccesoDenegadoPage from './pages/AccesoDenegadoPage'
-import AsignacionDetallePage from './pages/AsignacionDetallePage'
-import AsignacionesPage from './pages/AsignacionesPage'
-import AuditoriaPage from './pages/AuditoriaPage'
-import ColegiosPage from './pages/ColegiosPage'
-import CursosPage from './pages/CursosPage'
-import EstablecerPasswordPage from './pages/EstablecerPasswordPage'
-import InicioPage from './pages/InicioPage'
+const AccesoDenegadoPage = loadPage(() => import('./pages/AccesoDenegadoPage'))
+const AsignacionDetallePage = loadPage(() => import('./pages/AsignacionDetallePage'))
+const AsignacionesPage = loadPage(() => import('./pages/AsignacionesPage'))
+const AuditoriaPage = loadPage(() => import('./pages/AuditoriaPage'))
+const ColegiosPage = loadPage(() => import('./pages/ColegiosPage'))
+const CatalogoAcademicoPage = loadPage(() => import('./pages/CatalogoAcademicoPage'))
+const InvitacionParticipacionPage = loadPage(() => import('./pages/InvitacionParticipacionPage'))
+const MisParticipacionesPage = loadPage(() => import('./pages/MisParticipacionesPage'))
+const MiParticipacionPage = loadPage(() => import('./pages/MiParticipacionPage'))
+const EstablecerPasswordPage = loadPage(() => import('./pages/EstablecerPasswordPage'))
+const InicioPage = loadPage(() => import('./pages/InicioPage'))
 import LoginPage from './pages/LoginPage'
-import MonitorAsignacionDetallePage from './pages/MonitorAsignacionDetallePage'
-import MonitorAsignacionesPage from './pages/MonitorAsignacionesPage'
-import MonitorPage from './pages/MonitorPage'
-import NotFoundPage from './pages/NotFoundPage'
-import RecuperarPasswordPage from './pages/RecuperarPasswordPage'
-import RestablecerPasswordPage from './pages/RestablecerPasswordPage'
-import SalasPage from './pages/SalasPage'
-import UsuariosPage from './pages/UsuariosPage'
+const MonitorAsignacionDetallePage = loadPage(() => import('./pages/MonitorAsignacionDetallePage'))
+const MonitorAsignacionesPage = loadPage(() => import('./pages/MonitorAsignacionesPage'))
+const MonitorPage = loadPage(() => import('./pages/MonitorPage'))
+const NotFoundPage = loadPage(() => import('./pages/NotFoundPage'))
+const RecuperarPasswordPage = loadPage(() => import('./pages/RecuperarPasswordPage'))
+const RestablecerPasswordPage = loadPage(() => import('./pages/RestablecerPasswordPage'))
+const UsuariosPage = loadPage(() => import('./pages/UsuariosPage'))
 
 import AppEntryRoute from './routes/AppEntryRoute'
 import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRoute from './routes/RoleRoute'
 
+
+function loadPage(load: () => Promise<{ default: ComponentType }>) {
+  const Page = lazy(load)
+  return function LoadedPage() {
+    return <Suspense fallback={<p role="status" className="assignments-feedback">Cargando pantalla…</p>}><Page /></Suspense>
+  }
+}
 
 function App() {
   return (
@@ -99,6 +107,7 @@ function App() {
             path="/"
             element={<LoginPage />}
           />
+          <Route path="/responder-participacion" element={<InvitacionParticipacionPage />} />
 
           <Route
             path="/login"
@@ -172,6 +181,9 @@ function App() {
               path="inicio"
               element={<InicioPage />}
             />
+            <Route path="catalogo-academico" element={<RoleRoute allowedRoles={['SUPERADMIN', 'DIRECTIVA']}><CatalogoAcademicoPage /></RoleRoute>} />
+            <Route path="mis-asignaciones" element={<MisParticipacionesPage />} />
+            <Route path="mis-asignaciones/:asignacionId" element={<MiParticipacionPage />} />
 
             <Route
               path="asignaciones"
@@ -240,7 +252,7 @@ function App() {
                     'DIRECTIVA',
                   ]}
                 >
-                  <CursosPage />
+                  <Navigate to="/app/colegios" replace />
                 </RoleRoute>
               }
             />
@@ -254,7 +266,7 @@ function App() {
                     'DIRECTIVA',
                   ]}
                 >
-                  <SalasPage />
+                  <Navigate to="/app/colegios" replace />
                 </RoleRoute>
               }
             />
@@ -265,6 +277,7 @@ function App() {
                 <RoleRoute
                   allowedRoles={[
                     'SUPERADMIN',
+                    'DIRECTIVA',
                   ]}
                 >
                   <AuditoriaPage />

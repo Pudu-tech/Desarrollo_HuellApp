@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Guard de rutas basado en rol.
  *
  * RESPONSABILIDAD

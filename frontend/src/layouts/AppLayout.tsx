@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Layout principal para:
  * - SUPERADMIN
  * - DIRECTIVA
@@ -19,11 +19,11 @@
  */
 
 import {
-  Outlet,
   useNavigate,
 } from 'react-router-dom'
 
 import Sidebar from '../components/navigation/Sidebar'
+import SectionOutlet from '../components/navigation/SectionOutlet'
 
 import { useAuth } from '../contexts/AuthContext'
 
@@ -77,7 +77,7 @@ function AppLayout() {
       />
 
       <main className="app-content">
-        <Outlet />
+        <SectionOutlet />
       </main>
     </div>
   )

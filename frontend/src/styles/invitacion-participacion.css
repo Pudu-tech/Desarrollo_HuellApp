@@ -1,0 +1,12 @@
+/* HuellApp · Respuesta de correo con el diseño compartido de recuperación. */
+.invitation-card { width: 100%; max-width: 760px; }
+.invitation-content { padding: 0 38px 24px; color: var(--huellapp-text); }
+.invitation-content h2 { font-size: 19px; color: var(--huellapp-teal); margin: 0 0 20px; }
+.invitation-content .assignments-primary { background: var(--huellapp-coral); border-color: var(--huellapp-coral); color: #fff; width: 100%; padding: 14px 20px; }
+.invitation-content .assignments-primary:hover { background: var(--huellapp-coral-hover); }
+.invitation-content .assignments-form-section { border-color: var(--huellapp-border); }
+.invitation-content .assignments-form-section p { line-height: 1.6; color: var(--huellapp-text-soft); }
+.invitation-content .assignments-detail-grid dt { color: var(--huellapp-teal); }
+.invitation-content .assignments-detail-grid dd { line-height: 1.5; }
+.invitation-content select, .invitation-content textarea { border-color: var(--huellapp-border); padding: 13px; }
+@media (max-width: 600px) { .invitation-content { padding: 0 22px 20px; } }

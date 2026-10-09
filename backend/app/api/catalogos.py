@@ -1,7 +1,8 @@
-"""Catálogos de apoyo para el formulario de colegios de HuellAPP.
+"""Catálogos de apoyo para la ficha de colegios de HuellAPP.
 
 Solo se exponen registros activos. Los endpoints están protegidos
-por el mismo permiso de consulta que el mantenedor de colegios.
+por el permiso de consulta del mantenedor que los utiliza.
+Los niveles proceden de niveles_curso; no se fijan valores en frontend.
 """
 
 from uuid import UUID
@@ -42,8 +43,33 @@ class TipoDependenciaItem(BaseModel):
     descripcion: str | None = None
 
 
+class NivelCursoItem(BaseModel):
+    """Nivel activo utilizado para crear y editar cursos del colegio."""
+
+    id: UUID
+    codigo: str
+    nombre: str
+    orden: int
+
+
+@router.get("/niveles-curso", response_model=list[NivelCursoItem])
+def listar_niveles_curso(
+    _current_user: AuthenticatedUser = Depends(require_permission("VIEW_COURSES")),
+) -> list[NivelCursoItem]:
+    """Consulta la fuente real de niveles activos, ordenada por orden académico."""
+    try:
+        response = (
+            get_supabase_client().table("niveles_curso")
+            .select("id,codigo,nombre,orden").eq("activo", True)
+            .order("orden").execute()
+        )
+        return [NivelCursoItem.model_validate(item) for item in (response.data or [])]
+    except Exception as exc:
+        raise HTTPException(500, "No fue posible obtener los niveles de curso.") from exc
+
+
 @router.get("/regiones", response_model=list[RegionItem])
-async def listar_regiones(
+def listar_regiones(
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOLS")),
 ) -> list[RegionItem]:
     """Lista regiones activas ordenadas por nombre."""
@@ -65,7 +91,7 @@ async def listar_regiones(
 
 
 @router.get("/comunas", response_model=list[ComunaItem])
-async def listar_comunas(
+def listar_comunas(
     region_id: UUID = Query(..., description="UUID de la región seleccionada"),
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOLS")),
 ) -> list[ComunaItem]:
@@ -107,7 +133,7 @@ async def listar_comunas(
 
 
 @router.get("/tipos-dependencia", response_model=list[TipoDependenciaItem])
-async def listar_tipos_dependencia(
+def listar_tipos_dependencia(
     _current_user: AuthenticatedUser = Depends(require_permission("VIEW_SCHOOLS")),
 ) -> list[TipoDependenciaItem]:
     """Lista los tipos de dependencia activos."""

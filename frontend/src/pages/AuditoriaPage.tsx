@@ -1,8 +1,8 @@
 /**
- * HuellAPP
+ * HuellApp
  * Página base de auditoría.
  *
- * En este paquete se deja visible únicamente para SUPERADMIN.
+ * Visible para SUPERADMIN y DIRECTIVA.
  *
  * Si posteriormente el backend define un permiso explícito para
  * otros roles, la visibilidad del frontend puede ampliarse.

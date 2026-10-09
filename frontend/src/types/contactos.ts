@@ -1,5 +1,5 @@
 /**
- * HuellAPP · Contratos de los contactos asociados a colegios.
+ * HuellApp · Contratos de los contactos asociados a colegios.
  * La API administra permisos, normalización del RUT y auditoría.
  */
 export interface ContactoColegio {

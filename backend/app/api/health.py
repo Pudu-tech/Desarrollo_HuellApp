@@ -23,7 +23,7 @@ router = APIRouter(
 
 
 @router.get("")
-async def health_check() -> dict[str, str]:
+def health_check() -> dict[str, str]:
     """
     Verifica que la API de HuellAPP se encuentre operativa.
 
@@ -38,7 +38,7 @@ async def health_check() -> dict[str, str]:
 
 
 @router.get("/supabase")
-async def supabase_health_check() -> dict[str, str]:
+def supabase_health_check() -> dict[str, str]:
     """
     Verifica la comunicación entre FastAPI y Supabase.
 

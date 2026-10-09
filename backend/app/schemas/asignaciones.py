@@ -247,6 +247,10 @@ class ParticipanteSummary(BaseModel):
     respondido_por: UUID | None = None
 
     activo: bool
+    usuario_nombre: str | None = None
+    tipo_participacion_nombre: str | None = None
+    estado_participacion_codigo: str | None = None
+    estado_participacion_nombre: str | None = None
 
 
 # ============================================================
@@ -621,7 +625,6 @@ class AsignacionCreate(BaseModel):
 
     contactos: list[ContactoAsignacionCreate] = Field(
         default_factory=list,
-        max_length=2,
     )
 
     @field_validator(
@@ -753,7 +756,6 @@ class AsignacionUpdate(BaseModel):
 
     contactos: list[ContactoAsignacionCreate] | None = Field(
         default=None,
-        max_length=2,
     )
 
     @field_validator(
@@ -855,6 +857,7 @@ class AsignacionListItem(BaseModel):
     observacion: str | None = None
 
     estado_id: UUID
+    por_reasignar: bool = False
 
     activo: bool
 

@@ -21,6 +21,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.asignaciones import router as asignaciones_router
+from app.api.asignacion_catalogos import router as asignacion_catalogos_router
+from app.api.catalogo_academico import router as catalogo_academico_router
+from app.api.participation_notifications import router as participation_notifications_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.colegios import router as colegios_router
@@ -99,6 +102,11 @@ app.include_router(salas_router)
 
 # Registra los endpoints del módulo de asignaciones.
 app.include_router(asignaciones_router)
+
+# Consultas mínimas para crear asignaciones sin ampliar permisos de Usuarios.
+app.include_router(asignacion_catalogos_router)
+app.include_router(catalogo_academico_router)
+app.include_router(participation_notifications_router)
 
 
 @app.get("/", tags=["Root"])

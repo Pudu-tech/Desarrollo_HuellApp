@@ -607,3 +607,15 @@
   outline: 2px solid var(--huella-teal);
   outline-offset: 3px;
 }
+
+/* Pestañas y recursos incorporados desde develop. */
+.schools-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 0 16px; border-bottom: 1px solid #e2e8f0; margin-bottom: 20px; }
+.schools-tabs button { border: 1px solid transparent; border-radius: 7px; background: transparent; padding: 10px 14px; font: inherit; color: #475569; cursor: pointer; }
+.schools-tabs button[aria-selected="true"] { background: #f1f5f9; border-color: #cbd5e1; color: #0f172a; font-weight: 600; }
+.schools-tabs button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
+.schools-tabs button:disabled { opacity: .6; cursor: wait; }
+.schools-resource-editor { margin-top: 20px; padding: 20px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 9px; }
+.schools-resource-editor h4 { margin: 0 0 12px; }
+.schools-resource-editor > p { color: #64748b; font-size: 14px; }
+.schools-editor [hidden] { display: none; }
+@media (max-width: 650px) { .schools-tabs button { flex: 1 1 45%; padding: 10px 8px; } .schools-resource-editor { padding: 14px; } }

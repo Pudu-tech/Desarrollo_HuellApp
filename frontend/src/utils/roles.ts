@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Roles globales utilizados por el frontend.
  *
  * IMPORTANTE

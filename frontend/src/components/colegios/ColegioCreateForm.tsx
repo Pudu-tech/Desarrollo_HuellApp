@@ -1,5 +1,5 @@
 /**
- * HuellAPP · Formulario de creación de colegios.
+ * HuellApp · Formulario de creación de colegios.
  *
  * REGLAS
  * ------------------------------------------------------------

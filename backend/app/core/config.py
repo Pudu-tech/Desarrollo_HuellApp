@@ -14,6 +14,7 @@ SECURITY
 """
 
 from functools import lru_cache
+from pydantic import SecretStr
 
 from pydantic_settings import (
     BaseSettings,
@@ -57,6 +58,13 @@ class Settings(BaseSettings):
     # Se utiliza, entre otras cosas, para construir redirects
     # seguros de invitaciones y flujos de autenticación.
     frontend_url: str = "http://localhost:5173"
+    # Correo de asignaciones: deshabilitado hasta configurar remitente y secretos.
+    brevo_notifications_enabled: bool = False
+    brevo_api_key: SecretStr | None = None
+    brevo_sender_email: str = ""
+    brevo_sender_name: str = "HuellApp"
+    brevo_email_logo_url: str = "https://www.fundacionhuella.cl/web/image/website/1/logo?mimetype=image/png"
+    notification_token_secret: SecretStr | None = None
 
     # ============================================================
     # SUPABASE

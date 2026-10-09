@@ -43,6 +43,42 @@ router = APIRouter(
 )
 
 
+@router.post("/{user_id}/password-invitation")
+def resend_password_invitation(request: Request, user_id: UUID,
+                               current_user: AuthenticatedUser = Depends(require_permission("UPDATE_USER"))):
+    """Solicita un enlace de recuperación sin recrear identidad ni exponer tokens."""
+    if current_user.role_code not in {'SUPERADMIN', 'DIRECTIVA'}:
+        raise HTTPException(403, 'Solo Superadmin y Directiva pueden enviar esta invitación.')
+    try:
+        db = get_supabase_client()
+        rows = db.table('usuarios').select('id,email,activo,roles!inner(codigo)').eq('id', str(user_id)).is_('deleted_at', 'null').execute().data or []
+        if not rows:
+            raise HTTPException(404, 'El usuario no existe.')
+        target = rows[0]
+        if not target['activo']:
+            raise HTTPException(409, 'Activa al usuario antes de enviar la invitación.')
+        if current_user.role_code == 'DIRECTIVA' and target['roles']['codigo'] == 'SUPERADMIN':
+            raise HTTPException(403, 'Directiva no puede restablecer el acceso de Superadmin.')
+        role = db.table('roles').select('id').eq('codigo', current_user.role_code).single().execute().data
+        context = _request_rpc_context(request)
+        # Audita la solicitud antes del envío externo: si falla, no envía.
+        db.table('audit_logs').insert({
+            'actor_user_id': str(current_user.id), 'actor_role_id': role['id'],
+            'action': 'REQUEST_USER_PASSWORD_INVITATION', 'entity_type': 'USER', 'entity_id': str(user_id),
+            'description': 'Solicitud administrativa de nuevo enlace para establecer o recuperar contraseña.',
+            'request_id': context['request_id'], 'ip_address': context['ip_address'],
+            'user_agent': context['user_agent'], 'source': 'WEB',
+        }).execute()
+        db.auth.reset_password_for_email(target['email'], {'redirect_to': get_settings().normalized_frontend_url + '/restablecer-password'})
+        return {'ok': True}
+    except HTTPException:
+        raise
+    except Exception as error:
+        if getattr(error, 'status', None) == 429:
+            raise HTTPException(429, 'Espera un momento antes de solicitar otra invitación.')
+        raise HTTPException(502, 'No fue posible solicitar el correo de recuperación. Reintenta más tarde.')
+
+
 # ============================================================
 # FUNCIONES AUXILIARES
 # ============================================================
@@ -152,7 +188,7 @@ def _get_user_result(
 )
 
 
-async def list_users(
+def list_users(
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_USERS")
     ),
@@ -241,7 +277,7 @@ async def list_users(
 )
 
 
-async def get_user_by_id(
+def get_user_by_id(
     user_id: UUID,
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_USERS")
@@ -350,7 +386,7 @@ async def get_user_by_id(
 )
 
 
-async def create_user(
+def create_user(
     request: Request,
     payload: UserCreate,
     current_user: AuthenticatedUser = Depends(
@@ -794,7 +830,7 @@ async def create_user(
 )
 
 
-async def update_user(
+def update_user(
     request: Request,
     user_id: UUID,
     payload: UserUpdate,
@@ -966,7 +1002,7 @@ async def update_user(
 )
 # Cambio de correo independiente de edición básica, rol y estado.
 # La sincronización con Auth requiere compensación si falla la RPC.
-async def update_user_email(
+def update_user_email(
     request: Request,
     user_id: UUID,
     payload: UserEmailUpdate,
@@ -1432,7 +1468,7 @@ async def update_user_email(
 )
 
 
-async def update_user_role(
+def update_user_role(
     request: Request,
     user_id: UUID,
     payload: UserRoleUpdate,
@@ -1589,7 +1625,7 @@ async def update_user_role(
 )
 
 
-async def activate_user(
+def activate_user(
     request: Request,
     user_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -1727,7 +1763,7 @@ async def activate_user(
 )
 
 
-async def deactivate_user(
+def deactivate_user(
     request: Request,
     user_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -1868,7 +1904,7 @@ async def deactivate_user(
 )
 
 
-async def delete_user(
+def delete_user(
     request: Request,
     user_id: UUID,
     current_user: AuthenticatedUser = Depends(

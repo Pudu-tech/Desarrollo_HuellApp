@@ -1,12 +1,12 @@
 /**
- * HuellAPP
+ * HuellApp
  * Layout exclusivo para MONITOR.
  *
  * OBJETIVO
  * ------------------------------------------------------------
  * Mantener una experiencia propia para el monitor,
  * pero utilizando la misma estructura visual general
- * de HuellAPP.
+ * de HuellApp.
  *
  * El monitor solamente visualiza:
  * - Inicio.
@@ -21,11 +21,11 @@
  */
 
 import {
-  Outlet,
   useNavigate,
 } from 'react-router-dom'
 
 import Sidebar from '../components/navigation/Sidebar'
+import SectionOutlet from '../components/navigation/SectionOutlet'
 
 import { useAuth } from '../contexts/AuthContext'
 
@@ -80,7 +80,7 @@ function MonitorLayout() {
       />
 
       <main className="app-content">
-        <Outlet />
+        <SectionOutlet />
       </main>
     </div>
   )

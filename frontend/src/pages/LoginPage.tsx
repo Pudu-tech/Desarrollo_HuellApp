@@ -12,7 +12,7 @@ import {
 
 import { useAuth } from '../contexts/AuthContext'
 
-import './LoginPage.css'
+import '../styles/login.css'
 
 interface Credentials {
   email: string

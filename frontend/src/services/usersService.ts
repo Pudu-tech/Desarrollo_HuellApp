@@ -1,5 +1,8 @@
+import { cachedFetch } from './readCache'
+import { recursoRequest } from './recursosService'
+export const resendPasswordInvitation = (id: string) => recursoRequest<{ ok: boolean }>(`/users/${encodeURIComponent(id)}/password-invitation`, 'POST')
 /**
- * HuellAPP
+ * HuellApp
  * Servicio del mantenedor de usuarios.
  *
  * RESPONSABILIDADES
@@ -174,7 +177,7 @@ async function requestUserJson(
   const accessToken =
     await getAccessToken()
 
-  const response = await fetch(
+  const response = await cachedFetch(
     `${apiUrl}${path}`,
     {
       ...options,
@@ -216,7 +219,7 @@ Promise<UserListItem[]> {
   const accessToken =
     await getAccessToken()
 
-  const response = await fetch(
+  const response = await cachedFetch(
     `${apiUrl}/users`,
     {
       method: 'GET',
@@ -355,7 +358,7 @@ export async function deleteUser(
   const accessToken =
     await getAccessToken()
 
-  const response = await fetch(
+  const response = await cachedFetch(
     `${apiUrl}/users/${userId}`,
     {
       method: 'DELETE',

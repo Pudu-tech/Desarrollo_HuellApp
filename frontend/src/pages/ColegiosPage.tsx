@@ -1,5 +1,6 @@
+import { clearReadCache } from '../services/readCache'
 /**
- * HuellAPP · Mantenedor de colegios.
+ * HuellApp · Mantenedor de colegios.
  *
  * RESPONSABILIDADES
  * ------------------------------------------------------------
@@ -9,7 +10,8 @@
  *
  * ESTADO ACTUAL
  * ------------------------------------------------------------
- * - Eliminación lógica confirmada disponible solo para SUPERADMIN.
+ * - Ficha con Información, Contactos, Cursos y Salas del colegio seleccionado.
+ * - Eliminación lógica en cascada confirmada disponible solo para SUPERADMIN.
  *
  * SECURITY
  * ------------------------------------------------------------
@@ -19,6 +21,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import ColegioEditForm from '../components/colegios/ColegioEditForm'
 import ColegioCreateForm from '../components/colegios/ColegioCreateForm'
+import ColegioDeleteDialog from '../components/colegios/ColegioDeleteDialog'
 import { useAuth } from '../contexts/AuthContext'
 import {
   activateColegio,
@@ -60,6 +63,7 @@ function ColegiosPage() {
   const [pendingDelete, setPendingDelete] = useState<ColegioListItem | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [colegios, setColegios] = useState<ColegioListItem[]>([])
   const [regiones, setRegiones] = useState<RegionItem[]>([])
   const [comunas, setComunas] = useState<ComunaItem[]>([])
@@ -78,41 +82,41 @@ function ColegiosPage() {
  * Carga colegios y catálogos en paralelo sin ocultar errores parciales.
  */
   const loadData = async () => {
-    setLoading(true)
-    setError(null)
-    setCatalogError(null)
-    const [schools, regions, types] = await Promise.allSettled([
-      getColegios(), getRegiones(), getTiposDependencia(),
-    ])
-    if (schools.status === 'fulfilled') {
-      setColegios(schools.value)
-    } else {
-      setError(getErrorMessage(schools.reason))
-    }
+    const schools = getColegios().then(setColegios)
+      .catch((cause: unknown) => setError(getErrorMessage(cause)))
+      .finally(() => setLoading(false))
+    const [regions, types] = await Promise.allSettled([getRegiones(), getTiposDependencia()])
     if (regions.status === 'fulfilled') setRegiones(regions.value)
     if (types.status === 'fulfilled') setDependencias(types.value)
     if (regions.status === 'rejected' || types.status === 'rejected') {
       setCatalogError('No se pudieron cargar todos los catálogos. Reintenta para recuperar los filtros.')
     }
-    setLoading(false)
+    await schools
+  }
+
+  /** La recarga explícita restablece los mensajes fuera del efecto inicial. */
+  const refreshData = () => {
+    clearReadCache()
+    setLoading(true)
+    setError(null)
+    setCatalogError(null)
+    void loadData()
   }
 
   useEffect(() => {
-    void loadData()
+    // Inicia la carga como resultado asíncrono y evita la petición del montaje
+    // descartado por StrictMode, sin disparar cambios de estado en el efecto.
+    let active = true
+    void Promise.resolve().then(() => { if (active) return loadData() })
+    return () => { active = false }
   }, [])
 
   // Cada cambio de región recarga sus comunas y descarta respuestas obsoletas.
   useEffect(() => {
     if (!regionId) {
-      setComunas([])
-      setLoadingComunas(false)
-      setComunasError(null)
       return
     }
     let active = true
-    setLoadingComunas(true)
-    setComunas([])
-    setComunasError(null)
     void getComunas(regionId)
       .then((result) => {
         if (active) setComunas(result)
@@ -163,10 +167,13 @@ function ColegiosPage() {
     setSearch('')
     setRegionId('')
     setComunaId('')
+    setComunas([])
+    setComunasError(null)
+    setLoadingComunas(false)
     setEstado('todos')
     setCreating(false)
-    // Los contactos requieren el UUID generado; abrir edición tras el alta.
-    setEditing(created)
+    setEditing(null)
+    setNotice('Colegio creado correctamente. Puedes abrir Editar para agregar sus contactos, cursos y salas.')
     return created
   }
 
@@ -200,6 +207,7 @@ function ColegiosPage() {
     setDeleteError(null)
     try {
       await deleteColegio(pendingDelete.id)
+      setNotice(`Se eliminaron lógicamente «${pendingDelete.nombre}» y sus recursos asociados. El historial se conservó.`)
       setColegios((current) => current.filter((item) => item.id !== pendingDelete.id))
       if (editing?.id === pendingDelete.id) setEditing(null)
       setPendingDelete(null)
@@ -224,11 +232,12 @@ function ColegiosPage() {
           <p>Administración de establecimientos educacionales.</p>
         </div>
         {canManage && !creating && !editing && (
-          <button className="schools-primary" type="button" onClick={() => setCreating(true)} disabled={!regiones.length}>
+          <button className="schools-primary" type="button" onClick={() => { setNotice(null); setCreating(true) }} disabled={!regiones.length}>
             + Crear colegio
           </button>
         )}
       </header>
+      {notice && <p className="schools-success" role="status">{notice}</p>}
 
       {creating ? (
         <ColegioCreateForm
@@ -239,13 +248,13 @@ function ColegiosPage() {
         />
       ) : editing ? (
         <ColegioEditForm
+          key={editing.id}
           colegio={editing}
           regiones={regiones}
           dependencias={dependencias}
           onSave={handleSave}
           onToggleStatus={handleToggle}
           onRequestDelete={canDelete ? requestDelete : undefined}
-          canDeleteContactos={canDelete}
           onClose={() => setEditing(null)}
         />
       ) : <div className="schools-panel">
@@ -254,7 +263,7 @@ function ColegiosPage() {
             <h2>Establecimientos registrados</h2>
             <p>{loading ? 'Cargando...' : `${filtered.length} de ${colegios.length} colegios`}</p>
           </div>
-          <button type="button" className="schools-secondary" onClick={() => { void loadData() }} disabled={loading}>
+          <button type="button" className="schools-secondary" onClick={refreshData} disabled={loading}>
             Actualizar
           </button>
         </div>
@@ -267,7 +276,13 @@ function ColegiosPage() {
           </label>
           <label>
             Región
-            <select value={regionId} onChange={(event) => { setRegionId(event.target.value); setComunaId('') }}>
+            <select value={regionId} onChange={(event) => {
+              setRegionId(event.target.value)
+              setComunaId('')
+              setComunas([])
+              setComunasError(null)
+              setLoadingComunas(!!event.target.value)
+            }}>
               <option value="">Todas las regiones</option>
               {regiones.map((region) => <option key={region.id} value={region.id}>{region.nombre}</option>)}
             </select>
@@ -295,7 +310,7 @@ function ColegiosPage() {
         ) : error ? (
           <div className="schools-feedback" role="alert">
             <p>{error}</p>
-            <button type="button" className="schools-secondary" onClick={() => { void loadData() }}>Reintentar</button>
+            <button type="button" className="schools-secondary" onClick={refreshData}>Reintentar</button>
           </div>
         ) : filtered.length === 0 ? (
           <p className="schools-feedback">{colegios.length === 0 ? 'Todavía no hay colegios registrados.' : 'No hay colegios que coincidan con los filtros.'}</p>
@@ -330,7 +345,7 @@ function ColegiosPage() {
                     </span></td>
                     {canManage && <td>
                       {/* La eliminación se ofrece únicamente al final de Editar colegio. */}
-                      <button type="button" className="schools-action" onClick={() => { setEditing(colegio) }}>
+                      <button type="button" className="schools-action" onClick={() => { setNotice(null); setEditing(colegio) }}>
                         Editar
                       </button>
                     </td>}
@@ -341,26 +356,8 @@ function ColegiosPage() {
           </div>
         )}
       </div>}
-      {pendingDelete && (
-        <div className="schools-dialog-backdrop">
-          <div className="schools-dialog" role="alertdialog" aria-modal="true" aria-labelledby="schools-delete-title" aria-describedby="schools-delete-description">
-            <h2 id="schools-delete-title">¿Eliminar colegio?</h2>
-            <p id="schools-delete-description">
-              Vas a eliminar <strong>{pendingDelete.nombre}</strong>
-              {pendingDelete.rbd ? ` (RBD ${pendingDelete.rbd})` : ''}.
-              Esta acción no se puede deshacer desde la interfaz.
-              Se conservarán las relaciones históricas y quedará registro en auditoría.
-            </p>
-            {deleteError && <p className="schools-error" role="alert">{deleteError}</p>}
-            <div className="schools-dialog-actions">
-              <button type="button" className="schools-secondary" disabled={deleting} onClick={() => setPendingDelete(null)}>Cancelar</button>
-              <button type="button" className="schools-danger schools-danger--solid" disabled={deleting} onClick={() => { void confirmDelete() }}>
-                {deleting ? 'Eliminando...' : 'Sí, eliminar colegio'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {pendingDelete && <ColegioDeleteDialog colegio={pendingDelete} working={deleting} error={deleteError}
+        onCancel={() => setPendingDelete(null)} onConfirm={() => void confirmDelete()} />}
     </section>
   )
 }

@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Página para establecer la contraseña inicial de un usuario invitado.
  *
  * FLUJO
@@ -499,7 +499,7 @@ function EstablecerPasswordPage() {
 
         <p className="auth-subtitle">
           Crea una contraseña para activar el acceso
-          a tu cuenta de HuellAPP.
+          a tu cuenta de HuellApp.
         </p>
 
 

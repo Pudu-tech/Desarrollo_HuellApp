@@ -8,6 +8,7 @@ Funciones disponibles:
 - modificar curso;
 - activar curso;
 - desactivar curso.
+- eliminar lógicamente con auditoría y protección de asignaciones futuras.
 
 SECURITY:
 - Todos los endpoints utilizan permisos RBAC.
@@ -23,6 +24,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.core.security import require_permission
+from app.core.resource_integrity import raise_school_resource_conflict
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.cursos import (
@@ -218,7 +220,7 @@ def _obtener_nivel_activo(
         },
     },
 )
-async def listar_cursos(
+def listar_cursos(
     colegio_id: UUID | None = None,
     nivel_curso_id: UUID | None = None,
     anio: int | None = None,
@@ -323,7 +325,7 @@ async def listar_cursos(
         },
     },
 )
-async def obtener_curso(
+def obtener_curso(
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(
         require_permission("VIEW_COURSES")
@@ -387,7 +389,7 @@ async def obtener_curso(
         500: {"description": "Error interno al crear el curso."},
     },
 )
-async def crear_curso(
+def crear_curso(
     request: Request,
     payload: CursoCreate,
     current_user: AuthenticatedUser = Depends(
@@ -478,7 +480,8 @@ async def crear_curso(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible crear el curso.",
@@ -508,7 +511,7 @@ async def crear_curso(
         500: {"description": "Error interno al actualizar el curso."},
     },
 )
-async def actualizar_curso(
+def actualizar_curso(
     request: Request,
     curso_id: UUID,
     payload: CursoUpdate,
@@ -600,7 +603,8 @@ async def actualizar_curso(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible actualizar el curso.",
@@ -633,7 +637,7 @@ async def actualizar_curso(
         500: {"description": "Error interno al activar el curso."},
     },
 )
-async def activar_curso(
+def activar_curso(
     request: Request,
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -710,7 +714,8 @@ async def activar_curso(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible activar el curso.",
@@ -734,7 +739,7 @@ async def activar_curso(
         500: {"description": "Error interno al desactivar el curso."},
     },
 )
-async def desactivar_curso(
+def desactivar_curso(
     request: Request,
     curso_id: UUID,
     current_user: AuthenticatedUser = Depends(
@@ -797,9 +802,54 @@ async def desactivar_curso(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        raise_school_resource_conflict(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible desactivar el curso.",
         )
 
+
+
+@router.delete(
+    "/{curso_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses={
+        403: {"description": "Requiere DELETE_COURSE."},
+        404: {"description": "Registro inexistente o eliminado."},
+        409: {"description": "Tiene asignaciones futuras activas."},
+    },
+)
+def eliminar_curso(
+    request: Request,
+    curso_id: UUID,
+    current_user: AuthenticatedUser = Depends(require_permission("DELETE_COURSE")),
+) -> None:
+    """Elimina lógicamente y audita en una única transacción PostgreSQL."""
+    try:
+        context = _request_rpc_context(request)
+        result = get_supabase_client().rpc(
+            "eliminar_curso_atomico",
+            {
+                "p_curso_id": str(curso_id),
+                "p_actor_user_id": str(current_user.id),
+                "p_request_id": context["request_id"],
+                "p_ip_address": context["ip_address"],
+                "p_user_agent": context["user_agent"],
+            },
+        ).execute().data
+        if not isinstance(result, dict):
+            raise RuntimeError("Respuesta RPC inválida.")
+        if result.get("ok") is not True:
+            code = result.get("error_code")
+            if code == "COURSE_NOT_FOUND":
+                raise HTTPException(404, "Registro no encontrado o ya eliminado.")
+            if code == "COURSE_HAS_FUTURE_ASSIGNMENTS":
+                raise HTTPException(409, "Tiene asignaciones futuras vigentes desde hoy. Cancélalas o reasígnalas antes de eliminar el curso.")
+            if code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
+                raise HTTPException(403, "No posee permiso para eliminar cursos.")
+            raise RuntimeError("Error RPC de eliminación.")
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, "No fue posible eliminar el registro.")

@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Inicio de la zona administrativa/operativa.
  *
  * Visible para:

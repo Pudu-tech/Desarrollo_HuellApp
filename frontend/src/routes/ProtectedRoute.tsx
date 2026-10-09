@@ -1,5 +1,5 @@
 /**
- * HuellAPP
+ * HuellApp
  * Guard general para rutas que requieren sesión autenticada.
  */
 

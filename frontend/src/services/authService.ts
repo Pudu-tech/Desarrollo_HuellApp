@@ -1,3 +1,4 @@
+import { clearReadCache } from './readCache'
 import { supabase } from './supabase'
 
 import type { AuthenticatedUser } from '../types/auth'
@@ -12,6 +13,7 @@ export async function login(
   email: string,
   password: string,
 ): Promise<AuthenticatedUser> {
+  clearReadCache()
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
@@ -32,12 +34,12 @@ export async function login(
 
     if (response.status === 401 || response.status === 403) {
       throw new Error(
-        'Tu usuario no está autorizado para ingresar a HuellAPP.',
+        'Tu usuario no está autorizado para ingresar a HuellApp.',
       )
     }
 
     throw new Error(
-      'No fue posible validar tu usuario en HuellAPP.',
+      'No fue posible validar tu usuario en HuellApp.',
     )
   }
 
@@ -45,6 +47,7 @@ export async function login(
 }
 
 export async function logout(): Promise<void> {
+  clearReadCache()
   await supabase.auth.signOut()
 }
 

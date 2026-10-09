@@ -78,14 +78,17 @@ export const ADMIN_NAVIGATION_ITEMS:
     },
   ]
 
-/** Mantiene Asistencia penúltima en el menú efectivo de cada rol. */
+/** Orden de gestión común, conservando los accesos autorizados por rol. */
 export function navigationForRole(role: AppRole): NavigationItem[] {
   const items = (role === 'MONITOR' ? MONITOR_NAVIGATION_ITEMS : ADMIN_NAVIGATION_ITEMS)
     .filter((item) => item.allowedRoles.includes(role))
   if (['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'].includes(role)) {
-    items.splice(Math.max(0, items.length - 1), 0, {
+    items.push({
       label: 'Asistencia', path: '/app/asistencia', allowedRoles: ['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'],
     })
+    const order = ['/app/inicio', '/app/usuarios', '/app/asignaciones', '/app/asistencia',
+      '/app/mis-asignaciones', '/app/colegios', '/app/catalogo-academico', '/app/auditoria']
+    items.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path))
   }
   return items
 }

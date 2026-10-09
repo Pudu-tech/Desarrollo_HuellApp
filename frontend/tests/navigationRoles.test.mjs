@@ -18,9 +18,7 @@ test('Monitor solo accede a inicio y asignaciones propias', () => {
   assert.deepEqual(paths('MONITOR'), ['/app/monitor', '/app/monitor/asignaciones'])
 })
 
-test('Directiva tiene asignaciones propias y Asistencia es penúltima para todos los gestores', () => {
-  assert.ok(paths('DIRECTIVA').includes('/app/mis-asignaciones'))
-  for (const role of ['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR']) {
-    assert.equal(paths(role).at(-2), '/app/asistencia')
-  }
+test('Directiva conserva asignaciones propias y el orden solicitado de gestión', () => {
+  assert.deepEqual(paths('DIRECTIVA'), ['/app/inicio', '/app/usuarios', '/app/asignaciones',
+    '/app/asistencia', '/app/mis-asignaciones', '/app/colegios', '/app/catalogo-academico', '/app/auditoria'])
 })

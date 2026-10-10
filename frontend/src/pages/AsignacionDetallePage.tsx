@@ -1,9 +1,9 @@
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /**
- * HuellApp · Resumen persistido de una asignación de gestión.
- * Consulta el detalle real y conserva el diseño del listado, sin datos de demostración.
- * La edición respeta permisos y solicita reconfirmación sin alterar asistencia histórica.
+ * HuellApp Â· Resumen persistido de una asignaciÃ³n de gestiÃ³n.
+ * Consulta el detalle real y conserva el diseÃ±o del listado, sin datos de demostraciÃ³n.
+ * La ediciÃ³n respeta permisos y solicita reconfirmaciÃ³n sin alterar asistencia histÃ³rica.
  */
 import { useEffect, useState } from 'react'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
@@ -58,14 +58,14 @@ export default function AsignacionDetallePage() {
   async function removePerson(participant: string, name: string) {
     if (!item || reassigning || deleting) return
     if (!await confirm({ title: 'Quitar participante', confirmLabel: 'Quitar participante',
-      message: `Se retirará a ${name} de esta asignación. Su participación y asistencia se conservarán como historial. Las respuestas de las otras personas se conservarán.` })) return
+      message: `Se retirarÃ¡ a ${name} de esta asignaciÃ³n. Su participaciÃ³n y asistencia se conservarÃ¡n como historial. Las respuestas de las otras personas se conservarÃ¡n.` })) return
     setReassigning(true); setEditError('')
     try {
       await removeParticipante(item.id, participant)
       const saved = await getAsignacion(item.id)
       setResult({ id: item.id, item: saved, catalogos: current?.catalogos })
       setReassignment(null)
-      setNotice('Participante retirado. La asignación dejará de aparecer en su panel y se conserva el historial.')
+      setNotice('Participante retirado. La asignaciÃ³n dejarÃ¡ de aparecer en su panel y se conserva el historial.')
     } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible quitar al participante.') }
     finally { setReassigning(false) }
   }
@@ -79,32 +79,32 @@ export default function AsignacionDetallePage() {
   }
   async function saveReassignment() {
     if (!item || !reassignment || !newMonitor || reassigning) return
-    if (!await confirm({ title: 'Reasignar participación', confirmLabel: 'Reasignar',
-      message: 'Se conservará la participación anterior como historial y se enviará una invitación a la nueva persona para aceptar o rechazar.' })) return
+    if (!await confirm({ title: 'Reasignar participaciÃ³n', confirmLabel: 'Reasignar',
+      message: 'Se conservarÃ¡ la participaciÃ³n anterior como historial y se enviarÃ¡ una invitaciÃ³n a la nueva persona para aceptar o rechazar.' })) return
     setReassigning(true); setEditError('')
     try {
       await reassignParticipante(item.id, reassignment.participant, newMonitor)
       const saved = await getAsignacion(item.id)
       setResult({ id: item.id, item: saved, catalogos: current?.catalogos }); setReassignment(null)
-      setNotice('Participación reasignada. La nueva persona recibirá una invitación.')
-    } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible reasignar la participación.') }
+      setNotice('ParticipaciÃ³n reasignada. La nueva persona recibirÃ¡ una invitaciÃ³n.')
+    } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible reasignar la participaciÃ³n.') }
     finally { setReassigning(false) }
   }
   async function remove() {
     if (!item || !canDelete || deleting) return
-    if (!await confirm({ title: 'Eliminar asignación', confirmLabel: 'Eliminar asignación',
-      message: `Se eliminará del listado la actividad del ${item.fecha.split('-').reverse().join('/')} a las ${item.hora_inicio.slice(0, 5)}. Las invitaciones quedarán invalidadas y se conservará el historial. ¿Deseas continuar?` })) return
+    if (!await confirm({ title: 'Eliminar asignaciÃ³n', confirmLabel: 'Eliminar asignaciÃ³n',
+      message: `Se eliminarÃ¡ del listado la actividad del ${item.fecha.split('-').reverse().join('/')} a las ${item.hora_inicio.slice(0, 5)}. Las invitaciones quedarÃ¡n invalidadas y se conservarÃ¡ el historial. Â¿Deseas continuar?` })) return
     setDeleting(true); setEditError('')
     try {
       await deleteAsignacion(item.id)
       navigate('/app/asignaciones', { replace: true })
-    } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible eliminar la asignación.') }
+    } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible eliminar la asignaciÃ³n.') }
     finally { setDeleting(false) }
   }
   async function openEdit() {
     setOpening(true); setEditError(''); setNotice('')
     try { setOpciones(await getOpcionesEdicion()) }
-    catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible cargar la edición.') }
+    catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible cargar la ediciÃ³n.') }
     finally { setOpening(false) }
   }
   async function saveEdit(payload: AsignacionPayload) {
@@ -114,27 +114,27 @@ export default function AsignacionDetallePage() {
     const saved = await updateAsignacion(item.id, changes)
     setResult({ id: item.id, item: saved, catalogos: current.catalogos }); setOpciones(null)
     setNotice(Object.keys(changes).some((key) => key !== 'observacion' && key !== 'contactos')
-      ? 'Cambios guardados. Se solicitará reconfirmación con una nueva invitación por correo.' : 'Cambios guardados. Se conservaron las respuestas de los participantes.')
+      ? 'Cambios guardados. Se solicitarÃ¡ reconfirmaciÃ³n con una nueva invitaciÃ³n por correo.' : 'Cambios guardados. Se conservaron las respuestas de los participantes.')
     return saved
   }
   return <section className="assignments-page">
-    <header className="assignments-heading"><div><h1>Detalle de asignación</h1><p>Información registrada de la actividad.</p></div><Link className="assignments-action" to="/app/asignaciones">Volver al listado</Link></header>
+    <header className="assignments-heading"><div><h1>Detalle de asignaciÃ³n</h1><p>InformaciÃ³n registrada de la actividad.</p></div>{permissions.includes('VIEW_AUDIT_LOGS') && <Link className="assignments-action" to={`/app/auditoria?asignacion=${asignacionId}`}>Ver historial</Link>}<Link className="assignments-action" to="/app/asignaciones">Volver al listado</Link></header>
     {notice && <p className="assignments-success" role="status">{notice}</p>}
     {editError && <p className="assignments-error" role="alert">{editError}</p>}
     {opciones && item ? <AsignacionCreateForm key={item.id} opciones={opciones} initial={payloadEdicion(item)} onCreate={saveEdit} onClose={() => setOpciones(null)} /> : <div className="assignments-panel">
       {!current ? <LoadingIndicator /> : current.error ? <div role="alert"><p className="assignments-error">{current.error}</p><button className="assignments-secondary" type="button" onClick={() => { setResult(null); setRevision((value) => value + 1) }}>Reintentar</button></div> : item && <>
         <div className="assignments-panel-heading"><h2>{tipo?.nombre ?? 'Actividad'}</h2><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estado?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estado?.nombre ?? 'Estado no disponible'}</span>
-          {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>{opening ? 'Cargando…' : 'Editar asignación'}</button>}
-          {canDelete && <button type="button" className="assignments-delete" disabled={deleting || opening} onClick={() => void remove()}>{deleting ? 'Eliminando…' : 'Eliminar asignación'}</button>}</div>
+          {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>{opening ? 'Cargandoâ€¦' : 'Editar asignaciÃ³n'}</button>}
+          {canDelete && <button type="button" className="assignments-delete" disabled={deleting || opening} onClick={() => void remove()}>{deleting ? 'Eliminandoâ€¦' : 'Eliminar asignaciÃ³n'}</button>}</div>
         <dl className="assignments-detail-grid">
-          <div><dt>Colegio / Lugar</dt><dd>{item.colegio_id ? colegio?.nombre ?? 'Colegio no disponible' : item.lugar ?? '—'}</dd></div>
+          <div><dt>Colegio / Lugar</dt><dd>{item.colegio_id ? colegio?.nombre ?? 'Colegio no disponible' : item.lugar ?? 'â€”'}</dd></div>
           <div><dt>Fecha</dt><dd>{item.fecha.split('-').reverse().join('/')}</dd></div>
-          <div><dt>Horario</dt><dd>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</dd></div>
+          <div><dt>Horario</dt><dd>{item.hora_inicio.slice(0, 5)} â€“ {item.hora_fin.slice(0, 5)}</dd></div>
           <div><dt>Participantes registrados</dt><dd>{item.participantes.length}</dd></div>
           <div><dt>Contactos asociados</dt><dd>{item.contactos.length}</dd></div>
-          <div><dt>Observación</dt><dd>{item.observacion || 'Sin observaciones'}</dd></div>
+          <div><dt>ObservaciÃ³n</dt><dd>{item.observacion || 'Sin observaciones'}</dd></div>
         </dl>
-        {item.por_reasignar && <p className="assignments-warning">El único participante rechazó la invitación. La actividad requiere reasignación.</p>}
+        {item.por_reasignar && <p className="assignments-warning">El Ãºnico participante rechazÃ³ la invitaciÃ³n. La actividad requiere reasignaciÃ³n.</p>}
         <section className="assignments-form-section" aria-label="Respuestas de participantes">
           <div className="assignments-panel-heading"><h3>Participantes y respuestas</h3><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>Ver detalle de asistencia</Link>
             {permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') && <button type="button" className="assignments-secondary" disabled={adding || deleting} onClick={() => setAdding(true)}>Agregar participante</button>}
@@ -142,16 +142,16 @@ export default function AsignacionDetallePage() {
           {adding && <AgregarParticipanteForm assignment={item.id} existing={item.participantes.map((person) => person.usuario_id)} onClose={() => setAdding(false)} onAdded={async () => {
             const saved = await getAsignacion(item.id)
             setResult({ id: item.id, item: saved, catalogos: current.catalogos })
-            setNotice('Participante agregado. Recibirá una invitación para aceptar o rechazar; las respuestas anteriores se conservaron.')
+            setNotice('Participante agregado. RecibirÃ¡ una invitaciÃ³n para aceptar o rechazar; las respuestas anteriores se conservaron.')
           }} />}
           {!item.participantes.length ? <p>No hay participantes activos.</p> : <div className="assignments-table-scroll"><table className="assignments-table">
-            <thead><tr><th>Participante</th><th>Participación</th><th>Respuesta</th><th>Asistencia</th><th>Fecha de respuesta</th><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Participante</th><th>ParticipaciÃ³n</th><th>Respuesta</th><th>Asistencia</th><th>Fecha de respuesta</th><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
             <tbody>{item.participantes.map((participante) => <tr key={participante.id}>
-              <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || '—'}</td>
+              <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || 'â€”'}</td>
               <td><span className={`assignments-status assignments-status--${participante.estado_participacion_codigo?.toLowerCase() ?? 'unknown'}`}>{participante.estado_participacion_nombre || 'Estado no disponible'}</span></td>
               <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{participante.asistencia_estado === 'NO_REQUERIDA' ? 'No requerida' : participante.asistencia_estado ?? 'Sin registro'}</Link></td>
               <td>{participante.fecha_respuesta ? new Date(participante.fecha_respuesta).toLocaleString('es-CL', { timeZone: 'America/Santiago' }) : 'Sin respuesta'}</td>
-              <td className="assignments-response-reason">{participante.motivo_rechazo || '—'}</td>
+              <td className="assignments-response-reason">{participante.motivo_rechazo || 'â€”'}</td>
               <td>{permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') &&
                 <><button type="button" className="assignments-secondary" disabled={reassigning || deleting} onClick={() => void openReassignment(participante.id)}>Cambiar participante</button>
                   <button type="button" className="assignments-delete" disabled={reassigning || deleting} onClick={() => void removePerson(participante.id, participante.usuario_nombre || 'esta persona')}>Quitar participante</button></>}</td>
@@ -159,7 +159,7 @@ export default function AsignacionDetallePage() {
           </table></div>}
           {reassignment && <div className="assignments-form-section"><h3>Seleccionar reemplazo</h3>
             {!reassignment.options.length ? <p>No hay otras personas activas disponibles.</p> : <label>Nuevo participante<select value={newMonitor} disabled={reassigning} onChange={(event) => setNewMonitor(event.target.value)}><option value="">Selecciona una persona</option>{reassignment.options.map((person) => <option key={person.id} value={person.id}>{[person.nombres, person.apellido_paterno, person.apellido_materno].filter(Boolean).join(' ')}</option>)}</select></label>}
-            <div className="assignments-editor-actions"><button type="button" className="assignments-primary" disabled={!newMonitor || reassigning} onClick={() => void saveReassignment()}>{reassigning ? 'Guardando…' : 'Reasignar participación'}</button>
+            <div className="assignments-editor-actions"><button type="button" className="assignments-primary" disabled={!newMonitor || reassigning} onClick={() => void saveReassignment()}>{reassigning ? 'Guardandoâ€¦' : 'Reasignar participaciÃ³n'}</button>
               <button type="button" className="assignments-secondary" disabled={reassigning} onClick={() => setReassignment(null)}>Cancelar</button></div></div>}
         </section>
       </>}

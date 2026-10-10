@@ -121,7 +121,7 @@ export default function AsignacionesPage() {
               <td>{item.colegio_id ? colegios.get(item.colegio_id) ?? 'Colegio no disponible' : item.lugar || '—'}</td>
               <td>{item.fecha.split('-').reverse().join('/')}</td><td>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</td>
               <td><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estados.get(item.estado_id)?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre ?? 'Estado no disponible'}</span></td>
-              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{Object.entries(item.asistencia_resumen ?? {}).filter(([, count]) => count > 0).map(([state, count]) => `${count} ${state.toLowerCase()}`).join(' · ') || 'Sin registros'}</Link></td>
+              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{Object.entries(item.asistencia_resumen ?? {}).filter(([, count]) => count > 0).map(([state, count]) => `${count} ${state === 'NO_REQUERIDA' ? 'no requerida' : state.toLowerCase()}`).join(' · ') || 'Sin registros'}</Link></td>
               <td><Link className="assignments-action" to={`/app/asignaciones/${item.id}`}>Ver detalle</Link></td>
             </tr>)}</tbody></table></div>}
     </div>}

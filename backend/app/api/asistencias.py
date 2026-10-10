@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import require_permission
 from app.core.supabase import get_supabase_client
 from app.api.asignaciones import _normalizar_asistencia_db
+from app.services.attendance_status import effective_attendance_state
 
 router = APIRouter(prefix='/asistencias', tags=['Asistencia'])
 
@@ -43,6 +44,8 @@ def _list_rows(owner=None):
         if isinstance(value, dict):
             value = [value]
         row['asistencia'] = [_normalizar_asistencia_db(item) for item in value]
+        for attendance in row['asistencia']:
+            attendance['estado'] = effective_attendance_state(attendance['estado'], row.get('estado', {}).get('codigo'))
     return rows
 
 
@@ -50,7 +53,7 @@ def _list_rows(owner=None):
 def propia(asignacion_id: UUID, actor=Depends(require_permission('REPORT_ATTENDANCE'))):
     db = get_supabase_client()
     rows = _read(db.table('asignacion_participantes').select(
-        'id,asignacion:asignaciones!inner(deleted_at)'
+        'id,estado:estados_participacion(codigo),asignacion:asignaciones!inner(deleted_at)'
     ).eq('asignacion_id', str(asignacion_id)).eq('usuario_id', str(actor.id)).eq('activo', True).is_(
         'deleted_at', 'null').is_('asignacion.deleted_at', 'null'))
     if not rows:
@@ -59,4 +62,6 @@ def propia(asignacion_id: UUID, actor=Depends(require_permission('REPORT_ATTENDA
         'asignacion_participante_id', rows[0]['id']))
     if not attendance:
         raise HTTPException(404, 'No hay registro de asistencia.')
-    return _normalizar_asistencia_db(attendance[0])
+    result = _normalizar_asistencia_db(attendance[0])
+    result['estado'] = effective_attendance_state(result['estado'], (rows[0].get('estado') or {}).get('codigo'))
+    return result

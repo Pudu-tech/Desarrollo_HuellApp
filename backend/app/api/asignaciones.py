@@ -217,10 +217,11 @@ def _participante_detalle(item: dict) -> dict:
 
 
 def _attendance_state(part: dict):
+    from app.services.attendance_status import effective_attendance_state
     value = part.get('asistencia') or []
     if isinstance(value, list):
         value = value[0] if value else {}
-    return value.get('estado')
+    return effective_attendance_state(value.get('estado'), (part.get('estado') or {}).get('codigo'))
 
 
 def _attendance_counts(participants: list[dict]):

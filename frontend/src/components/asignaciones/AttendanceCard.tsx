@@ -55,8 +55,9 @@ export default function AttendanceCard({ info }: { info: ParticipacionPropia }) 
   const longitude = location?.coords.longitude ?? attendance?.longitud
   const timestamp = (value: string) => new Date(value).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'short', timeStyle: 'medium' })
   return <section className="assignments-form-section"><div className="assignments-panel-heading"><h3>Mi asistencia</h3><button type="button" className="assignments-secondary" disabled={busy} onClick={() => void refresh()}>Actualizar registro</button></div>
-    <p>Estado: {attendance?.estado ?? 'Cargando…'}</p>
-    {attendance && attendance.estado !== 'PENDIENTE' && <>
+    <p>Estado: {info.estado === 'RECHAZADA' && attendance?.estado === 'PENDIENTE' || attendance?.estado === 'NO_REQUERIDA' ? 'No requerida' : attendance?.estado ?? 'Cargando…'}</p>
+    {info.estado === 'RECHAZADA' && <p>No necesitas registrar asistencia porque rechazaste esta participación.</p>}
+    {attendance && !['PENDIENTE', 'NO_REQUERIDA'].includes(attendance.estado) && <>
       <p className="assignments-success" role="status">Tu asistencia está registrada en HuellApp.</p>
       <dl className="assignments-detail-grid">
         {attendance.fecha_informe && <div><dt>Fecha y hora del último informe</dt><dd>{timestamp(attendance.fecha_informe)}</dd></div>}
@@ -67,7 +68,7 @@ export default function AttendanceCard({ info }: { info: ParticipacionPropia }) 
     </>}
     {error && <p className="assignments-error" role="alert">{error}</p>}
     {latitude != null && longitude != null && <p>Ubicación: {attendance?.direccion_detectada || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`} · Precisión: ±{Math.round(location?.coords.accuracy ?? attendance?.precision_gps ?? 0)} m · <a href={`https://www.google.com/maps?q=${latitude},${longitude}`} target="_blank" rel="noreferrer">Ver en mapa</a></p>}
-    {attendance?.estado === 'PENDIENTE' && (info.estado !== 'ACEPTADA' ? <p>Debes aceptar la participación antes de registrar asistencia.</p> : <>
+    {attendance?.estado === 'PENDIENTE' && info.estado !== 'RECHAZADA' && (info.estado !== 'ACEPTADA' ? <p>Debes aceptar la participación antes de registrar asistencia.</p> : <>
       <p>Disponible desde el inicio de la actividad hasta 24 horas después de su término. Se solicitará permiso para obtener tu ubicación.</p>
       <div className="assignments-form-grid"><label>Asistencia<select disabled={busy} value={estado} onChange={(e) => setEstado(e.target.value)}><option value="PRESENTE">Presente</option><option value="AUSENTE">Ausente</option><option value="JUSTIFICADA">Justificada</option></select></label>
       {estado !== 'PRESENTE' && <label>Motivo<textarea required maxLength={1000} disabled={busy} value={motivo} onChange={(e) => setMotivo(e.target.value)} /></label>}</div>

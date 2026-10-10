@@ -5,6 +5,7 @@ No se registra en logs, se usa en cuerpos HTTP y se transporta como fragmento.
 """
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
+from app.services.attendance_status import effective_attendance_state
 from uuid import UUID
 import jwt
 from fastapi import HTTPException
@@ -90,7 +91,7 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
         attendance = attendance[0] if attendance else {}
     return {"asignacion_id": assignment_id, "participante_id": part["id"], "invitacion_version": part["invitacion_version"], "estado": part["estados_participacion"]["codigo"],
             "recibida_at": received, "actualizada_at": updated, "ultima_invitacion_at": latest,
-            "asistencia_estado": attendance.get('estado'),
+            "asistencia_estado": effective_attendance_state(attendance.get('estado'), part['estados_participacion']['codigo']),
             "admite_asistencia": attendance_available(part, assignment, attendance.get('estado')),
             "fecha_respuesta": part.get("fecha_respuesta"), "motivo_rechazo": part.get("motivo_rechazo"),
             "actividad": name("tipos_actividad"), "fecha": assignment["fecha"], "hora_inicio": assignment["hora_inicio"],

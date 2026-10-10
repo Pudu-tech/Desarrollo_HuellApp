@@ -149,7 +149,7 @@ export default function AsignacionDetallePage() {
             <tbody>{item.participantes.map((participante) => <tr key={participante.id}>
               <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || '—'}</td>
               <td><span className={`assignments-status assignments-status--${participante.estado_participacion_codigo?.toLowerCase() ?? 'unknown'}`}>{participante.estado_participacion_nombre || 'Estado no disponible'}</span></td>
-              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{participante.asistencia_estado ?? 'Sin registro'}</Link></td>
+              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{participante.asistencia_estado === 'NO_REQUERIDA' ? 'No requerida' : participante.asistencia_estado ?? 'Sin registro'}</Link></td>
               <td>{participante.fecha_respuesta ? new Date(participante.fecha_respuesta).toLocaleString('es-CL', { timeZone: 'America/Santiago' }) : 'Sin respuesta'}</td>
               <td className="assignments-response-reason">{participante.motivo_rechazo || '—'}</td>
               <td>{permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') &&

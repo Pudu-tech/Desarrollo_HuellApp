@@ -3,7 +3,8 @@
 El token autoriza únicamente la respuesta a una versión de participación.
 No se registra en logs, se usa en cuerpos HTTP y se transporta como fragmento.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from uuid import UUID
 import jwt
 from fastapi import HTTPException
@@ -64,6 +65,16 @@ def personal_summary(db, assignment_id: str, actor_id: str, version: str | None 
     return project_personal_summary(part, rows[0], assignment_id)
 
 
+def attendance_available(part, assignment, state, now=None):
+    if (not assignment.get('activo') or assignment['estados_asignacion']['codigo'] in ('CANCELADA', 'NO_REALIZADA')
+        or part['estados_participacion']['codigo'] != 'ACEPTADA' or state != 'PENDIENTE'):
+        return False
+    zone = ZoneInfo('America/Santiago')
+    start = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_inicio']}").replace(tzinfo=zone).astimezone(timezone.utc)
+    deadline = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_fin']}").replace(tzinfo=zone).astimezone(timezone.utc) + timedelta(hours=24)
+    return start <= (now or datetime.now(timezone.utc)) < deadline
+
+
 def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -> dict:
     """Proyección compartida de lectura propia, sin nuevas consultas."""
     def name(key, field="nombre"):
@@ -80,6 +91,7 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
     return {"asignacion_id": assignment_id, "participante_id": part["id"], "invitacion_version": part["invitacion_version"], "estado": part["estados_participacion"]["codigo"],
             "recibida_at": received, "actualizada_at": updated, "ultima_invitacion_at": latest,
             "asistencia_estado": attendance.get('estado'),
+            "admite_asistencia": attendance_available(part, assignment, attendance.get('estado')),
             "fecha_respuesta": part.get("fecha_respuesta"), "motivo_rechazo": part.get("motivo_rechazo"),
             "actividad": name("tipos_actividad"), "fecha": assignment["fecha"], "hora_inicio": assignment["hora_inicio"],
             "hora_fin": assignment["hora_fin"], "colegio": name("colegios"), "curso": name("cursos_colegio", "nombre_mostrado"),

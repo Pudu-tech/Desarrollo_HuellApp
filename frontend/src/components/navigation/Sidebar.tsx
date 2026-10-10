@@ -18,6 +18,10 @@
  */
 
 import SidebarItem from './SidebarItem'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import { useVisibleRefresh } from '../../hooks/useVisibleRefresh'
+import { listMisParticipaciones } from '../../services/participacionesService'
 
 import {
   navigationForRole,
@@ -40,6 +44,24 @@ function Sidebar({
   role,
   onLogout,
 }: SidebarProps) {
+  const { user } = useAuth()
+  const receivesAssignments = ['MONITOR', 'DIRECTIVA', 'COORDINADOR'].includes(role)
+  const [pending, setPending] = useState<{ user: string; count: number; attendance: number } | null>(null)
+  const userId = user?.id ?? ''
+  useEffect(() => {
+    if (!receivesAssignments || !userId) return
+    let active = true
+    void listMisParticipaciones().then((rows) => {
+      if (active) setPending({ user: userId, count: rows.filter((item) => item.admite_respuesta).length, attendance: rows.filter((item) => item.admite_asistencia).length })
+    }).catch(() => { /* No interrumpe la navegación si falla el contador. */ })
+    return () => { active = false }
+  }, [receivesAssignments, userId])
+  useVisibleRefresh(async (isActive) => {
+    try {
+      const rows = await listMisParticipaciones()
+      if (isActive()) setPending({ user: userId, count: rows.filter((item) => item.admite_respuesta).length, attendance: rows.filter((item) => item.admite_asistencia).length })
+    } catch { /* Conserva el último contador confirmado y reintenta. */ }
+  }, receivesAssignments && !!userId)
   /**
    * El MONITOR utiliza una navegación propia.
    *
@@ -83,6 +105,8 @@ function Sidebar({
                 key={item.path}
                 label={item.label}
                 path={item.path}
+                count={pending?.user === userId ? ['/app/mis-asignaciones', '/app/monitor/asignaciones'].includes(item.path) ? pending.count : ['/app/asistencia', '/app/monitor/asistencia'].includes(item.path) ? pending.attendance : 0 : 0}
+                countLabel={item.path.endsWith('/asistencia') ? 'asistencias propias pendientes dentro del plazo' : 'asignaciones pendientes de respuesta'}
               />
             ),
           )}

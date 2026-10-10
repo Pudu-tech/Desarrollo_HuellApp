@@ -9,7 +9,9 @@ import '../styles/asignaciones.css'
 
 export default function AsistenciaPage() {
   const { user } = useAuth()
-  const personal = user?.role_code === 'MONITOR'
+  const [ownOnly, setOwnOnly] = useState(false)
+  const canSwitchView = ['DIRECTIVA', 'COORDINADOR'].includes(user?.role_code ?? '')
+  const personal = user?.role_code === 'MONITOR' || (canSwitchView && ownOnly)
   const [params] = useSearchParams()
   const assignmentFilter = params.get('asignacion')
   const { confirm, confirmationDialog } = useConfirmation()
@@ -31,9 +33,14 @@ export default function AsistenciaPage() {
   const person = (row: AsistenciaFila) => [row.usuario?.nombres, row.usuario?.apellido_paterno, row.usuario?.apellido_materno].filter(Boolean).join(' ')
   useEffect(() => {
     let active = true
-    void load().then((data) => { if (active) setRows(data) }).catch((cause: Error) => { if (active) setError(cause.message) })
+    void load().then((data) => { if (active) { setRows(data); setError('') } }).catch((cause: Error) => { if (active) setError(cause.message) })
     return () => { active = false }
   }, [load])
+  function selectView(own: boolean) {
+    if (busy || editing || own === ownOnly) return
+    setOwnOnly(own); setRows(null); setError(''); setNotice('')
+    setSearch(''); setStatus(''); setFrom(''); setUntil('')
+  }
   useVisibleRefresh(async (isActive) => {
     try { const data = await load(); if (isActive()) { setRows(data); setError('') } }
     catch { /* Conserva el listado durante fallos temporales. */ }
@@ -56,6 +63,11 @@ export default function AsistenciaPage() {
     && `${person(row)} ${row.asignacion.colegio?.nombre ?? row.asignacion.lugar ?? ''} ${row.asignacion.actividad?.nombre ?? ''}`.toLocaleLowerCase('es-CL').includes(search.toLocaleLowerCase('es-CL')))
   return <section className="assignments-page"><header className="assignments-heading"><div><h1>Asistencia</h1><p>Asistencia efectiva de los participantes, independiente de su respuesta a la invitación.</p></div><button className="assignments-secondary" disabled={busy || !!editing} onClick={() => void refresh()}>Actualizar</button></header>
     {error && <p className="assignments-error" role="alert">{error}</p>}{notice && <p className="assignments-success" role="status">{notice}</p>}
+    {canSwitchView && <div className="assignments-editor-actions" role="group" aria-label="Vista de asistencia">
+      <button type="button" className={personal ? 'assignments-secondary' : 'assignments-primary'} aria-pressed={!personal} disabled={busy || !!editing} onClick={() => selectView(false)}>Todas las asistencias</button>
+      <button type="button" className={personal ? 'assignments-primary' : 'assignments-secondary'} aria-pressed={personal} disabled={busy || !!editing} onClick={() => selectView(true)}>Mis asistencias</button>
+    </div>}
+    {personal && <p className="assignments-feedback">Estás consultando únicamente tus registros de asistencia.</p>}
     {assignmentFilter && <p>Mostrando asistencia de la asignación seleccionada. <Link to="/app/asistencia">Ver todas</Link></p>}
     <div className="assignments-panel"><div className="assignments-form-grid"><label>Participante, colegio o actividad<input value={search} onChange={(e) => setSearch(e.target.value)} /></label><label>Estado<select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Todos</option>{['PENDIENTE','PRESENTE','AUSENTE','JUSTIFICADA'].map((value) => <option key={value}>{value}</option>)}</select></label><label>Desde<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>Hasta<input type="date" value={until} onChange={(e) => setUntil(e.target.value)} /></label></div></div>
     {editing && <div className="assignments-panel"><h2>Regularizar: {person(editing)}</h2><div className="assignments-form-grid"><label>Estado<select disabled={busy} value={estado} onChange={(e) => setEstado(e.target.value)}>{['PRESENTE','AUSENTE','JUSTIFICADA'].map((value) => <option key={value}>{value}</option>)}</select></label>{estado !== 'PRESENTE' && <label>Motivo de ausencia<textarea maxLength={1000} disabled={busy} value={motivo} onChange={(e) => setMotivo(e.target.value)} /></label>}<label>Motivo de regularización (obligatorio)<textarea maxLength={1000} disabled={busy} value={reason} onChange={(e) => setReason(e.target.value)} /></label></div><div className="assignments-editor-actions"><button className="assignments-primary" disabled={busy || reason.trim().length < 3 || (estado !== 'PRESENTE' && !motivo.trim())} onClick={() => void save()}>Guardar regularización</button><button className="assignments-secondary" disabled={busy} onClick={() => setEditing(null)}>Cerrar</button></div></div>}

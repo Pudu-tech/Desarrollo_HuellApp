@@ -17,6 +17,60 @@ def person(row):
 def normalized(value):
     return ''.join(c for c in unicodedata.normalize('NFD', value.casefold()) if not unicodedata.combining(c))
 
+def display_audit_references(db, rows):
+    """Resuelve referencias por campo en lotes; conserva los valores originales del historial."""
+    tables = {
+        'usuarios': (('usuario_id', 'respondido_por', 'registrado_por', 'regularizado_por', 'nuevo_usuario_id', 'anterior_usuario_id'), 'id,nombres,apellido_paterno,apellido_materno'),
+        'estados_participacion': (('estado_participacion_id',), 'id,nombre'),
+        'estados_asignacion': (('estado_id',), 'id,nombre'),
+        'roles': (('rol_id', 'actor_role_id', 'nuevo_rol_id'), 'id,nombre'),
+        'tipos_participacion': (('tipo_participacion_id',), 'id,nombre'),
+        'tipos_actividad': (('tipo_actividad_id',), 'id,nombre'),
+        'colegios': (('colegio_id',), 'id,nombre'),
+        'salas': (('sala_id',), 'id,nombre'),
+        'ramos': (('ramo_id',), 'id,nombre'),
+        'cursos_colegio': (('curso_colegio_id',), 'id,nombre_mostrado'),
+        'espacios_reflexion': (('espacio_reflexion_id',), 'id,nombre'),
+        'espacios_encuentro': (('espacio_encuentro_id',), 'id,nombre'),
+        'contactos_colegio': (('contacto_colegio_id',), 'id,nombre,apellido_paterno,apellido_materno'),
+    }
+    def objects(value):
+        if isinstance(value, dict):
+            yield value
+            for nested in value.values():
+                yield from objects(nested)
+        elif isinstance(value, list):
+            for nested in value:
+                yield from objects(nested)
+    references = {}
+    for table, (fields, columns) in tables.items():
+        ids = set()
+        for row in rows:
+            for side in ('old_values', 'new_values'):
+                for obj in objects(row.get(side)):
+                    for field in fields:
+                        candidate = obj.get(field)
+                        try:
+                            ids.add(str(UUID(str(candidate))))
+                        except (ValueError, TypeError, AttributeError):
+                            pass
+        if not ids:
+            continue
+        values = db.table(table).select(columns).in_('id', sorted(ids)).execute().data or []
+        names = {r['id']: person(r) if table == 'usuarios' else ' '.join(filter(None, (r.get('nombre'), r.get('apellido_paterno'), r.get('apellido_materno')))) if table == 'contactos_colegio' else r.get('nombre') or r.get('nombre_mostrado') for r in values}
+        for field in fields:
+            references[field] = names
+    def display(value, field=''):
+        if isinstance(value, list):
+            return [display(item) for item in value]
+        if isinstance(value, dict):
+            return {key: display(item, key) for key, item in value.items()}
+        return references.get(field, {}).get(str(value), value)
+    for row in rows:
+        for side in ('old', 'new'):
+            raw = row.get(f'{side}_values')
+            row[f'{side}_display_values'] = display(raw)
+
 def search_audit(query, db, text):
     # Los valores se entrecomillan y escapan para no interpretar sintaxis PostgREST.
     def literal(value):
@@ -104,6 +158,7 @@ def list_audit_logs(limit: int = Query(50, ge=1, le=100), offset: int = Query(0,
             row['actor_role'] = roles.get(row.get('actor_role_id'))
             values = row.get('new_values') or row.get('old_values') or {}
             row['entity_name'] = names.get(row.get('entity_id')) or values.get('nombre') or values.get('nombre_mostrado') or row.get('description')
+        display_audit_references(db, rows)
         return [AuditLogItem.model_validate(r) for r in rows]
     except HTTPException:
         raise

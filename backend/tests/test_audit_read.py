@@ -2,9 +2,19 @@
 from datetime import date
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
-from app.api.audit import list_audit_logs, router, search_audit
+from app.api.audit import list_audit_logs, router, search_audit, display_audit_references
 
 class AuditReadTests(unittest.TestCase):
+    def test_reference_display_preserves_original_audit_values(self):
+        identifier = '11111111-1111-4111-8111-111111111111'
+        rows = [{'old_values': {'estado_participacion_id': identifier}, 'new_values': {'estado_participacion_id': identifier}}]
+        db = MagicMock()
+        db.table.return_value.select.return_value.in_.return_value.execute.return_value.data = [{'id': identifier, 'nombre': 'Pendiente'}]
+        display_audit_references(db, rows)
+        self.assertEqual(rows[0]['old_values']['estado_participacion_id'], identifier)
+        self.assertEqual(rows[0]['old_display_values']['estado_participacion_id'], 'Pendiente')
+        self.assertEqual(rows[0]['new_display_values']['estado_participacion_id'], 'Pendiente')
+        db.table.assert_called_once_with('estados_participacion')
     def test_delete_search_matches_action_and_description(self):
         db = MagicMock()
         db.table.return_value.select.return_value.or_.return_value.execute.return_value.data = []

@@ -7,7 +7,7 @@ import { clearReadCache } from '../services/readCache'
  */
 import { useEffect, useMemo, useState } from 'react'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import AsignacionCreateForm from '../components/asignaciones/DeferredAsignacionForm'
 import { createAsignacion, getAsignacionesResumen, getOpcionesCreacion } from '../services/asignacionesService'
 import type { AsignacionItem, AsignacionPayload, CatalogosAsignacion, OpcionesCreacion } from '../types/asignaciones'
@@ -16,6 +16,7 @@ import '../styles/asignaciones.css'
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : 'No fue posible completar la operación.'
 
 export default function AsignacionesPage() {
+  const [params] = useSearchParams()
   const [items, setItems] = useState<AsignacionItem[]>([])
   const [catalogos, setCatalogos] = useState<CatalogosAsignacion | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
@@ -32,7 +33,8 @@ export default function AsignacionesPage() {
   const [tipoId, setTipoId] = useState('')
   const [estadoId, setEstadoId] = useState('')
   const [colegioId, setColegioId] = useState('')
-  const [desde, setDesde] = useState('')
+  const [desde, setDesde] = useState(params.get('desde') || '')
+  const [upcomingOnly, setUpcomingOnly] = useState(params.get('proximas') === '1')
   const [hasta, setHasta] = useState('')
   const canCreate = permissions.includes('CREATE_ASSIGNMENT')
   useVisibleRefresh(async (isActive) => {
@@ -49,15 +51,17 @@ export default function AsignacionesPage() {
       if (!active) return
       setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions)
       setError(''); setCatalogError(''); setLoading(false)
+      if (revision === 0) setEstadoId(data.catalogos.estados.find(e => e.codigo === params.get('estado'))?.id || '')
     }).catch((cause: unknown) => { if (active) { setError(messageOf(cause)); setPermissions([]); setLoading(false) } })
     return () => { active = false }
-  }, [revision])
+  }, [revision, params])
 
   const tipos = useMemo(() => new Map(catalogos?.tipos_actividad.map((item) => [item.id, item]) ?? []), [catalogos])
   const estados = useMemo(() => new Map(catalogos?.estados.map((item) => [item.id, item]) ?? []), [catalogos])
   const colegios = useMemo(() => new Map(catalogos?.colegios.map((item) => [item.id, item.nombre]) ?? []), [catalogos])
   const rangoInvalido = !!desde && !!hasta && desde > hasta
   const filtered = useMemo(() => items.filter((item) => {
+    if (upcomingOnly && ['REALIZADA', 'CANCELADA', 'NO_REALIZADA'].includes(estados.get(item.estado_id)?.codigo || '')) return false
     if (tipoId && item.tipo_actividad_id !== tipoId) return false
     if (estadoId === 'POR_REASIGNAR' ? !item.por_reasignar : estadoId && (item.estado_id !== estadoId || item.por_reasignar)) return false
     if (colegioId && item.colegio_id !== colegioId) return false
@@ -65,7 +69,7 @@ export default function AsignacionesPage() {
     if (hasta && item.fecha > hasta) return false
     const text = `${tipos.get(item.tipo_actividad_id)?.nombre ?? ''} ${colegios.get(item.colegio_id ?? '') ?? ''} ${item.lugar ?? ''} ${item.observacion ?? ''}`
     return text.toLocaleLowerCase('es-CL').includes(search.trim().toLocaleLowerCase('es-CL'))
-  }), [items, tipoId, estadoId, colegioId, desde, hasta, search, tipos, colegios])
+  }), [items, tipoId, estadoId, colegioId, desde, hasta, search, tipos, colegios, upcomingOnly, estados])
 
   /** Carga opciones nuevas al abrir: un recurso eliminado no queda como opción cacheada. */
   async function openCreate() {
@@ -105,6 +109,7 @@ export default function AsignacionesPage() {
       </div>
       {catalogError && <p className="assignments-warning" role="alert">{catalogError}</p>}
       <div className="assignments-filters">
+        {upcomingOnly && <label><input type="checkbox" checked={upcomingOnly} onChange={e => setUpcomingOnly(e.target.checked)} /> Solo próximas actividades</label>}
         <label>Buscar<input type="search" placeholder="Actividad, colegio o lugar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <label>Tipo de actividad<select value={tipoId} onChange={(event) => setTipoId(event.target.value)}><option value="">Todos los tipos</option>{catalogos?.tipos_actividad.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Estado<select value={estadoId} onChange={(event) => setEstadoId(event.target.value)}><option value="">Todos los estados</option><option value="POR_REASIGNAR">Por reasignar</option>{catalogos?.estados.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>

@@ -22,6 +22,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
+from supabase_auth.errors import AuthApiError
 
 
 # Extrae credenciales enviadas mediante:
@@ -68,9 +69,12 @@ def get_current_user(
 
         # Supabase valida el access token y retorna
         # la identidad asociada.
-        auth_response = supabase.auth.get_user(
-            access_token
-        )
+        try:
+            auth_response = supabase.auth.get_user(access_token)
+        except AuthApiError as exc:
+            if exc.status in (400, 401, 403):
+                raise HTTPException(401, 'La sesión venció o no es válida.', headers={'WWW-Authenticate': 'Bearer'}) from exc
+            raise HTTPException(503, 'El servicio de autenticación no está disponible temporalmente. Reintenta.') from exc
 
         auth_user = auth_response.user
 
@@ -163,13 +167,10 @@ def get_current_user(
         # SECURITY:
         # No devolvemos detalles internos del error.
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(
-                "No fue posible validar la sesión."
+                "No fue posible consultar la sesión temporalmente. Reintenta en unos momentos."
             ),
-            headers={
-                "WWW-Authenticate": "Bearer"
-            },
         )
 
 

@@ -1,0 +1,16 @@
+.huella-field-message {
+  display: block;
+  margin-top: 7px;
+  padding: 8px 11px;
+  border-left: 3px solid #c58751;
+  border-radius: 6px;
+  background: #fff6eb;
+  color: #85552f;
+  font-size: 12px;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.app-content [aria-invalid="true"] {
+  border-color: #c58751;
+  box-shadow: 0 0 0 2px #c587511a;
+}

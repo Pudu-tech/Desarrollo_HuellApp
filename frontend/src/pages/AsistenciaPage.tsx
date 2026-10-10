@@ -18,7 +18,7 @@ export default function AsistenciaPage() {
   const [rows, setRows] = useState<AsistenciaFila[] | null>(null)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(() => ['PENDIENTE','PRESENTE','AUSENTE','JUSTIFICADA','NO_REQUERIDA'].includes(params.get('estado') || '') ? params.get('estado')! : '')
   const [from, setFrom] = useState('')
   const [until, setUntil] = useState('')
   const [editing, setEditing] = useState<AsistenciaFila | null>(null)

@@ -76,6 +76,13 @@ def attendance_available(part, assignment, state, now=None):
     return start <= (now or datetime.now(timezone.utc)) < deadline
 
 
+def response_available(assignment, now=None):
+    if not assignment.get('activo') or assignment['estados_asignacion']['codigo'] not in ('PENDIENTE', 'CONFIRMADA', 'REALIZADA'):
+        return False
+    end = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_fin']}").replace(tzinfo=ZoneInfo('America/Santiago')).astimezone(timezone.utc)
+    return (now or datetime.now(timezone.utc)) < end + timedelta(hours=24)
+
+
 def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -> dict:
     """Proyección compartida de lectura propia, sin nuevas consultas."""
     def name(key, field="nombre"):
@@ -98,7 +105,7 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
             "hora_fin": assignment["hora_fin"], "colegio": name("colegios"), "curso": name("cursos_colegio", "nombre_mostrado"),
             "sala": name("salas"), "asignatura": name("ramos"), "lugar": assignment["lugar"], "observacion": assignment["observacion"],
             "espacio": name("espacios_reflexion") or name("espacios_encuentro"), "tipo_participacion": (part.get("tipos_participacion") or {}).get("nombre"),
-            "admite_respuesta": assignment["activo"] and assignment["estados_asignacion"]["codigo"] in ("PENDIENTE", "CONFIRMADA")
+            "admite_respuesta": response_available(assignment)
                 and part["estados_participacion"]["codigo"] == "PENDIENTE"}
 
 

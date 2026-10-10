@@ -182,7 +182,7 @@ export function AuthProvider({
        * que la sesión todavía sea válida.
        *
        * Esto evita que una interacción después de
-       * 30 minutos reviva una sesión vencida.
+       * 60 minutos reviva una sesión vencida.
        */
       if (
         isSessionInactive() ||

@@ -2,16 +2,17 @@ import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /** HuellApp · Actividades propias para monitor, coordinador y directiva. */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { listMisParticipaciones, type ParticipacionPropia } from '../services/participacionesService'
 import '../styles/asignaciones.css'
 
 export default function MisParticipacionesPage({ monitor = false }: { monitor?: boolean }) {
+  const [params] = useSearchParams()
   const [result, setResult] = useState<{ rows?: ParticipacionPropia[]; error?: string } | null>(null)
   const [revision, setRevision] = useState(0)
-  const [order, setOrder] = useState('recientes')
-  const [pendingOnly, setPendingOnly] = useState(false)
-  const rows = [...(result?.rows ?? [])].filter((info) => !pendingOnly || info.admite_respuesta).sort((a, b) =>
+  const [order, setOrder] = useState(params.get('orden') === 'proximas' ? 'proximas' : 'recientes')
+  const [pendingOnly, setPendingOnly] = useState(params.get('pendientes') === '1')
+  const rows = [...(result?.rows ?? [])].filter((info) => (!pendingOnly || info.admite_respuesta)).sort((a, b) =>
     order === 'proximas' ? `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`)
       : (b.ultima_invitacion_at ?? '').localeCompare(a.ultima_invitacion_at ?? ''))
   const timestamp = (value: string | null) => value ? new Date(value).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'short', timeStyle: 'short' }) : 'No disponible'

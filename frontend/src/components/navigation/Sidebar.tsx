@@ -45,6 +45,7 @@ function Sidebar({
   onLogout,
 }: SidebarProps) {
   const { user } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
   const receivesAssignments = ['MONITOR', 'DIRECTIVA', 'COORDINADOR'].includes(role)
   const [pending, setPending] = useState<{ user: string; count: number; attendance: number } | null>(null)
   const userId = user?.id ?? ''
@@ -82,7 +83,9 @@ function Sidebar({
 
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${menuOpen ? ' sidebar--open' : ''}`} onClick={(event) => {
+      if ((event.target as HTMLElement).closest('a')) setMenuOpen(false)
+    }}>
       <div className="sidebar__header">
         <h1 className="sidebar__title">
           HuellApp
@@ -91,10 +94,14 @@ function Sidebar({
         <span className="sidebar__subtitle">
           Fundación Huella
         </span>
+        <button type="button" className="sidebar__toggle" aria-expanded={menuOpen} aria-controls="sidebar-navigation" onClick={() => setMenuOpen(!menuOpen)}>
+          {menuOpen ? 'Cerrar menú' : 'Menú'}
+        </button>
       </div>
 
 
       <nav
+        id="sidebar-navigation"
         className="sidebar__navigation"
         aria-label="Navegación principal"
       >

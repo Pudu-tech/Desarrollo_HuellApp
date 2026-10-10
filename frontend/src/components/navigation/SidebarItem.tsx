@@ -22,6 +22,7 @@ function SidebarItem({
     <li className="sidebar__item">
       <NavLink
         to={path}
+        end={path === '/app' || path === '/app/monitor'}
         className={({ isActive }) =>
           isActive
             ? 'sidebar__link sidebar__link--active'

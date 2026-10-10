@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator'
 /**
  * HuellApp · Ficha de edición del colegio con cuatro secciones internas.
  *
@@ -165,7 +166,7 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
         <div><h2>{current.nombre}</h2><p>Ficha del establecimiento · <span className={`schools-status schools-status--${current.activo ? 'active' : 'inactive'}`}>{current.activo ? 'Activo' : 'Inactivo'}</span></p></div>
         <button className="schools-secondary" type="button" onClick={onClose} disabled={busy}>Volver al listado</button>
       </div>
-      {permissionsLoading && <p role="status">Cargando permisos de administración…</p>}
+      {permissionsLoading && <LoadingIndicator />}
       {permissionsError && <div role="alert"><p className="schools-error">{permissionsError}</p><button type="button" className="schools-secondary" disabled={permissionsLoading} onClick={() => { setPermissionsLoading(true); setPermissionsRevision((value) => value + 1) }}>Reintentar permisos</button></div>}
       <ColegioTabs value={section} permissions={permissions} disabled={busy} onChange={changeSection} />
       <div id="school-panel-informacion" role="tabpanel" aria-labelledby="school-tab-informacion" hidden={section !== 'informacion'} tabIndex={0}>

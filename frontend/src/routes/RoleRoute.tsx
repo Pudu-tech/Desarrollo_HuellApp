@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 /**
  * HuellApp
  * Guard de rutas basado en rol.
@@ -31,7 +32,7 @@ function RoleRoute({
   const { user, loading } = useAuth()
 
   if (loading) {
-    return <p>Cargando...</p>
+    return <LoadingIndicator />
   }
 
   if (!user) {

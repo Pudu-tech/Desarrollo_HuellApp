@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator'
 import { useEffect, useState, type FormEvent } from 'react'
 import { addParticipante, getOpcionesParticipantes } from '../../services/asignacionesService'
 import { useConfirmation } from '../../hooks/useConfirmation'
@@ -37,7 +38,7 @@ export default function AgregarParticipanteForm({ assignment, existing, onAdded,
   return <form className="assignments-form-section" onSubmit={(event) => void submit(event)}>
     <h3>Agregar participante</h3>
     {error && <p className="assignments-error" role="alert">{error}</p>}
-    {!options && !error ? <p role="status">Cargando participantes…</p> : options && <>
+    {!options && !error ? <LoadingIndicator /> : options && <>
       {!available.length && <p>No hay otros participantes activos disponibles.</p>}
       <div className="assignments-form-grid"><label>Participante<select required value={usuario} disabled={busy} onChange={(event) => setUsuario(event.target.value)}><option value="">Selecciona una persona</option>{available.map((person) => <option key={person.id} value={person.id}>{[person.nombres, person.apellido_paterno, person.apellido_materno].filter(Boolean).join(' ')}</option>)}</select></label>
         <label>Tipo de participación<select required value={tipo} disabled={busy} onChange={(event) => setTipo(event.target.value)}><option value="">Selecciona un tipo</option>{options.tipos_participacion.map((entry) => <option key={entry.id} value={entry.id}>{entry.nombre}</option>)}</select></label></div></>}

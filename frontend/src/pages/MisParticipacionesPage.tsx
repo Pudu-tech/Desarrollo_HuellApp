@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /** HuellApp · Actividades propias para monitor, coordinador y directiva. */
 import { useEffect, useState } from 'react'
@@ -37,10 +38,11 @@ export default function MisParticipacionesPage({ monitor = false }: { monitor?: 
       <label>Ordenar por<select value={order} onChange={(event) => setOrder(event.target.value)}><option value="recientes">Más recientes</option><option value="proximas">Próximas actividades</option></select></label>
       <label><input type="checkbox" checked={pendingOnly} onChange={(event) => setPendingOnly(event.target.checked)} /> Solo pendientes de respuesta ({result?.rows?.filter((info) => info.admite_respuesta).length ?? 0})</label>
     </div>
-    <div className="assignments-panel">{!result ? <p role="status">Cargando…</p> : result.error ? <p className="assignments-error" role="alert">{result.error}</p>
+    <div className="assignments-panel">{!result ? <LoadingIndicator /> : result.error ? <p className="assignments-error" role="alert">{result.error}</p>
       : !rows.length ? <p className="assignments-feedback">{pendingOnly ? 'No tienes participaciones pendientes de respuesta.' : 'No tienes participaciones registradas.'}</p>
-      : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th>Actividad</th><th>Recibida / actualizada</th><th>Fecha de la actividad</th><th>Colegio / lugar</th><th>Mi respuesta</th><th>Acciones</th></tr></thead><tbody>
+      : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th>Actividad</th><th>Recibida / actualizada</th><th>Fecha de la actividad</th><th>Colegio / lugar</th><th>Mi respuesta</th><th>Mi asistencia</th><th>Acciones</th></tr></thead><tbody>
         {rows.map((info) => <tr key={info.participante_id}><td>{info.actividad}</td><td><div>Recibida: {timestamp(info.recibida_at)}</div>{info.actualizada_at && <div>Actualizada: {timestamp(info.actualizada_at)}</div>}</td><td>{info.fecha.split('-').reverse().join('/')}</td><td>{info.colegio ?? info.lugar}</td><td><span className={`assignments-status assignments-status--${info.estado.toLowerCase()}`}>{info.admite_respuesta ? 'Pendiente de respuesta' : info.estado}</span></td>
+          <td><span className={`assignments-status assignments-status--${info.asistencia_estado?.toLowerCase() ?? 'unknown'}`}>{info.asistencia_estado ? info.asistencia_estado.charAt(0) + info.asistencia_estado.slice(1).toLowerCase() : 'Sin registro'}</span></td>
           <td><Link className="assignments-action" to={`${monitor ? '/app/monitor/asignaciones' : '/app/mis-asignaciones'}/${info.asignacion_id}`}>Ver asignación</Link></td></tr>)}
       </tbody></table></div>}</div>
   </section>

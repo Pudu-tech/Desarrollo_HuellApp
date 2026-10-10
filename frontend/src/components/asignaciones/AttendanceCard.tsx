@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { getAsistenciaPropia, reportAsistencia, type Asistencia } from '../../services/asistenciasService'
 import type { ParticipacionPropia } from '../../services/participacionesService'
 import { useConfirmation } from '../../hooks/useConfirmation'
+import { useVisibleRefresh } from '../../hooks/useVisibleRefresh'
 
 export default function AttendanceCard({ info }: { info: ParticipacionPropia }) {
   const [attendance, setAttendance] = useState<Asistencia | null>(null)
@@ -17,6 +18,18 @@ export default function AttendanceCard({ info }: { info: ParticipacionPropia }) 
       .catch((cause: Error) => { if (active) setError(cause.message) })
     return () => { active = false }
   }, [info.asignacion_id])
+  useVisibleRefresh(async (isActive) => {
+    try {
+      const data = await getAsistenciaPropia(info.asignacion_id)
+      if (isActive()) { setAttendance(data); setError('') }
+    } catch { /* El registro confirmado permanece visible si falla una lectura temporal. */ }
+  }, !busy && !location && !motivo)
+  async function refresh() {
+    setBusy(true)
+    try { setAttendance(await getAsistenciaPropia(info.asignacion_id)); setError('') }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible consultar el registro.') }
+    finally { setBusy(false) }
+  }
   function locate() {
     if (!navigator.geolocation) { setError('Este dispositivo no permite obtener ubicación.'); return }
     setBusy(true); setError('')
@@ -34,13 +47,24 @@ export default function AttendanceCard({ info }: { info: ParticipacionPropia }) 
         longitud: location.coords.longitude, precision_gps: location.coords.accuracy,
         fecha_geolocalizacion: new Date(location.timestamp).toISOString(),
       }))
+      setLocation(null); setMotivo('')
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible registrar asistencia.') }
     finally { setBusy(false) }
   }
   const latitude = location?.coords.latitude ?? attendance?.latitud
   const longitude = location?.coords.longitude ?? attendance?.longitud
-  return <section className="assignments-form-section"><h3>Mi asistencia</h3>
+  const timestamp = (value: string) => new Date(value).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'short', timeStyle: 'medium' })
+  return <section className="assignments-form-section"><div className="assignments-panel-heading"><h3>Mi asistencia</h3><button type="button" className="assignments-secondary" disabled={busy} onClick={() => void refresh()}>Actualizar registro</button></div>
     <p>Estado: {attendance?.estado ?? 'Cargando…'}</p>
+    {attendance && attendance.estado !== 'PENDIENTE' && <>
+      <p className="assignments-success" role="status">Tu asistencia está registrada en HuellApp.</p>
+      <dl className="assignments-detail-grid">
+        {attendance.fecha_informe && <div><dt>Fecha y hora del último informe</dt><dd>{timestamp(attendance.fecha_informe)}</dd></div>}
+        {attendance.fecha_geolocalizacion && <div><dt>Ubicación capturada el</dt><dd>{timestamp(attendance.fecha_geolocalizacion)}</dd></div>}
+        {attendance.motivo_regularizacion && <div><dt>Regularización administrativa</dt><dd>{attendance.motivo_regularizacion}</dd></div>}
+      </dl>
+      <p>Puedes volver a consultar este registro desde tu asignación. Las correcciones administrativas quedan en auditoría.</p>
+    </>}
     {error && <p className="assignments-error" role="alert">{error}</p>}
     {latitude != null && longitude != null && <p>Ubicación: {attendance?.direccion_detectada || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`} · Precisión: ±{Math.round(location?.coords.accuracy ?? attendance?.precision_gps ?? 0)} m · <a href={`https://www.google.com/maps?q=${latitude},${longitude}`} target="_blank" rel="noreferrer">Ver en mapa</a></p>}
     {attendance?.estado === 'PENDIENTE' && (info.estado !== 'ACEPTADA' ? <p>Debes aceptar la participación antes de registrar asistencia.</p> : <>

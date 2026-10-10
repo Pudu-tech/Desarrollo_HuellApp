@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 /** Detalle propio real. Refresca al volver y cada 30 s para respuestas por correo. */
 import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
@@ -26,7 +27,7 @@ export default function MiParticipacionPage({ monitor = false }: { monitor?: boo
   const current = result?.id === asignacionId ? result : null
   return <section className="assignments-page"><header className="assignments-heading"><div><h1>Mi asignación</h1><p>Tu respuesta es la misma en todos los canales.</p></div>
     <Link className="assignments-action" to={monitor ? '/app/monitor/asignaciones' : '/app/mis-asignaciones'}>Volver a mis asignaciones</Link></header>
-    <div className="assignments-panel">{!current ? <p role="status">Cargando…</p> : current.error ? <p className="assignments-error" role="alert">{current.error}</p>
+    <div className="assignments-panel">{!current ? <LoadingIndicator /> : current.error ? <p className="assignments-error" role="alert">{current.error}</p>
       : current.info && <><PersonalAssignmentInfo info={current.info} /><ParticipationCard key={current.info.invitacion_version} info={current.info} onUpdate={() => setRevision((value) => value + 1)} /><AttendanceCard key={current.info.participante_id} info={current.info} /></>}</div>
   </section>
 }

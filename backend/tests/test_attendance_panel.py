@@ -7,6 +7,35 @@ from app.services import attendance_location
 
 
 class AttendanceTests(unittest.TestCase):
+    def test_monitor_list_is_scoped_to_authenticated_user(self):
+        actor = SimpleNamespace(id='monitor-id')
+        with patch.object(asistencias, '_list_rows', return_value=[]) as read:
+            self.assertEqual(asistencias.listar_propias(actor), [])
+        read.assert_called_once_with('monitor-id')
+
+    def test_own_record_always_filters_authenticated_owner(self):
+        from uuid import uuid4
+        db = Mock()
+        query = db.table.return_value.select.return_value
+        query.eq.return_value = query
+        query.is_.return_value = query
+        query.execute.return_value.data = []
+        actor = SimpleNamespace(id=uuid4())
+        with patch.object(asistencias, 'get_supabase_client', return_value=db), self.assertRaises(HTTPException):
+            asistencias.propia(uuid4(), actor)
+        query.eq.assert_any_call('usuario_id', str(actor.id))
+        self.assertEqual(db.table.call_count, 1)
+
+    def test_assignment_summary_counts_active_attendance_only(self):
+        rows = [
+            {'activo': True, 'asistencia': [{'estado': 'PRESENTE'}]},
+            {'activo': True, 'asistencia': {'estado': 'JUSTIFICADA'}},
+            {'activo': False, 'asistencia': [{'estado': 'PRESENTE'}]},
+            {'activo': True, 'deleted_at': 'date', 'asistencia': [{'estado': 'AUSENTE'}]},
+            {'activo': True, 'asistencia': []},
+        ]
+        self.assertEqual(asignaciones._attendance_counts(rows), {'PRESENTE': 1, 'JUSTIFICADA': 1})
+
     def test_monitor_cannot_read_administrative_panel_even_if_permission_granted(self):
         with self.assertRaises(HTTPException) as error:
             asistencias.listar(SimpleNamespace(role_code='MONITOR'))

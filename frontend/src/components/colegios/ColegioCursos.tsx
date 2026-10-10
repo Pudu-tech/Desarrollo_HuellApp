@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator'
 /**
  * HuellApp · Administración de cursos de un establecimiento.
  * Lista, crea, edita y cambia estado usando los contratos existentes.
@@ -109,7 +110,7 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
     {(state.error || state.loadError) && <p className="schools-error" role="alert">{state.error || state.loadError}</p>}
     {state.message && <p className="schools-success" role="status">{state.message}</p>}
     {state.loadError && <button className="schools-secondary" type="button" disabled={state.loading} onClick={state.refresh}>Reintentar</button>}
-    {state.loading ? <p role="status">Cargando cursos…</p> : !state.loadError && <div className="schools-table-scroll">
+    {state.loading ? <LoadingIndicator /> : !state.loadError && <div className="schools-table-scroll">
       <table className="schools-table"><thead><tr><th scope="col">Curso</th><th scope="col">Año</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
         <tbody>{state.items.map((item) => <tr key={item.id}>
           <td>{item.nombre_mostrado}</td><td>{item.anio}</td><td><span className={`schools-status schools-status--${item.activo ? 'active' : 'inactive'}`}>{item.activo ? 'Activo' : 'Inactivo'}</span></td>

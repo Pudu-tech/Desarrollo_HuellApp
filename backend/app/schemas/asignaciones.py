@@ -251,6 +251,7 @@ class ParticipanteSummary(BaseModel):
     tipo_participacion_nombre: str | None = None
     estado_participacion_codigo: str | None = None
     estado_participacion_nombre: str | None = None
+    asistencia_estado: str | None = None
 
 
 # ============================================================
@@ -858,6 +859,7 @@ class AsignacionListItem(BaseModel):
 
     estado_id: UUID
     por_reasignar: bool = False
+    asistencia_resumen: dict[str, int] = Field(default_factory=dict)
 
     activo: bool
 

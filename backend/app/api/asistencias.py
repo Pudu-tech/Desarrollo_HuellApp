@@ -19,13 +19,25 @@ def _read(query):
 def listar(actor=Depends(require_permission('VIEW_ASSIGNMENTS'))):
     if actor.role_code not in ('SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'):
         raise HTTPException(403, 'No tienes acceso al panel de asistencia.')
-    rows = _read(get_supabase_client().table('asignacion_participantes').select(
+    return _list_rows()
+
+
+@router.get('/mias')
+def listar_propias(actor=Depends(require_permission('REPORT_ATTENDANCE'))):
+    return _list_rows(str(actor.id))
+
+
+def _list_rows(owner=None):
+    query = get_supabase_client().table('asignacion_participantes').select(
         'id,asignacion_id,estado:estados_participacion(codigo),'
         'usuario:usuarios!fk_asignacion_participantes_usuario(nombres,apellido_paterno,apellido_materno),'
         'asistencia:asistencias_asignacion(*),'
         'asignacion:asignaciones!inner(fecha,hora_inicio,hora_fin,activo,deleted_at,lugar,'
         'actividad:tipos_actividad(nombre),colegio:colegios(nombre))'
-    ).eq('activo', True).is_('deleted_at', 'null').is_('asignacion.deleted_at', 'null'))
+    ).eq('activo', True).is_('deleted_at', 'null').is_('asignacion.deleted_at', 'null')
+    if owner is not None:
+        query = query.eq('usuario_id', owner)
+    rows = _read(query)
     for row in rows:
         value = row.get('asistencia') or []
         if isinstance(value, dict):

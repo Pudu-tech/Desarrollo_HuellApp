@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Listado y creación de asignaciones para roles de gestión.
@@ -112,14 +113,15 @@ export default function AsignacionesPage() {
         <label>Hasta<input type="date" value={hasta} onChange={(event) => setHasta(event.target.value)} /></label>
       </div>
       {rangoInvalido && <p className="assignments-error" role="alert">La fecha desde debe ser anterior o igual a la fecha hasta.</p>}
-      {loading ? <p className="assignments-feedback" role="status">Cargando asignaciones…</p> : error ? <div className="assignments-feedback" role="alert"><p>{error}</p><button type="button" className="assignments-secondary" onClick={refresh}>Reintentar</button></div>
+      {loading ? <LoadingIndicator /> : error ? <div className="assignments-feedback" role="alert"><p>{error}</p><button type="button" className="assignments-secondary" onClick={refresh}>Reintentar</button></div>
         : !filtered.length ? <p className="assignments-feedback">{items.length ? 'No hay asignaciones que coincidan con los filtros.' : 'Aún no hay asignaciones registradas.'}</p>
-          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th scope="col">Actividad</th><th scope="col">Colegio / Lugar</th><th scope="col">Fecha</th><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
+          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th scope="col">Actividad</th><th scope="col">Colegio / Lugar</th><th scope="col">Fecha</th><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
             <tbody>{filtered.map((item) => <tr key={item.id}>
               <td className="assignments-name">{tipos.get(item.tipo_actividad_id)?.nombre ?? 'Actividad'}</td>
               <td>{item.colegio_id ? colegios.get(item.colegio_id) ?? 'Colegio no disponible' : item.lugar || '—'}</td>
               <td>{item.fecha.split('-').reverse().join('/')}</td><td>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</td>
               <td><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estados.get(item.estado_id)?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre ?? 'Estado no disponible'}</span></td>
+              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{Object.entries(item.asistencia_resumen ?? {}).filter(([, count]) => count > 0).map(([state, count]) => `${count} ${state.toLowerCase()}`).join(' · ') || 'Sin registros'}</Link></td>
               <td><Link className="assignments-action" to={`/app/asignaciones/${item.id}`}>Ver detalle</Link></td>
             </tr>)}</tbody></table></div>}
     </div>}

@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Resumen persistido de una asignación de gestión.
@@ -121,7 +122,7 @@ export default function AsignacionDetallePage() {
     {notice && <p className="assignments-success" role="status">{notice}</p>}
     {editError && <p className="assignments-error" role="alert">{editError}</p>}
     {opciones && item ? <AsignacionCreateForm key={item.id} opciones={opciones} initial={payloadEdicion(item)} onCreate={saveEdit} onClose={() => setOpciones(null)} /> : <div className="assignments-panel">
-      {!current ? <p role="status">Cargando asignación…</p> : current.error ? <div role="alert"><p className="assignments-error">{current.error}</p><button className="assignments-secondary" type="button" onClick={() => { setResult(null); setRevision((value) => value + 1) }}>Reintentar</button></div> : item && <>
+      {!current ? <LoadingIndicator /> : current.error ? <div role="alert"><p className="assignments-error">{current.error}</p><button className="assignments-secondary" type="button" onClick={() => { setResult(null); setRevision((value) => value + 1) }}>Reintentar</button></div> : item && <>
         <div className="assignments-panel-heading"><h2>{tipo?.nombre ?? 'Actividad'}</h2><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estado?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estado?.nombre ?? 'Estado no disponible'}</span>
           {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>{opening ? 'Cargando…' : 'Editar asignación'}</button>}
           {canDelete && <button type="button" className="assignments-delete" disabled={deleting || opening} onClick={() => void remove()}>{deleting ? 'Eliminando…' : 'Eliminar asignación'}</button>}</div>
@@ -135,7 +136,7 @@ export default function AsignacionDetallePage() {
         </dl>
         {item.por_reasignar && <p className="assignments-warning">El único participante rechazó la invitación. La actividad requiere reasignación.</p>}
         <section className="assignments-form-section" aria-label="Respuestas de participantes">
-          <div className="assignments-panel-heading"><h3>Participantes y respuestas</h3>
+          <div className="assignments-panel-heading"><h3>Participantes y respuestas</h3><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>Ver detalle de asistencia</Link>
             {permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') && <button type="button" className="assignments-secondary" disabled={adding || deleting} onClick={() => setAdding(true)}>Agregar participante</button>}
             <button type="button" className="assignments-secondary" onClick={() => { clearReadCache(); setRevision((value) => value + 1) }}>Actualizar respuestas</button></div>
           {adding && <AgregarParticipanteForm assignment={item.id} existing={item.participantes.map((person) => person.usuario_id)} onClose={() => setAdding(false)} onAdded={async () => {
@@ -144,10 +145,11 @@ export default function AsignacionDetallePage() {
             setNotice('Participante agregado. Recibirá una invitación para aceptar o rechazar; las respuestas anteriores se conservaron.')
           }} />}
           {!item.participantes.length ? <p>No hay participantes activos.</p> : <div className="assignments-table-scroll"><table className="assignments-table">
-            <thead><tr><th>Participante</th><th>Participación</th><th>Respuesta</th><th>Fecha de respuesta</th><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>Participante</th><th>Participación</th><th>Respuesta</th><th>Asistencia</th><th>Fecha de respuesta</th><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
             <tbody>{item.participantes.map((participante) => <tr key={participante.id}>
               <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || '—'}</td>
               <td><span className={`assignments-status assignments-status--${participante.estado_participacion_codigo?.toLowerCase() ?? 'unknown'}`}>{participante.estado_participacion_nombre || 'Estado no disponible'}</span></td>
+              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{participante.asistencia_estado ?? 'Sin registro'}</Link></td>
               <td>{participante.fecha_respuesta ? new Date(participante.fecha_respuesta).toLocaleString('es-CL', { timeZone: 'America/Santiago' }) : 'Sin respuesta'}</td>
               <td className="assignments-response-reason">{participante.motivo_rechazo || '—'}</td>
               <td>{permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') &&

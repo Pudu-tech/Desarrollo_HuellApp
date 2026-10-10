@@ -1,3 +1,4 @@
+import LoadingIndicator from './components/LoadingIndicator'
 import { lazy, Suspense, type ComponentType } from 'react'
 /**
  * HuellApp
@@ -90,7 +91,7 @@ import RoleRoute from './routes/RoleRoute'
 function loadPage(load: () => Promise<{ default: ComponentType }>) {
   const Page = lazy(load)
   return function LoadedPage() {
-    return <Suspense fallback={<p role="status" className="assignments-feedback">Cargando pantalla…</p>}><Page /></Suspense>
+    return <Suspense fallback={<LoadingIndicator />}><Page /></Suspense>
   }
 }
 
@@ -319,6 +320,7 @@ function App() {
               path="asignaciones"
               element={<MonitorAsignacionesPage />}
             />
+            <Route path="asistencia" element={<AsistenciaPage />} />
 
             <Route
               path="asignaciones/:asignacionId"

@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 /**
  * HuellApp
  * Redirección inicial según rol.
@@ -19,7 +20,7 @@ function AppEntryRoute() {
   const { user, loading } = useAuth()
 
   if (loading) {
-    return <p>Cargando...</p>
+    return <LoadingIndicator />
   }
 
   if (!user) {

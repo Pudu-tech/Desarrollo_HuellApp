@@ -15,7 +15,7 @@ test('Coordinador accede a inicio, gestión y respuestas propias de asignaciones
   assert.deepEqual(paths('COORDINADOR'), ['/app/inicio', '/app/asignaciones', '/app/asistencia', '/app/mis-asignaciones'])
 })
 test('Monitor solo accede a inicio y asignaciones propias', () => {
-  assert.deepEqual(paths('MONITOR'), ['/app/monitor', '/app/monitor/asignaciones'])
+  assert.deepEqual(paths('MONITOR'), ['/app/monitor', '/app/monitor/asignaciones', '/app/monitor/asistencia'])
 })
 
 test('Directiva conserva asignaciones propias y el orden solicitado de gestión', () => {

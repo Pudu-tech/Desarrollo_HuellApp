@@ -90,6 +90,10 @@ export function navigationForRole(role: AppRole): NavigationItem[] {
       '/app/mis-asignaciones', '/app/colegios', '/app/catalogo-academico', '/app/auditoria']
     items.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path))
   }
+  if (role === 'MONITOR') {
+    const order = ['/app/monitor', '/app/monitor/asignaciones', '/app/monitor/asistencia']
+    items.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path))
+  }
   return items
 }
 
@@ -100,6 +104,7 @@ export function navigationForRole(role: AppRole): NavigationItem[] {
 
 export const MONITOR_NAVIGATION_ITEMS:
   NavigationItem[] = [
+    { label: 'Mi Asistencia', path: '/app/monitor/asistencia', allowedRoles: ['MONITOR'] },
     {
       label: 'Inicio',
       path: '/app/monitor',

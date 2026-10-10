@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Mantenedor de colegios.
@@ -306,7 +307,7 @@ function ColegiosPage() {
         {comunasError && <p className="schools-warning" role="alert">Error al cargar comunas: {comunasError}</p>}
 
         {loading ? (
-          <p className="schools-feedback" role="status">Cargando establecimientos...</p>
+          <LoadingIndicator />
         ) : error ? (
           <div className="schools-feedback" role="alert">
             <p>{error}</p>

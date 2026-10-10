@@ -200,7 +200,8 @@ contacto_colegio_id
 PARTICIPANTE_DETALLE_SELECT = PARTICIPANTE_SELECT + """,
 usuario:usuarios!usuario_id(nombres,apellido_paterno,apellido_materno),
 tipo:tipos_participacion!tipo_participacion_id(nombre),
-estado:estados_participacion!estado_participacion_id(codigo,nombre)
+estado:estados_participacion!estado_participacion_id(codigo,nombre),
+asistencia:asistencias_asignacion(estado)
 """
 
 
@@ -211,7 +212,26 @@ def _participante_detalle(item: dict) -> dict:
             "usuario_nombre": " ".join(filter(None, [usuario.get("nombres"), usuario.get("apellido_paterno"), usuario.get("apellido_materno")])) or None,
             "tipo_participacion_nombre": (item.get("tipo") or {}).get("nombre"),
             "estado_participacion_codigo": estado.get("codigo"),
+            "asistencia_estado": _attendance_state(item),
             "estado_participacion_nombre": estado.get("nombre")}
+
+
+def _attendance_state(part: dict):
+    value = part.get('asistencia') or []
+    if isinstance(value, list):
+        value = value[0] if value else {}
+    return value.get('estado')
+
+
+def _attendance_counts(participants: list[dict]):
+    counts = {}
+    for part in participants:
+        if not part.get('activo') or part.get('deleted_at'):
+            continue
+        state = _attendance_state(part)
+        if state:
+            counts[state] = counts.get(state, 0) + 1
+    return counts
 
 
 def _por_reasignar(item: dict, participantes: list[dict]) -> bool:
@@ -1550,7 +1570,7 @@ def listar_asignaciones(
     try:
         query = (
             supabase.table("asignaciones")
-            .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,estado:estados_participacion!estado_participacion_id(codigo))")
+            .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,asistencia:asistencias_asignacion(estado),estado:estados_participacion!estado_participacion_id(codigo))")
             .is_("deleted_at", "null")
         )
 
@@ -1609,7 +1629,7 @@ def listar_asignaciones(
         )
 
         return [
-            AsignacionListItem.model_validate({**item, "por_reasignar": _por_reasignar(item, item.get("participaciones") or [])})
+            AsignacionListItem.model_validate({**item, "por_reasignar": _por_reasignar(item, item.get("participaciones") or []), "asistencia_resumen": _attendance_counts(item.get('participaciones') or [])})
             for item in (response.data or [])
         ]
 

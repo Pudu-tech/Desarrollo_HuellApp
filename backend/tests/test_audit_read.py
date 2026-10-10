@@ -2,9 +2,24 @@
 from datetime import date
 from unittest.mock import MagicMock, patch
 from fastapi import HTTPException
-from app.api.audit import list_audit_logs, router
+from app.api.audit import list_audit_logs, router, search_audit
 
 class AuditReadTests(unittest.TestCase):
+    def test_delete_search_matches_action_and_description(self):
+        db = MagicMock()
+        db.table.return_value.select.return_value.or_.return_value.execute.return_value.data = []
+        query = MagicMock()
+        search_audit(query, db, 'eliminar')
+        clauses = query.or_.call_args.args[0]
+        self.assertIn('action.ilike."DELETE_%"', clauses)
+        self.assertIn('description.ilike."%elimin%"', clauses)
+
+    def test_search_quotes_postgrest_syntax(self):
+        db = MagicMock()
+        db.table.return_value.select.return_value.or_.return_value.execute.return_value.data = []
+        query = MagicMock()
+        search_audit(query, db, 'x),action.eq.DELETE_USER')
+        self.assertIn('description.ilike."%x),action.eq.DELETE\\\\_USER%"', query.or_.call_args.args[0])
     def test_invalid_dates_are_rejected_before_query(self):
         with self.assertRaises(HTTPException) as error:
             list_audit_logs(desde=date(2026,10,10), hasta=date(2026,10,9))

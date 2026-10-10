@@ -2,6 +2,7 @@
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from uuid import UUID
+import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.security import require_permission
 from app.core.supabase import get_supabase_client
@@ -12,6 +13,43 @@ router = APIRouter(prefix='/audit', tags=['Audit'])
 
 def person(row):
     return ' '.join(str(row.get(k) or '') for k in ('nombres', 'apellido_paterno', 'apellido_materno')).strip()
+
+def normalized(value):
+    return ''.join(c for c in unicodedata.normalize('NFD', value.casefold()) if not unicodedata.combining(c))
+
+def search_audit(query, db, text):
+    # Los valores se entrecomillan y escapan para no interpretar sintaxis PostgREST.
+    def literal(value):
+        return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+    words = text.strip().split()
+    translations = {'crear': 'CREATE', 'editar': 'UPDATE', 'modificar': 'UPDATE', 'eliminar': 'DELETE', 'borrar': 'DELETE', 'aceptar': 'ACCEPT', 'rechazar': 'REJECT', 'confirmar': 'CONFIRM', 'cancelar': 'CANCEL', 'registrar': 'REPORT', 'regularizar': 'MANAGE', 'agregar': 'ADD', 'quitar': 'REMOVE', 'cambiar': 'CHANGE', 'reabrir': 'REOPEN'}
+    modules = {'ASSIGNMENT': 'asignacion asignaciones', 'ASSIGNMENT_PARTICIPANT': 'participante participantes participacion', 'ATTENDANCE': 'asistencia', 'USER': 'usuario usuarios', 'SCHOOL': 'colegio colegios', 'ROOM': 'sala salas', 'COURSE': 'curso cursos', 'SCHOOL_CONTACT': 'contacto contactos'}
+    for word in words:
+        clean = normalized(word)
+        escaped = word.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+        patterns = [escaped]
+        if clean.startswith(('elimin', 'borr')): patterns.append('elimin')
+        clauses = [f'description.ilike.{literal("%" + pattern + "%")}' for pattern in patterns]
+        clauses.extend(f'{column}.ilike.{literal("%" + escaped + "%")}' for column in ('action','entity_type','source'))
+        for spanish, code in translations.items():
+            if clean in spanish or spanish in clean:
+                clauses.append(f'action.ilike.{literal(code + "_%")}')
+        for code, names in modules.items():
+            if clean in names: clauses.append(f'entity_type.eq.{code}')
+        # Personas y elementos se resuelven antes de paginar; también incluye eliminados lógicamente.
+        for table, columns, target in (
+            ('usuarios', ('nombres','apellido_paterno','apellido_materno'), 'actor_user_id'),
+            ('usuarios', ('nombres','apellido_paterno','apellido_materno'), 'entity_id'),
+            ('roles', ('codigo',), 'actor_role_id'),
+            ('colegios', ('nombre',), 'entity_id'),
+            ('salas', ('nombre',), 'entity_id'),
+            ('asignaciones', ('lugar',), 'entity_id'),
+        ):
+            matches = db.table(table).select('id').or_(','.join(f'{column}.ilike.{literal("%" + escaped + "%")}' for column in columns)).execute().data or []
+            ids = [r['id'] for r in matches]
+            if ids: clauses.append(f'{target}.in.(' + ','.join(ids) + ')')
+        query = query.or_(','.join(clauses))
+    return query
 
 @router.get('/options')
 def options(current_user: AuthenticatedUser = Depends(require_permission('VIEW_AUDIT_LOGS'))):
@@ -40,7 +78,7 @@ def list_audit_logs(limit: int = Query(50, ge=1, le=100), offset: int = Query(0,
         zone = ZoneInfo('America/Santiago')
         if desde: query = query.gte('created_at', datetime.combine(desde, time.min, zone).isoformat())
         if hasta: query = query.lt('created_at', datetime.combine(hasta + timedelta(days=1), time.min, zone).isoformat())
-        if search and search.strip(): query = query.ilike('description', '%' + search.strip().replace('%', '').replace('_', '') + '%')
+        if search and search.strip(): query = search_audit(query, db, search)
         if asignacion:
             # Incluye las respuestas y asistencias, incluso de participantes retirados.
             parts = db.table('asignacion_participantes').select('id').eq('asignacion_id', str(asignacion)).execute().data or []

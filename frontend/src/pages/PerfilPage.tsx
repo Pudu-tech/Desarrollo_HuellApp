@@ -1,9 +1,10 @@
-﻿import { useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { recursoRequest } from '../services/recursosService'
 import LoadingIndicator from '../components/LoadingIndicator'
 import '../styles/asignaciones.css'
 import '../styles/perfil.css'
+import { updateProfilePhoto } from '../hooks/useProfilePhoto'
 interface Profile {id:string;email:string;nombres:string;apellido_paterno:string;apellido_materno:string|null;telefono:string|null;foto_url:string|null}
 export default function PerfilPage(){
  const {user}=useAuth()
@@ -17,7 +18,7 @@ export default function PerfilPage(){
  const [error,setError]=useState('')
  const [notice,setNotice]=useState('')
  const [revision,setRevision]=useState(0)
- useEffect(()=>{let active=true;recursoRequest<Profile>('/mi-perfil','GET',undefined,true).then(p=>{if(active){setProfile(p);setPhone(p.telefono||'');setError('')}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[revision])
+ useEffect(()=>{let active=true;recursoRequest<Profile>('/mi-perfil','GET',undefined,true).then(p=>{if(active){updateProfilePhoto(p.id,p.foto_url);setProfile(p);setPhone(p.telefono||'');setError('')}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[revision])
  async function selectPhoto(file:File|undefined){
   if(!file)return
   setError('');setNotice('')
@@ -32,7 +33,7 @@ export default function PerfilPage(){
  async function save(){
   if(busy||reading)return
   setBusy(true);setError('');setNotice('')
-  try{const p=await recursoRequest<Profile>('/mi-perfil','PATCH',{telefono:phone.trim()||null,foto_base64:photo,quitar_foto:remove});setProfile(p);setPhone(p.telefono||'');setPhoto(null);setPreview(null);setRemove(false);setNotice('Tu perfil se actualizó correctamente.')}
+  try{const p=await recursoRequest<Profile>('/mi-perfil','PATCH',{telefono:phone.trim()||null,foto_base64:photo,quitar_foto:remove});updateProfilePhoto(p.id,p.foto_url);setProfile(p);setPhone(p.telefono||'');setPhoto(null);setPreview(null);setRemove(false);setNotice('Tu perfil se actualizó correctamente.')}
   catch(e){setError(e instanceof Error?e.message:'No se pudo guardar tu perfil.')}
   finally{setBusy(false)}
  }

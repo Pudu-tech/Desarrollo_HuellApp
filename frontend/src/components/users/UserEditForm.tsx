@@ -27,7 +27,7 @@ import type {
 import { useConfirmation } from '../../hooks/useConfirmation'
 import { useAuth } from '../../contexts/AuthContext'
 import { resendPasswordInvitation } from '../../services/usersService'
-import { recursoRequest } from '../../services/recursosService'
+import { useProfilePhoto, updateProfilePhoto } from '../../hooks/useProfilePhoto'
 
 
 interface UserEditFormProps {
@@ -109,15 +109,7 @@ function UserEditForm({
 }: UserEditFormProps) {
   const { confirm, confirmationDialog } = useConfirmation()
   const { user: actor } = useAuth()
-  const [photo, setPhoto] = useState<{ userId: string; url: string | null } | null>(null)
-  const photoUrl = photo?.userId === user.id ? photo.url : null
-  useEffect(() => {
-    let active = true
-    recursoRequest<{ foto_url: string | null }>(`/users/${encodeURIComponent(user.id)}/photo`, 'GET', undefined, true)
-      .then(result => { if (active) setPhoto({ userId: user.id, url: result.foto_url }) })
-      .catch(() => { /* Conserva las iniciales cuando la foto no está disponible. */ })
-    return () => { active = false }
-  }, [user.id])
+  const photoUrl = useProfilePhoto(user.id, `/users/${encodeURIComponent(user.id)}/photo`)
   const [form, setForm] =
     useState<EditFormState>(() =>
       createFormState(user),
@@ -512,7 +504,7 @@ function UserEditForm({
       <header className="users-editor-heading">
         <div><h3>Editar usuario</h3><p className="users-form-intro">{currentUser.nombres} {currentUser.apellido_paterno} {currentUser.apellido_materno}</p></div>
         <div className="users-editor-avatar">{photoUrl
-          ? <img src={photoUrl} alt={`Foto de ${currentUser.nombres}`} onError={() => setPhoto(null)} />
+          ? <img src={photoUrl} alt={`Foto de ${currentUser.nombres}`} onError={() => updateProfilePhoto(user.id, null)} />
           : <span aria-label="Sin foto de perfil">{`${currentUser.nombres.charAt(0)}${currentUser.apellido_paterno.charAt(0)}`.toLocaleUpperCase('es-CL')}</span>}</div>
       </header>
       {['SUPERADMIN', 'DIRECTIVA'].includes(actor?.role_code ?? '') && !(actor?.role_code === 'DIRECTIVA' && currentUser.roles.codigo === 'SUPERADMIN') &&

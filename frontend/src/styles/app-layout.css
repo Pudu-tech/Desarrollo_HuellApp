@@ -115,6 +115,7 @@
 
   border-top: 1px solid #dddddd;
 }
+.sidebar__profile-link { display: block; margin-bottom: 12px; color: #28616a; font-size: 13px; text-decoration: none; font-weight: 600; }
 
 .sidebar__user {
   display: flex;

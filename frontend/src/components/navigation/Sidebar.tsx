@@ -18,6 +18,7 @@
  */
 
 import SidebarItem from './SidebarItem'
+import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useVisibleRefresh } from '../../hooks/useVisibleRefresh'
@@ -122,6 +123,7 @@ function Sidebar({
 
 
       <div className="sidebar__footer">
+        <Link className="sidebar__profile-link" to={role === 'MONITOR' ? '/app/monitor/perfil' : '/app/perfil'}>Mi perfil</Link>
         <div className="sidebar__user">
           <span className="sidebar__user-email">
             {displayName}

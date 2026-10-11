@@ -27,6 +27,7 @@ import type {
 import { useConfirmation } from '../../hooks/useConfirmation'
 import { useAuth } from '../../contexts/AuthContext'
 import { resendPasswordInvitation } from '../../services/usersService'
+import { recursoRequest } from '../../services/recursosService'
 
 
 interface UserEditFormProps {
@@ -108,6 +109,15 @@ function UserEditForm({
 }: UserEditFormProps) {
   const { confirm, confirmationDialog } = useConfirmation()
   const { user: actor } = useAuth()
+  const [photo, setPhoto] = useState<{ userId: string; url: string | null } | null>(null)
+  const photoUrl = photo?.userId === user.id ? photo.url : null
+  useEffect(() => {
+    let active = true
+    recursoRequest<{ foto_url: string | null }>(`/users/${encodeURIComponent(user.id)}/photo`, 'GET', undefined, true)
+      .then(result => { if (active) setPhoto({ userId: user.id, url: result.foto_url }) })
+      .catch(() => { /* Conserva las iniciales cuando la foto no está disponible. */ })
+    return () => { active = false }
+  }, [user.id])
   const [form, setForm] =
     useState<EditFormState>(() =>
       createFormState(user),
@@ -499,18 +509,15 @@ function UserEditForm({
   return (
     <section className="users-editor">
       {confirmationDialog}
+      <header className="users-editor-heading">
+        <div><h3>Editar usuario</h3><p className="users-form-intro">{currentUser.nombres} {currentUser.apellido_paterno} {currentUser.apellido_materno}</p></div>
+        <div className="users-editor-avatar">{photoUrl
+          ? <img src={photoUrl} alt={`Foto de ${currentUser.nombres}`} onError={() => setPhoto(null)} />
+          : <span aria-label="Sin foto de perfil">{`${currentUser.nombres.charAt(0)}${currentUser.apellido_paterno.charAt(0)}`.toLocaleUpperCase('es-CL')}</span>}</div>
+      </header>
       {['SUPERADMIN', 'DIRECTIVA'].includes(actor?.role_code ?? '') && !(actor?.role_code === 'DIRECTIVA' && currentUser.roles.codigo === 'SUPERADMIN') &&
         <div className="users-form-section"><h4>Acceso y contraseña</h4><p>Envía un enlace nuevo si la invitación anterior venció o falló.</p>
           <button type="button" className="users-secondary" disabled={isLoading || !currentUser.activo} onClick={() => void sendInvitation()}>{loadingAction === 'invitation' ? 'Enviando…' : 'Enviar nueva invitación'}</button></div>}
-      <h3>
-        Editar usuario
-      </h3>
-
-      <p className="users-form-intro">
-        {currentUser.nombres}{' '}
-        {currentUser.apellido_paterno}{' '}
-        {currentUser.apellido_materno}
-      </p>
 
 
       {/* DATOS BÁSICOS */}

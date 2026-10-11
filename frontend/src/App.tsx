@@ -73,6 +73,7 @@ const InvitacionParticipacionPage = loadPage(() => import('./pages/InvitacionPar
 const MisParticipacionesPage = loadPage(() => import('./pages/MisParticipacionesPage'))
 const MiParticipacionPage = loadPage(() => import('./pages/MiParticipacionPage'))
 const EstablecerPasswordPage = loadPage(() => import('./pages/EstablecerPasswordPage'))
+const PerfilPage = loadPage(() => import('./pages/PerfilPage'))
 const InicioPage = loadPage(() => import('./pages/InicioPage'))
 import LoginPage from './pages/LoginPage'
 const MonitorAsignacionDetallePage = loadPage(() => import('./pages/MonitorAsignacionDetallePage'))
@@ -183,6 +184,7 @@ function App() {
               path="inicio"
               element={<InicioPage />}
             />
+            <Route path="perfil" element={<PerfilPage />} />
             <Route path="catalogo-academico" element={<RoleRoute allowedRoles={['SUPERADMIN', 'DIRECTIVA']}><CatalogoAcademicoPage /></RoleRoute>} />
             <Route path="mis-asignaciones" element={<MisParticipacionesPage />} />
             <Route path="mis-asignaciones/:asignacionId" element={<MiParticipacionPage />} />
@@ -315,6 +317,7 @@ function App() {
               index
               element={<MonitorPage />}
             />
+            <Route path="perfil" element={<PerfilPage />} />
 
             <Route
               path="asignaciones"

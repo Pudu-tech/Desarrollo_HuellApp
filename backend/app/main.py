@@ -26,6 +26,7 @@ from app.api.catalogo_academico import router as catalogo_academico_router
 from app.api.participation_notifications import router as participation_notifications_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
+from app.api.profile import router as profile_router
 from app.api.colegios import router as colegios_router
 from app.api.contactos import router as contactos_router
 from app.api.catalogos import router as catalogos_router
@@ -85,6 +86,7 @@ app.include_router(users_router)
 
 # Registra los endpoints de consulta de auditoría.
 app.include_router(audit_router)
+app.include_router(profile_router)
 
 # Registra los endpoints relacionados con administración de colegios.
 app.include_router(colegios_router)

@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;650;700&display=swap');
+
 /* Login de la copia. Los tokens compartidos se definen en ../index.css. */
 
 /* Reinicio local: evita modificar componentes externos a esta pantalla. */
@@ -8,6 +10,8 @@
 }
 
 .huella-login-page {
+  --huella-font-body: 'Roboto', Arial, sans-serif;
+  --huella-font-heading: 'Roboto', Arial, sans-serif;
   display: grid;
   /* Proporción base: panel izquierdo ligeramente más ancho que el derecho */
   grid-template-columns: minmax(0, 1.1fr) minmax(440px, 1fr);
@@ -164,7 +168,7 @@
   align-items: center;
   justify-content: center;
   padding: 44px clamp(24px, 5vw, 72px) 30px;
-  background: var(--huella-gray-050);
+  background: #f7ebd7;
 }
 
 .huella-login-card {
@@ -331,7 +335,7 @@
 
 .huella-login-form__options {
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   margin-top: -8px;
 }
 

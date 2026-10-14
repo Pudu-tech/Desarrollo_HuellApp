@@ -429,11 +429,7 @@ function LoginPage() {
             Visitar Fundación Huella
           </a>
 
-          <span aria-hidden="true">•</span>
-
-          <a href="mailto:contacto@fundacionhuella.cl">
-            Solicitar ayuda
-          </a>
+          
         </div>
 
         <p className="huella-login-access__copyright">

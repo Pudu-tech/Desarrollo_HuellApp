@@ -44,7 +44,7 @@ export default function ParticipationCard({ info, token, initialAction, onUpdate
       <div className="assignments-editor-actions"><button className="assignments-primary" type="button" onClick={() => void submit()}>{busy ? 'Procesando…' : 'Confirmar respuesta'}</button></div>
     </fieldset>}
     {state === 'PENDIENTE' && !info.admite_respuesta && <p className="assignments-warning">Esta asignación ya no admite respuestas.</p>}
-    <p>Aceptar confirma tu participación. El registro de asistencia se realizará por separado.</p>
+    <p>Aceptar confirma tu participación. La asistencia se registra por separado desde Mis asignaciones.</p>
     {confirmationDialog}
   </section>
 }

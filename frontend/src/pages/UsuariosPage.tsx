@@ -1,4 +1,5 @@
 import { clearReadCache } from '../services/readCache'
+import LoadingIndicator from '../components/LoadingIndicator'
 /**
  * HuellApp
  * Mantenedor de usuarios.
@@ -415,9 +416,7 @@ function UsuariosPage() {
         </div>
 
       {loading && (
-        <p className="users-feedback" role="status">
-          Cargando usuarios...
-        </p>
+        <LoadingIndicator />
       )}
 
 

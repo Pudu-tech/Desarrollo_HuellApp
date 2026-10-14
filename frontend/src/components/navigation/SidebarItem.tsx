@@ -8,16 +8,21 @@ import { NavLink } from 'react-router-dom'
 interface SidebarItemProps {
   label: string
   path: string
+  count?: number
+  countLabel?: string
 }
 
 function SidebarItem({
   label,
   path,
+  count = 0,
+  countLabel = 'asignaciones pendientes de respuesta',
 }: SidebarItemProps) {
   return (
     <li className="sidebar__item">
       <NavLink
         to={path}
+        end={path === '/app' || path === '/app/monitor'}
         className={({ isActive }) =>
           isActive
             ? 'sidebar__link sidebar__link--active'
@@ -25,6 +30,7 @@ function SidebarItem({
         }
       >
         {label}
+        {count > 0 && <span className="sidebar__badge" title={`${count} ${countLabel}`} aria-label={`${count} ${countLabel}`}>{count > 99 ? '99+' : count}</span>}
       </NavLink>
     </li>
   )

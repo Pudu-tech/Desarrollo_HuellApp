@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator'
 /**
  * HuellApp · Administración de salas de un establecimiento.
  * El colegio es fijo por contexto; CRUD y cambios de estado se auditan en RPC.
@@ -97,7 +98,7 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
     {(state.error || state.loadError) && <p className="schools-error" role="alert">{state.error || state.loadError}</p>}
     {state.message && <p className="schools-success" role="status">{state.message}</p>}
     {state.loadError && <button className="schools-secondary" type="button" disabled={state.loading} onClick={state.refresh}>Reintentar</button>}
-    {state.loading ? <p role="status">Cargando salas…</p> : !state.loadError && <div className="schools-table-scroll">
+    {state.loading ? <LoadingIndicator /> : !state.loadError && <div className="schools-table-scroll">
       <table className="schools-table"><thead><tr><th scope="col">Sala</th><th scope="col">Capacidad</th><th scope="col">Ubicación</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
         <tbody>{state.items.map((item) => <tr key={item.id}>
           <td>{item.nombre}</td><td>{item.capacidad ?? '—'}</td><td>{item.ubicacion || '—'}</td><td><span className={`schools-status schools-status--${item.activo ? 'active' : 'inactive'}`}>{item.activo ? 'Activo' : 'Inactivo'}</span></td>

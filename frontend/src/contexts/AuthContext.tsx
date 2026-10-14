@@ -24,6 +24,7 @@ import {
 } from '../services/sessionPolicy'
 
 import type { AuthenticatedUser } from '../types/auth'
+import { clearProfilePhotos } from '../hooks/useProfilePhoto'
 
 interface AuthContextValue {
   user: AuthenticatedUser | null
@@ -71,6 +72,7 @@ export function AuthProvider({
       await logoutService()
     } finally {
       clearSessionTracking()
+      clearProfilePhotos()
       setUser(null)
       loggingOutRef.current = false
     }
@@ -182,7 +184,7 @@ export function AuthProvider({
        * que la sesión todavía sea válida.
        *
        * Esto evita que una interacción después de
-       * 30 minutos reviva una sesión vencida.
+       * 60 minutos reviva una sesión vencida.
        */
       if (
         isSessionInactive() ||

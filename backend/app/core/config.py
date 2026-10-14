@@ -58,6 +58,7 @@ class Settings(BaseSettings):
     # Se utiliza, entre otras cosas, para construir redirects
     # seguros de invitaciones y flujos de autenticación.
     frontend_url: str = "http://localhost:5173"
+    google_maps_api_key: SecretStr | None = None
     # Correo de asignaciones: deshabilitado hasta configurar remitente y secretos.
     brevo_notifications_enabled: bool = False
     brevo_api_key: SecretStr | None = None

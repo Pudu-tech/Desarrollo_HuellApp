@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /** HuellApp · Mantenedor transversal de asignaturas y sus espacios.
  * Respeta permisos efectivos, confirmaciones comunes e historial de asignaciones.
@@ -93,7 +94,7 @@ export default function CatalogoAcademicoPage() {
         <label>Buscar<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre" /></label>
         <label>Estado<select value={state} onChange={(event) => setState(event.target.value)}><option value="">Todos</option><option value="true">Activo</option><option value="false">Inactivo</option></select></label>
       </div>
-      {loading ? <p className="assignments-feedback">Cargando catálogo…</p> : !data ? <p className="assignments-feedback">El catálogo no está disponible.</p>
+      {loading ? <LoadingIndicator /> : !data ? <p className="assignments-feedback">El catálogo no está disponible.</p>
         : !isSubject && !subject ? <p className="assignments-feedback">Selecciona una asignatura para administrar sus espacios.</p>
         : !items.length ? <p className="assignments-feedback">No hay recursos para los filtros seleccionados.</p>
         : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th>Nombre</th><th>{isSubject ? 'Niveles' : 'Orden'}</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>

@@ -1,0 +1,10 @@
+.huella-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; min-height: min(60vh, 520px); padding: 32px 16px; color: #64748b; font-size: 16px; perspective: 700px; }
+.huella-loading-scene { position: relative; width: 170px; height: 180px; perspective: 700px; }
+.huella-loading-logo { position: absolute; top: 0; left: 10px; width: 150px; height: 150px; transform-style: preserve-3d; animation: huella-loading-turn 3.6s linear infinite; }
+.huella-loading img { position: absolute; inset: 0; width: 150px; height: 150px; object-fit: contain; }
+.huella-loading-face { transform: translateZ(.5px); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.huella-loading-back { transform: rotateY(180deg) translateZ(.5px); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.huella-loading-shadow { position: absolute; bottom: 8px; left: 10px; width: 150px; height: 12px; border-radius: 50%; background: rgb(36 95 107 / 18%); filter: blur(5px); animation: huella-loading-shadow 3.6s linear infinite; }
+@keyframes huella-loading-shadow { 0%, 50%, 100% { transform: scaleX(1); opacity: .65; } 25%, 75% { transform: scaleX(.35); opacity: .3; } }
+@keyframes huella-loading-turn { to { transform: rotateY(360deg); } }
+@media (prefers-reduced-motion: reduce) { .huella-loading-logo, .huella-loading-shadow { animation: none; } }

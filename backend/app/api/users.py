@@ -43,6 +43,28 @@ router = APIRouter(
 )
 
 
+@router.get('/{user_id}/photo')
+def get_user_photo(
+    user_id: UUID,
+    current_user: AuthenticatedUser = Depends(require_permission('VIEW_USERS')),
+):
+    """Entrega una URL temporal de la foto al mantenedor autorizado."""
+    from app.api.profile import present
+
+    try:
+        db = get_supabase_client()
+        rows = db.table('usuarios').select('foto_perfil_path').eq(
+            'id', str(user_id)
+        ).is_('deleted_at', 'null').execute().data or []
+        if not rows:
+            raise HTTPException(404, 'Usuario no encontrado.')
+        return {'foto_url': present(db, rows[0])['foto_url']}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(503, 'No fue posible cargar la foto del usuario.') from exc
+
+
 @router.post("/{user_id}/password-invitation")
 def resend_password_invitation(request: Request, user_id: UUID,
                                current_user: AuthenticatedUser = Depends(require_permission("UPDATE_USER"))):

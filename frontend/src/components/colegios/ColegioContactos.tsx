@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator'
 /**
  * HuellApp · Gestión de contactos de un colegio ya registrado.
  *
@@ -214,7 +215,7 @@ export default function ColegioContactos({ colegioId, colegioActivo, permissions
       {error && <p className="schools-error" role="alert">{error}</p>}
       {message && <p className="schools-success" role="status">{message}</p>}
       {loadError && <div role="alert"><p className="schools-error">{loadError}</p><button className="schools-secondary" type="button" disabled={loading} onClick={() => { setLoading(true); setRevision((value) => value + 1) }}>Reintentar</button></div>}
-      {loading ? <p className="schools-feedback">Cargando contactos...</p> : !loadError && (
+      {loading ? <LoadingIndicator /> : !loadError && (
         <div className="schools-contact-list">
           {items.length === 0 && !showForm && <p className="schools-feedback">Aún no hay contactos asociados a este colegio.</p>}
           {items.map((item) => (

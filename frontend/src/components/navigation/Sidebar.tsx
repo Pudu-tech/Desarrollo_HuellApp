@@ -18,10 +18,14 @@
  */
 
 import SidebarItem from './SidebarItem'
+import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useAuth } from '../../contexts/AuthContext'
+import { useVisibleRefresh } from '../../hooks/useVisibleRefresh'
+import { listMisParticipaciones } from '../../services/participacionesService'
 
 import {
-  ADMIN_NAVIGATION_ITEMS,
-  MONITOR_NAVIGATION_ITEMS,
+  navigationForRole,
 } from '../../config/navigation'
 
 import type {
@@ -41,16 +45,32 @@ function Sidebar({
   role,
   onLogout,
 }: SidebarProps) {
+  const { user } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const receivesAssignments = ['MONITOR', 'DIRECTIVA', 'COORDINADOR'].includes(role)
+  const [pending, setPending] = useState<{ user: string; count: number; attendance: number } | null>(null)
+  const userId = user?.id ?? ''
+  useEffect(() => {
+    if (!receivesAssignments || !userId) return
+    let active = true
+    void listMisParticipaciones().then((rows) => {
+      if (active) setPending({ user: userId, count: rows.filter((item) => item.admite_respuesta).length, attendance: rows.filter((item) => item.admite_asistencia).length })
+    }).catch(() => { /* No interrumpe la navegación si falla el contador. */ })
+    return () => { active = false }
+  }, [receivesAssignments, userId])
+  useVisibleRefresh(async (isActive) => {
+    try {
+      const rows = await listMisParticipaciones()
+      if (isActive()) setPending({ user: userId, count: rows.filter((item) => item.admite_respuesta).length, attendance: rows.filter((item) => item.admite_asistencia).length })
+    } catch { /* Conserva el último contador confirmado y reintenta. */ }
+  }, receivesAssignments && !!userId)
   /**
    * El MONITOR utiliza una navegación propia.
    *
    * Los demás roles utilizan la navegación
    * administrativa.
    */
-  const navigationItems =
-    role === 'MONITOR'
-      ? MONITOR_NAVIGATION_ITEMS
-      : ADMIN_NAVIGATION_ITEMS
+  const navigationItems = navigationForRole(role)
 
 
   /**
@@ -64,7 +84,9 @@ function Sidebar({
 
 
   return (
-    <aside className="sidebar">
+    <aside className={`sidebar${menuOpen ? ' sidebar--open' : ''}`} onClick={(event) => {
+      if ((event.target as HTMLElement).closest('a')) setMenuOpen(false)
+    }}>
       <div className="sidebar__header">
         <h1 className="sidebar__title">
           HuellApp
@@ -73,10 +95,14 @@ function Sidebar({
         <span className="sidebar__subtitle">
           Fundación Huella
         </span>
+        <button type="button" className="sidebar__toggle" aria-expanded={menuOpen} aria-controls="sidebar-navigation" onClick={() => setMenuOpen(!menuOpen)}>
+          {menuOpen ? 'Cerrar menú' : 'Menú'}
+        </button>
       </div>
 
 
       <nav
+        id="sidebar-navigation"
         className="sidebar__navigation"
         aria-label="Navegación principal"
       >
@@ -87,6 +113,8 @@ function Sidebar({
                 key={item.path}
                 label={item.label}
                 path={item.path}
+                count={pending?.user === userId ? ['/app/mis-asignaciones', '/app/monitor/asignaciones'].includes(item.path) ? pending.count : ['/app/asistencia', '/app/monitor/asistencia'].includes(item.path) ? pending.attendance : 0 : 0}
+                countLabel={item.path.endsWith('/asistencia') ? 'asistencias propias pendientes dentro del plazo' : 'asignaciones pendientes de respuesta'}
               />
             ),
           )}
@@ -95,6 +123,7 @@ function Sidebar({
 
 
       <div className="sidebar__footer">
+        <Link className="sidebar__profile-link" to={role === 'MONITOR' ? '/app/monitor/perfil' : '/app/perfil'}>Mi perfil</Link>
         <div className="sidebar__user">
           <span className="sidebar__user-email">
             {displayName}

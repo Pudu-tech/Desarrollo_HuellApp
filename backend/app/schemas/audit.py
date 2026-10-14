@@ -41,3 +41,8 @@ class AuditLogItem(BaseModel):
     source: str
 
     created_at: datetime
+    actor_name: str | None = None
+    actor_role: str | None = None
+    entity_name: str | None = None
+    old_display_values: dict[str, Any] | None = None
+    new_display_values: dict[str, Any] | None = None

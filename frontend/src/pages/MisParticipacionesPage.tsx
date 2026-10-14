@@ -1,16 +1,18 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
 /** HuellApp · Actividades propias para monitor, coordinador y directiva. */
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { listMisParticipaciones, type ParticipacionPropia } from '../services/participacionesService'
 import '../styles/asignaciones.css'
 
 export default function MisParticipacionesPage({ monitor = false }: { monitor?: boolean }) {
+  const [params] = useSearchParams()
   const [result, setResult] = useState<{ rows?: ParticipacionPropia[]; error?: string } | null>(null)
   const [revision, setRevision] = useState(0)
-  const [order, setOrder] = useState('recientes')
-  const [pendingOnly, setPendingOnly] = useState(false)
-  const rows = [...(result?.rows ?? [])].filter((info) => !pendingOnly || info.admite_respuesta).sort((a, b) =>
+  const [order, setOrder] = useState(params.get('orden') === 'proximas' ? 'proximas' : 'recientes')
+  const [pendingOnly, setPendingOnly] = useState(params.get('pendientes') === '1')
+  const rows = [...(result?.rows ?? [])].filter((info) => (!pendingOnly || info.admite_respuesta)).sort((a, b) =>
     order === 'proximas' ? `${a.fecha} ${a.hora_inicio}`.localeCompare(`${b.fecha} ${b.hora_inicio}`)
       : (b.ultima_invitacion_at ?? '').localeCompare(a.ultima_invitacion_at ?? ''))
   const timestamp = (value: string | null) => value ? new Date(value).toLocaleString('es-CL', { timeZone: 'America/Santiago', dateStyle: 'short', timeStyle: 'short' }) : 'No disponible'
@@ -37,10 +39,11 @@ export default function MisParticipacionesPage({ monitor = false }: { monitor?: 
       <label>Ordenar por<select value={order} onChange={(event) => setOrder(event.target.value)}><option value="recientes">Más recientes</option><option value="proximas">Próximas actividades</option></select></label>
       <label><input type="checkbox" checked={pendingOnly} onChange={(event) => setPendingOnly(event.target.checked)} /> Solo pendientes de respuesta ({result?.rows?.filter((info) => info.admite_respuesta).length ?? 0})</label>
     </div>
-    <div className="assignments-panel">{!result ? <p role="status">Cargando…</p> : result.error ? <p className="assignments-error" role="alert">{result.error}</p>
+    <div className="assignments-panel">{!result ? <LoadingIndicator /> : result.error ? <p className="assignments-error" role="alert">{result.error}</p>
       : !rows.length ? <p className="assignments-feedback">{pendingOnly ? 'No tienes participaciones pendientes de respuesta.' : 'No tienes participaciones registradas.'}</p>
-      : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th>Actividad</th><th>Recibida / actualizada</th><th>Fecha de la actividad</th><th>Colegio / lugar</th><th>Mi respuesta</th><th>Acciones</th></tr></thead><tbody>
+      : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th>Actividad</th><th>Recibida / actualizada</th><th>Fecha de la actividad</th><th>Colegio / lugar</th><th>Mi respuesta</th><th>Mi asistencia</th><th>Acciones</th></tr></thead><tbody>
         {rows.map((info) => <tr key={info.participante_id}><td>{info.actividad}</td><td><div>Recibida: {timestamp(info.recibida_at)}</div>{info.actualizada_at && <div>Actualizada: {timestamp(info.actualizada_at)}</div>}</td><td>{info.fecha.split('-').reverse().join('/')}</td><td>{info.colegio ?? info.lugar}</td><td><span className={`assignments-status assignments-status--${info.estado.toLowerCase()}`}>{info.admite_respuesta ? 'Pendiente de respuesta' : info.estado}</span></td>
+          <td><span className={`assignments-status assignments-status--${info.asistencia_estado?.toLowerCase() ?? 'unknown'}`}>{info.asistencia_estado ? info.asistencia_estado === 'NO_REQUERIDA' ? 'No requerida' : info.asistencia_estado.charAt(0) + info.asistencia_estado.slice(1).toLowerCase() : 'Sin registro'}</span></td>
           <td><Link className="assignments-action" to={`${monitor ? '/app/monitor/asignaciones' : '/app/mis-asignaciones'}/${info.asignacion_id}`}>Ver asignación</Link></td></tr>)}
       </tbody></table></div>}</div>
   </section>

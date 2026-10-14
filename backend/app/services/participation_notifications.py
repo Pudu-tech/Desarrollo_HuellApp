@@ -3,7 +3,9 @@
 El token autoriza únicamente la respuesta a una versión de participación.
 No se registra en logs, se usa en cuerpos HTTP y se transporta como fragmento.
 """
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
+from app.services.attendance_status import effective_attendance_state
 from uuid import UUID
 import jwt
 from fastapi import HTTPException
@@ -50,7 +52,7 @@ def verify_invitation(db, token: str) -> dict:
 
 def personal_summary(db, assignment_id: str, actor_id: str, version: str | None = None) -> dict:
     """Solo consulta la participación propia, sin revelar correos de terceros."""
-    rows = db.table("asignacion_participantes").select("id,usuario_id,created_at,notificaciones(invitacion_version,created_at),invitacion_version,estado_participacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta") \
+    rows = db.table("asignacion_participantes").select("id,usuario_id,created_at,notificaciones(invitacion_version,created_at),asistencia:asistencias_asignacion(estado),invitacion_version,estado_participacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta") \
         .eq("asignacion_id", assignment_id).eq("usuario_id", actor_id).eq("activo", True).is_("deleted_at", "null").execute().data or []
     if not rows:
         raise HTTPException(404, "No tienes una participación disponible en esta asignación.")
@@ -64,6 +66,23 @@ def personal_summary(db, assignment_id: str, actor_id: str, version: str | None 
     return project_personal_summary(part, rows[0], assignment_id)
 
 
+def attendance_available(part, assignment, state, now=None):
+    if (not assignment.get('activo') or assignment['estados_asignacion']['codigo'] in ('CANCELADA', 'NO_REALIZADA')
+        or part['estados_participacion']['codigo'] != 'ACEPTADA' or state != 'PENDIENTE'):
+        return False
+    zone = ZoneInfo('America/Santiago')
+    start = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_inicio']}").replace(tzinfo=zone).astimezone(timezone.utc)
+    deadline = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_fin']}").replace(tzinfo=zone).astimezone(timezone.utc) + timedelta(hours=24)
+    return start <= (now or datetime.now(timezone.utc)) < deadline
+
+
+def response_available(assignment, now=None):
+    if not assignment.get('activo') or assignment['estados_asignacion']['codigo'] not in ('PENDIENTE', 'CONFIRMADA', 'REALIZADA'):
+        return False
+    end = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_fin']}").replace(tzinfo=ZoneInfo('America/Santiago')).astimezone(timezone.utc)
+    return (now or datetime.now(timezone.utc)) < end + timedelta(hours=24)
+
+
 def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -> dict:
     """Proyección compartida de lectura propia, sin nuevas consultas."""
     def name(key, field="nombre"):
@@ -74,21 +93,26 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
     received = part.get("created_at")
     latest = max(current_dates, default=received)
     updated = latest if len(invitations) > 1 and current_dates else None
+    attendance = part.get('asistencia') or []
+    if isinstance(attendance, list):
+        attendance = attendance[0] if attendance else {}
     return {"asignacion_id": assignment_id, "participante_id": part["id"], "invitacion_version": part["invitacion_version"], "estado": part["estados_participacion"]["codigo"],
             "recibida_at": received, "actualizada_at": updated, "ultima_invitacion_at": latest,
+            "asistencia_estado": effective_attendance_state(attendance.get('estado'), part['estados_participacion']['codigo']),
+            "admite_asistencia": attendance_available(part, assignment, attendance.get('estado')),
             "fecha_respuesta": part.get("fecha_respuesta"), "motivo_rechazo": part.get("motivo_rechazo"),
             "actividad": name("tipos_actividad"), "fecha": assignment["fecha"], "hora_inicio": assignment["hora_inicio"],
             "hora_fin": assignment["hora_fin"], "colegio": name("colegios"), "curso": name("cursos_colegio", "nombre_mostrado"),
             "sala": name("salas"), "asignatura": name("ramos"), "lugar": assignment["lugar"], "observacion": assignment["observacion"],
             "espacio": name("espacios_reflexion") or name("espacios_encuentro"), "tipo_participacion": (part.get("tipos_participacion") or {}).get("nombre"),
-            "admite_respuesta": assignment["activo"] and assignment["estados_asignacion"]["codigo"] in ("PENDIENTE", "CONFIRMADA")
+            "admite_respuesta": response_available(assignment)
                 and part["estados_participacion"]["codigo"] == "PENDIENTE"}
 
 
 def personal_summaries(db, actor_id: str) -> list[dict]:
     """Una consulta de relaciones; no realiza dos consultas por actividad."""
     rows = db.table("asignacion_participantes").select(
-        "id,usuario_id,created_at,notificaciones(invitacion_version,created_at),invitacion_version,asignacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta,"
+        "id,usuario_id,created_at,notificaciones(invitacion_version,created_at),asistencia:asistencias_asignacion(estado),invitacion_version,asignacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta,"
         "asignacion:asignaciones!inner(id,fecha,hora_inicio,hora_fin,lugar,observacion,activo,deleted_at,tipos_actividad(nombre),"
         "colegios(nombre),cursos_colegio(nombre_mostrado),salas(nombre),ramos(nombre),espacios_reflexion(nombre),"
         "espacios_encuentro(nombre),estados_asignacion(codigo))"

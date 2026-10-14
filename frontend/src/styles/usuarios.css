@@ -490,3 +490,5 @@
     transition: none;
   }
 }
+
+.users-editor-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}.users-editor-heading>div:first-child{min-width:0}.users-editor-heading .users-form-intro{margin:7px 0 0;overflow-wrap:anywhere}.users-editor-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 72px;width:72px;height:72px;border-radius:50%;overflow:hidden;background:#eaf3ef;color:#28616a;font-size:25px;font-weight:700;border:3px solid white;box-shadow:0 3px 14px #20334812}.users-editor-avatar img{width:100%;height:100%;object-fit:cover}@media(max-width:650px){.users-editor-avatar{flex-basis:60px;width:60px;height:60px;font-size:22px}}

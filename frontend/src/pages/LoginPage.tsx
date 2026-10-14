@@ -1,3 +1,4 @@
+import LoadingIndicator from '../components/LoadingIndicator'
 import {
   type ChangeEvent,
   type FormEvent,
@@ -131,7 +132,7 @@ function LoginPage() {
     return (
       <main className="huella-login-page">
         <section className="huella-login-access">
-          <p>Cargando...</p>
+          <LoadingIndicator />
         </section>
       </main>
     )

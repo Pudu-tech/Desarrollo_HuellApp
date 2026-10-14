@@ -1,3 +1,4 @@
+import LoadingIndicator from '../LoadingIndicator'
 /**
  * HuellApp · Formulario completo de creación de asignaciones.
  * Cambiar colegio/tipo/curso/ramo limpia sus selecciones dependientes.
@@ -116,7 +117,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
               <option value="">Seleccionar sala</option>{colegio.data?.salas.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
             </select></label>
           </div>
-          {colegio.loading && <p role="status">Cargando recursos del colegio…</p>}
+          {colegio.loading && <LoadingIndicator />}
           {academica && colegio.data && (!colegio.data.cursos.length || !colegio.data.salas.length) && <p className="assignments-warning">Esta actividad requiere cursos y salas activos. Completa los recursos que faltan desde la ficha del colegio.</p>}
           {colegio.error && <div role="alert"><p className="assignments-error">{colegio.error}</p><button className="assignments-secondary" type="button" onClick={colegio.retry}>Reintentar recursos</button></div>}
           {colegio.data && <><p>Selecciona las personas de contacto que correspondan.</p><div className="assignments-contacts">
@@ -140,7 +141,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
           </select></label>
         </div>
           {curso && !ramos.length && <p className="assignments-warning">No hay asignaturas activas habilitadas para este nivel. Adminístralas en el <Link to="/app/catalogo-academico">Catálogo académico</Link> y vuelve a abrir el formulario.</p>}
-          {espacios.loading && <p role="status">Cargando espacios…</p>}
+          {espacios.loading && <LoadingIndicator />}
           {espacios.error && <div role="alert"><p className="assignments-error">{espacios.error}</p><button type="button" className="assignments-secondary" onClick={espacios.retry}>Reintentar espacios</button></div>}
           {espacios.data && !espacioOptions?.length && <p className="assignments-warning">No hay espacios activos disponibles para este ramo y actividad.</p>}
         </section>}

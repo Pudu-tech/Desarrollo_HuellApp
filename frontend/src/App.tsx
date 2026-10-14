@@ -1,3 +1,4 @@
+import LoadingIndicator from './components/LoadingIndicator'
 import { lazy, Suspense, type ComponentType } from 'react'
 /**
  * HuellApp
@@ -64,6 +65,7 @@ import MonitorLayout from './layouts/MonitorLayout'
 const AccesoDenegadoPage = loadPage(() => import('./pages/AccesoDenegadoPage'))
 const AsignacionDetallePage = loadPage(() => import('./pages/AsignacionDetallePage'))
 const AsignacionesPage = loadPage(() => import('./pages/AsignacionesPage'))
+const AsistenciaPage = loadPage(() => import('./pages/AsistenciaPage'))
 const AuditoriaPage = loadPage(() => import('./pages/AuditoriaPage'))
 const ColegiosPage = loadPage(() => import('./pages/ColegiosPage'))
 const CatalogoAcademicoPage = loadPage(() => import('./pages/CatalogoAcademicoPage'))
@@ -71,6 +73,7 @@ const InvitacionParticipacionPage = loadPage(() => import('./pages/InvitacionPar
 const MisParticipacionesPage = loadPage(() => import('./pages/MisParticipacionesPage'))
 const MiParticipacionPage = loadPage(() => import('./pages/MiParticipacionPage'))
 const EstablecerPasswordPage = loadPage(() => import('./pages/EstablecerPasswordPage'))
+const PerfilPage = loadPage(() => import('./pages/PerfilPage'))
 const InicioPage = loadPage(() => import('./pages/InicioPage'))
 import LoginPage from './pages/LoginPage'
 const MonitorAsignacionDetallePage = loadPage(() => import('./pages/MonitorAsignacionDetallePage'))
@@ -89,7 +92,7 @@ import RoleRoute from './routes/RoleRoute'
 function loadPage(load: () => Promise<{ default: ComponentType }>) {
   const Page = lazy(load)
   return function LoadedPage() {
-    return <Suspense fallback={<p role="status" className="assignments-feedback">Cargando pantalla…</p>}><Page /></Suspense>
+    return <Suspense fallback={<LoadingIndicator />}><Page /></Suspense>
   }
 }
 
@@ -181,6 +184,7 @@ function App() {
               path="inicio"
               element={<InicioPage />}
             />
+            <Route path="perfil" element={<PerfilPage />} />
             <Route path="catalogo-academico" element={<RoleRoute allowedRoles={['SUPERADMIN', 'DIRECTIVA']}><CatalogoAcademicoPage /></RoleRoute>} />
             <Route path="mis-asignaciones" element={<MisParticipacionesPage />} />
             <Route path="mis-asignaciones/:asignacionId" element={<MiParticipacionPage />} />
@@ -272,6 +276,10 @@ function App() {
             />
 
             <Route
+              path="asistencia"
+              element={<RoleRoute allowedRoles={['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR']}><AsistenciaPage /></RoleRoute>}
+            />
+            <Route
               path="auditoria"
               element={
                 <RoleRoute
@@ -309,11 +317,13 @@ function App() {
               index
               element={<MonitorPage />}
             />
+            <Route path="perfil" element={<PerfilPage />} />
 
             <Route
               path="asignaciones"
               element={<MonitorAsignacionesPage />}
             />
+            <Route path="asistencia" element={<AsistenciaPage />} />
 
             <Route
               path="asignaciones/:asignacionId"

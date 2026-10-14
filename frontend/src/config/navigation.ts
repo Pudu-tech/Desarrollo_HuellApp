@@ -13,6 +13,7 @@
  */
 
 import type {
+  AppRole,
   NavigationItem,
 } from '../types/navigation'
 
@@ -77,6 +78,25 @@ export const ADMIN_NAVIGATION_ITEMS:
     },
   ]
 
+/** Orden de gestión común, conservando los accesos autorizados por rol. */
+export function navigationForRole(role: AppRole): NavigationItem[] {
+  const items = (role === 'MONITOR' ? MONITOR_NAVIGATION_ITEMS : ADMIN_NAVIGATION_ITEMS)
+    .filter((item) => item.allowedRoles.includes(role))
+  if (['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'].includes(role)) {
+    items.push({
+      label: 'Asistencia', path: '/app/asistencia', allowedRoles: ['SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'],
+    })
+    const order = ['/app/inicio', '/app/usuarios', '/app/asignaciones', '/app/asistencia',
+      '/app/mis-asignaciones', '/app/colegios', '/app/catalogo-academico', '/app/auditoria']
+    items.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path))
+  }
+  if (role === 'MONITOR') {
+    const order = ['/app/monitor', '/app/monitor/asignaciones', '/app/monitor/asistencia']
+    items.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path))
+  }
+  return items
+}
+
 
 // ============================================================
 // NAVEGACIÓN MONITOR
@@ -84,6 +104,7 @@ export const ADMIN_NAVIGATION_ITEMS:
 
 export const MONITOR_NAVIGATION_ITEMS:
   NavigationItem[] = [
+    { label: 'Mi Asistencia', path: '/app/monitor/asistencia', allowedRoles: ['MONITOR'] },
     {
       label: 'Inicio',
       path: '/app/monitor',

@@ -4,7 +4,7 @@
  *
  * REGLAS
  * ------------------------------------------------------------
- * - Cierre por inactividad: 30 minutos.
+ * - Cierre por inactividad: 60 minutos.
  * - Duración máxima absoluta: 12 horas.
  *
  * SECURITY
@@ -20,7 +20,7 @@
    ============================================================ */
 
 export const SESSION_INACTIVITY_LIMIT =
-  30 * 60 * 1000
+  60 * 60 * 1000
 
 export const SESSION_ABSOLUTE_LIMIT =
   12 * 60 * 60 * 1000

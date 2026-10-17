@@ -1,0 +1,358 @@
+/* Identidad compartida: encuentro, claridad y acompañamiento.
+ * Selectores acotados para convivir con las hojas de cada pantalla,
+ * incluidas las que se cargan al navegar. No altera el comportamiento. */
+/* Variables comunes para bordes, superficies, texto secundario y foco. */
+:root {
+  --huella-border: #d9e4e5;
+  --huella-surface-soft: #f3f8f7;
+  --huella-text-muted: #52666e;
+  --huella-radius: 18px;
+  --huella-focus: 0 0 0 3px rgba(36, 100, 116, 0.18);
+}
+
+/* Roboto se hereda desde el documento y se aplica también a controles nativos. */
+body {
+  font-family: var(--huella-font-body);
+}
+
+button, input, select, textarea, dialog {
+  font-family: var(--huella-font-body);
+}
+
+/* Unifica los títulos y permite partir palabras largas sin desbordar tarjetas. */
+.app-content :is(h1, h2, h3, h4),
+dialog :is(h2, h3) {
+  font-family: var(--huella-font-heading);
+  color: var(--huella-teal-dark);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+/* Los títulos principales crecen según el ancho disponible. */
+.app-content :is(.home-heading h2, .assignments-heading h1, .users-heading h1, .schools-heading h1, .audit-heading h2) {
+  font-size: clamp(26px, 2.5vw, 34px);
+  font-weight: 700;
+}
+
+/* Descripciones y datos auxiliares con menor énfasis y lectura espaciada. */
+.app-content :is(.home-heading p, .home-muted, .home-stats span,
+  .home-activity small, .home-weekday, .assignments-heading p,
+  .assignments-panel-heading p, .assignments-form-section p,
+  .assignments-detail-grid dt, .academic-item-description, .audit-muted) {
+  color: var(--huella-text-muted);
+  line-height: 1.65;
+}
+
+/* Superficies y jerarquía de formularios. */
+.app-content :is(.home-card, .assignments-panel, .assignments-editor,
+  .users-panel, .users-create-form, .users-editor, .schools-panel) {
+  border: 1px solid var(--huella-border);
+  border-radius: var(--huella-radius);
+  background: var(--huella-white);
+  padding: clamp(20px, 2.5vw, 30px);
+  box-shadow: 0 5px 22px rgba(31, 83, 96, 0.045);
+}
+
+/* La franja coral identifica las áreas de creación y edición. */
+.app-content :is(.assignments-editor, .users-create-form, .schools-editor) {
+  border-top: 3px solid var(--huella-coral);
+}
+
+/* Agrupa visualmente los filtros y los distingue de los resultados. */
+.app-content :is(.assignments-filters, .users-filters, .schools-filters) {
+  padding: 18px;
+  gap: 16px;
+  background: var(--huella-surface-soft);
+  border: 1px solid var(--huella-border);
+  border-radius: 14px;
+}
+
+/* Los separadores de secciones comparten el mismo color de borde. */
+.app-content :is(.assignments-form-section, .users-role-section, .schools-contact-editor) {
+  border-color: var(--huella-border);
+}
+
+/* Centra los filtros personales en una superficie común y deja aire antes de la tabla. */
+.app-content .assignments-personal-toolbar {
+  display: grid;
+  grid-template-columns: minmax(200px, 320px) auto;
+  align-items: end;
+  justify-content: center;
+  gap: 20px 32px;
+  margin: 24px 0 32px;
+  padding: 20px 24px;
+  background: var(--huella-surface-soft);
+  border: 1px solid var(--huella-border);
+  border-radius: 14px;
+}
+
+/* Alinea la etiqueta de ordenación con el borde del selector. */
+.app-content .assignments-personal-toolbar label {
+  min-width: 0;
+  margin: 0;
+  align-items: stretch;
+  gap: 8px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.app-content .assignments-personal-toolbar select {
+  width: 100%;
+}
+
+/* Mantiene casilla y texto juntos y a la misma altura que el selector. */
+.app-content .assignments-personal-toolbar label:has(input[type='checkbox']) {
+  flex-direction: row;
+  align-items: center;
+  min-height: 48px;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.app-content .assignments-personal-toolbar input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+}
+
+/* Da también mayor separación a los filtros del listado general de asignaciones. */
+.app-content .assignments-filters {
+  margin-bottom: 32px;
+}
+
+/* Controles: conserva la geometría de casillas, archivos y campos ocultos. */
+:is(.app-content, .invitation-content) :is(input, select, textarea):not(
+  [type='checkbox'], [type='radio'], [type='file'], [type='hidden'], [type='range'], [type='color']
+) {
+  min-height: 46px;
+  max-width: 100%;
+  padding: 11px 14px;
+  border: 1px solid #b8c9cd;
+  border-radius: 10px;
+  background: var(--huella-white);
+  color: var(--huella-ink);
+  font-family: var(--huella-font-body);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+
+/* Las observaciones tienen espacio inicial y admiten ampliación vertical. */
+:is(.app-content, .invitation-content) textarea {
+  min-height: 112px;
+  resize: vertical;
+}
+
+/* Las pistas de entrada conservan contraste sin confundirse con un valor escrito. */
+:is(.app-content, .invitation-content) input::placeholder,
+:is(.app-content, .invitation-content) textarea::placeholder {
+  color: #64757b;
+  opacity: 1;
+}
+
+/* Diferencia los campos deshabilitados sin ocultar su contenido. */
+:is(.app-content, .invitation-content) :is(input, select, textarea):disabled {
+  background: #f0f4f4;
+  color: #5f7077;
+  cursor: not-allowed;
+}
+
+/* Resalta los campos que la lógica existente identifica como inválidos. */
+:is(.app-content, .invitation-content) :is(input, select, textarea)[aria-invalid='true'] {
+  border-color: var(--huella-danger);
+  background: var(--huella-danger-soft);
+}
+
+/* Colorea las casillas y opciones nativas sin modificar su funcionamiento. */
+:is(.app-content, .invitation-content) input:is([type='checkbox'], [type='radio']) {
+  accent-color: var(--huella-teal);
+  flex-shrink: 0;
+}
+
+/* Mantiene las etiquetas legibles y vinculadas visualmente a la marca. */
+.app-content :is(.assignments-page, .users-page, .schools-page) label {
+  color: var(--huella-teal-dark);
+  line-height: 1.5;
+}
+
+/* Armoniza campos, pistas y etiquetas de recuperación y cambio de contraseña. */
+.auth-page .auth-input {
+  font-size: 16px;
+  border-color: #b8c9cd;
+}
+
+.auth-page .auth-input::placeholder {
+  color: #64757b;
+}
+
+.auth-page .auth-label {
+  color: var(--huella-teal-dark);
+}
+
+/* Acciones principales coral, secundarias teal y destructivas rojas. */
+.app-content :is(.assignments-primary, .users-primary, .schools-primary),
+.invitation-content .assignments-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 11px 20px;
+  border: 1px solid var(--huella-coral);
+  border-radius: 12px;
+  background: var(--huella-coral);
+  color: var(--huella-ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.5;
+  text-decoration: none;
+  box-shadow: 0 4px 12px rgba(241, 142, 95, 0.18);
+  transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+/* Solo las acciones habilitadas muestran realce al pasar el puntero. */
+.app-content :is(.assignments-primary, .users-primary, .schools-primary):hover:not(:disabled),
+.invitation-content .assignments-primary:hover:not(:disabled) {
+  background: var(--huella-coral-hover);
+  border-color: var(--huella-coral-hover);
+  box-shadow: 0 6px 18px rgba(241, 142, 95, 0.25);
+}
+
+/* Las acciones secundarias usan fondo blanco y menor peso visual. */
+.app-content :is(.assignments-secondary, .users-secondary, .schools-secondary),
+.confirmation-dialog .confirmation-dialog-cancel {
+  min-height: 44px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: 1px solid #b8c9cd;
+  background: var(--huella-white);
+  color: var(--huella-teal-dark);
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+/* Refuerza el borde de las acciones secundarias al pasar el puntero. */
+.app-content :is(.assignments-secondary, .users-secondary, .schools-secondary):hover:not(:disabled),
+.confirmation-dialog .confirmation-dialog-cancel:hover:not(:disabled) {
+  background: var(--huella-surface-soft);
+  border-color: var(--huella-teal);
+}
+
+/* Los enlaces de detalle emplean el tono institucional y separan el subrayado. */
+.app-content :is(.assignments-action, .home-more) {
+  color: var(--huella-teal-dark);
+  text-underline-offset: 4px;
+}
+
+/* Separa las acciones finales de los campos del formulario. */
+.app-content :is(.assignments-editor-actions, .users-form-actions) {
+  gap: 12px;
+  padding-top: 20px;
+}
+
+/* Amplía el área de selección de niveles y contactos. */
+.app-content :is(.academic-levels, .assignments-contacts) label {
+  min-height: 48px;
+  border-radius: 10px;
+  border-color: var(--huella-border);
+  background: #f9fbfb;
+}
+
+/* La tarjeta seleccionada se reconoce por el fondo y el borde teal. */
+.app-content :is(.academic-levels, .assignments-contacts) label:has(input:checked) {
+  background: var(--huella-surface-soft);
+  border-color: var(--huella-teal);
+}
+
+/* Tablas legibles, sin ocultar columnas en móvil. */
+.app-content :is(.assignments-table-scroll, .users-table-scroll, .schools-table-scroll) {
+  border: 1px solid var(--huella-border);
+  border-radius: 12px;
+  overscroll-behavior-x: contain;
+}
+
+/* Los encabezados distinguen las columnas del contenido de la tabla. */
+.app-content :is(.assignments-table, .users-table, .schools-table) th {
+  padding: 14px 16px;
+  background: var(--huella-surface-soft);
+  color: var(--huella-teal-dark);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+}
+
+/* Conserva un espaciado y separadores consistentes en las celdas. */
+.app-content :is(.assignments-table, .users-table, .schools-table) td {
+  padding: 16px;
+  border-color: var(--huella-border);
+  line-height: 1.5;
+}
+
+/* Ayuda a seguir una fila al recorrerla con el puntero. */
+.app-content :is(.assignments-table, .users-table, .schools-table) tbody tr:hover {
+  background: #f7faf9;
+}
+
+/* Identifica la pestaña activa según los atributos de la interfaz existente. */
+.app-content .academic-tabs button[aria-current='page'],
+.app-content .schools-tabs button[aria-selected='true'] {
+  color: var(--huella-teal-dark);
+  border-color: var(--huella-teal);
+  background: var(--huella-surface-soft);
+}
+
+/* Los diálogos mantienen profundidad y desplazamiento en pantallas pequeñas. */
+dialog:is(.confirmation-dialog, .schools-dialog, .audit-dialog) {
+  color: var(--huella-ink);
+  border-radius: 20px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  box-shadow: 0 24px 70px rgba(30, 83, 97, 0.2);
+}
+
+/* Atenúa el contenido detrás del diálogo para centrar la atención. */
+dialog:is(.confirmation-dialog, .schools-dialog, .audit-dialog)::backdrop {
+  background: rgba(24, 52, 61, 0.5);
+}
+
+/* Tamaño mínimo para pulsar las acciones de confirmación en dispositivos táctiles. */
+.confirmation-dialog button {
+  min-height: 44px;
+}
+
+/* Foco común visible al usar teclado, incluidos los diálogos. */
+:is(.app-shell, .auth-page, .confirmation-dialog, .schools-dialog, .audit-dialog)
+  :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--huella-teal);
+  outline-offset: 3px;
+  box-shadow: var(--huella-focus);
+}
+
+/* En móvil reduce el espacio de filtros y permite repartir las acciones en filas. */
+@media (max-width: 650px) {
+  /* Apila los filtros personales sin perder alineación ni espacio para pulsar. */
+  .app-content .assignments-personal-toolbar {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 18px;
+    margin-bottom: 28px;
+  }
+  .app-content :is(.assignments-filters, .users-filters, .schools-filters) {
+    padding: 14px;
+  }
+  .app-content :is(.assignments-editor-actions, .users-form-actions) > button {
+    flex: 1 1 160px;
+  }
+}
+
+/* Respeta la preferencia del sistema de reducir las animaciones. */
+@media (prefers-reduced-motion: reduce) {
+  .auth-page :is(.auth-input, .auth-button) {
+    transition: none;
+  }
+  :is(.app-content, .invitation-content) :is(input, select, textarea,
+    .assignments-primary, .users-primary, .schools-primary) {
+    transition: none;
+  }
+}

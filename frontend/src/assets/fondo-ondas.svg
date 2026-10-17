@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1252" height="330" viewBox="0 0 1252 330" preserveAspectRatio="none" fill="none">
+  <title>Fondo blanco con ondas suaves en tonos durazno</title>
+  <defs>
+    <linearGradient id="onda-superior" x1="626" y1="55" x2="626" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDF3EE"/>
+      <stop offset="1" stop-color="#FEF6F2"/>
+    </linearGradient>
+    <linearGradient id="onda-central" x1="626" y1="141" x2="626" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCE8DE" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#FEF7F3"/>
+    </linearGradient>
+    <linearGradient id="onda-diagonal" x1="875" y1="0" x2="875" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FDEEE6" stop-opacity=".95"/>
+      <stop offset=".65" stop-color="#FBDACB" stop-opacity=".6"/>
+      <stop offset="1" stop-color="#FDEDE5" stop-opacity=".85"/>
+    </linearGradient>
+    <linearGradient id="onda-derecha" x1="1080" y1="0" x2="1080" y2="330" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FCE6DC" stop-opacity=".85"/>
+      <stop offset="1" stop-color="#FFF9F5" stop-opacity=".55"/>
+    </linearGradient>
+  </defs>
+  <path fill="#FFFFFF" d="M0 0h1252v330H0z"/>
+  <path fill="url(#onda-superior)" d="M0 213C145 205 290 190 389 172C572 139 751 65 875 56C998 47 1106 97 1252 112V330H0Z"/>
+  <path fill="url(#onda-central)" d="M0 278C157 281 272 257 378 219C495 176 565 140 635 141C744 137 831 190 968 210C1071 226 1178 217 1252 198V330H0Z"/>
+  <path fill="url(#onda-diagonal)" d="M1092 0H1252V330H393C576 327 731 263 876 158C958 102 1029 48 1092 0Z"/>
+  <path fill="url(#onda-derecha)" d="M1183 0H1252V330H826C960 261 1070 185 1134 79Z"/>
+  <path fill="#FBE4D8" fill-opacity=".38" d="M0 256C77 292 166 320 260 330H0Z"/>
+</svg>

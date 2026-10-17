@@ -101,6 +101,8 @@ function Sidebar({
       </div>
 
 
+      <div className="sidebar__menu">
+        <div className="sidebar__menu-content">
       <nav
         id="sidebar-navigation"
         className="sidebar__navigation"
@@ -143,6 +145,8 @@ function Sidebar({
         >
           Cerrar sesión
         </button>
+      </div>
+        </div>
       </div>
     </aside>
   )

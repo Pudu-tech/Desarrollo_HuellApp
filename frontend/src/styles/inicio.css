@@ -4,3 +4,119 @@
 
 
 .home-welcome{display:flex;align-items:center;gap:20px;min-width:0}.home-welcome>div{min-width:0}.home-avatar{display:flex;align-items:center;justify-content:center;flex:0 0 80px;width:80px;height:80px;border-radius:50%;background:#eaf3ef;color:#28616a;border:3px solid white;box-shadow:0 3px 14px #20334812;text-decoration:none;overflow:hidden;font-size:27px;font-weight:700}.home-avatar img{width:100%;height:100%;object-fit:cover}.home-avatar:hover{box-shadow:0 3px 14px #20334826}@media(max-width:480px){.home-welcome{gap:12px}.home-avatar{flex-basis:60px;width:60px;height:60px;font-size:22px}.home-welcome h2{overflow-wrap:anywhere}.home-eyebrow{letter-spacing:1px}}
+
+/* Inicio: un espacio cercano para acompañar y coordinar a la comunidad. */
+.home-dashboard .home-heading {
+  padding: clamp(20px, 3vw, 32px);
+  border: 1px solid var(--huella-border);
+  border-left: 4px solid var(--huella-coral);
+  border-radius: 20px;
+  background: linear-gradient(115deg, #fff 35%, #f0f7f5 100%);
+  margin-bottom: 24px;
+}
+
+.home-dashboard .home-eyebrow {
+  color: var(--huella-teal-dark);
+  letter-spacing: 0.1em;
+  line-height: 1.5;
+}
+
+.home-dashboard .home-today {
+  background: var(--huella-coral-soft);
+  color: var(--huella-teal-dark);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.home-dashboard .home-stats > a {
+  border: 1px solid var(--huella-border);
+  border-top: 3px solid var(--huella-coral);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 4px 16px rgba(31, 83, 96, 0.04);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.home-dashboard .home-stats > a:hover {
+  background: var(--huella-surface-soft);
+  box-shadow: 0 7px 20px rgba(31, 83, 96, 0.09);
+}
+
+.home-dashboard .home-stats strong {
+  color: var(--huella-teal-dark);
+  font-size: clamp(30px, 3vw, 38px);
+  line-height: 1.2;
+}
+
+.home-dashboard .home-card h3 {
+  font-size: 19px;
+  font-weight: 600;
+}
+
+.home-dashboard .home-calendar-header {
+  flex-wrap: wrap;
+}
+
+.home-dashboard .home-calendar-header button {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--huella-border);
+  border-radius: 10px;
+  background: var(--huella-surface-soft);
+  color: var(--huella-teal-dark);
+  font-size: 14px;
+}
+
+.home-dashboard .home-calendar-header button:hover {
+  background: var(--huella-coral-soft);
+}
+
+.home-dashboard .home-day {
+  border-color: var(--huella-border);
+  background: #f9fbfb;
+  border-radius: 10px;
+}
+
+.home-dashboard .home-day.is-today {
+  border: 2px solid var(--huella-teal);
+}
+
+.home-dashboard .home-day.is-selected {
+  background: var(--huella-teal);
+  border-color: var(--huella-teal);
+  color: #fff;
+}
+
+.home-dashboard .home-marker {
+  background: var(--huella-coral-soft);
+  color: var(--huella-teal-dark);
+}
+
+.home-dashboard .home-date,
+.home-dashboard .home-avatar {
+  background: var(--huella-surface-soft);
+  color: var(--huella-teal-dark);
+}
+
+.home-dashboard .home-activity,
+.home-dashboard .home-attendance {
+  border-color: var(--huella-border);
+  line-height: 1.5;
+}
+
+.home-dashboard .home-tag {
+  background: var(--huella-surface-soft);
+  color: var(--huella-teal-dark);
+}
+
+@media (max-width: 480px) {
+  .home-dashboard .home-heading { padding: 18px 14px; }
+  .home-dashboard .home-activity { gap: 10px; flex-wrap: wrap; }
+  .home-dashboard .home-activity > span:nth-child(2) { flex-basis: 50%; }
+  .home-dashboard .home-day { padding: 4px; }
+  .home-dashboard .home-calendar { gap: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-dashboard .home-stats > a { transition: none; }
+}

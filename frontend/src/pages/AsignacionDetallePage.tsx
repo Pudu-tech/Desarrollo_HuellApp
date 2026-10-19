@@ -117,15 +117,39 @@ export default function AsignacionDetallePage() {
       ? 'Cambios guardados. Se solicitará reconfirmación con una nueva invitación por correo.' : 'Cambios guardados. Se conservaron las respuestas de los participantes.')
     return saved
   }
-  return <section className="assignments-page">
-    <header className="assignments-heading"><div><h1>Detalle de asignación</h1><p>Información registrada de la actividad.</p></div>{permissions.includes('VIEW_AUDIT_LOGS') && <Link className="assignments-action" to={`/app/auditoria?asignacion=${asignacionId}`}>Ver historial</Link>}<Link className="assignments-action" to="/app/asignaciones">Volver al listado</Link></header>
+  return <section className="assignments-page assignments-page--detail">
+    <header className="assignments-heading">
+      <div>
+        <h1>Detalle de asignación</h1>
+        <p>Información registrada de la actividad.</p>
+      </div>
+      {/* Agrupa los enlaces de navegación para mantenerlos al mismo nivel. */}
+      <div className="assignments-detail-actions">
+        {permissions.includes('VIEW_AUDIT_LOGS') && (
+          <Link className="assignments-action" to={`/app/auditoria?asignacion=${asignacionId}`}>
+            Ver historial
+          </Link>
+        )}
+        <Link className="assignments-action" to="/app/asignaciones">Volver al listado</Link>
+      </div>
+    </header>
     {notice && <p className="assignments-success" role="status">{notice}</p>}
     {editError && <p className="assignments-error" role="alert">{editError}</p>}
     {opciones && item ? <AsignacionCreateForm key={item.id} opciones={opciones} initial={payloadEdicion(item)} onCreate={saveEdit} onClose={() => setOpciones(null)} /> : <div className="assignments-panel">
       {!current ? <LoadingIndicator /> : current.error ? <div role="alert"><p className="assignments-error">{current.error}</p><button className="assignments-secondary" type="button" onClick={() => { setResult(null); setRevision((value) => value + 1) }}>Reintentar</button></div> : item && <>
-        <div className="assignments-panel-heading"><h2>{tipo?.nombre ?? 'Actividad'}</h2><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estado?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estado?.nombre ?? 'Estado no disponible'}</span>
-          {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>{opening ? 'Cargando…' : 'Editar asignación'}</button>}
-          {canDelete && <button type="button" className="assignments-delete" disabled={deleting || opening} onClick={() => void remove()}>{deleting ? 'Eliminando…' : 'Eliminar asignación'}</button>}</div>
+        <div className="assignments-panel-heading assignments-detail-summary">
+          <h2>{tipo?.nombre ?? 'Actividad'}</h2>
+          <div className="assignments-detail-actions">
+            <span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estado?.codigo.toLowerCase() ?? 'unknown'}`}>
+              {item.por_reasignar ? 'Por reasignar' : estado?.nombre ?? 'Estado no disponible'}
+            </span>
+            {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && (
+              <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>
+                {opening ? 'Cargando…' : 'Editar asignación'}
+              </button>
+            )}
+          </div>
+        </div>
         <dl className="assignments-detail-grid">
           <div><dt>Colegio / Lugar</dt><dd>{item.colegio_id ? colegio?.nombre ?? 'Colegio no disponible' : item.lugar ?? '—'}</dd></div>
           <div><dt>Fecha</dt><dd>{item.fecha.split('-').reverse().join('/')}</dd></div>
@@ -136,9 +160,23 @@ export default function AsignacionDetallePage() {
         </dl>
         {item.por_reasignar && <p className="assignments-warning">El único participante rechazó la invitación. La actividad requiere reasignación.</p>}
         <section className="assignments-form-section" aria-label="Respuestas de participantes">
-          <div className="assignments-panel-heading"><h3>Participantes y respuestas</h3><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>Ver detalle de asistencia</Link>
-            {permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') && <button type="button" className="assignments-secondary" disabled={adding || deleting} onClick={() => setAdding(true)}>Agregar participante</button>}
-            <button type="button" className="assignments-secondary" onClick={() => { clearReadCache(); setRevision((value) => value + 1) }}>Actualizar respuestas</button></div>
+          <div className="assignments-panel-heading assignments-detail-participants">
+            <h3>Participantes y respuestas</h3>
+            {/* Los enlaces y botones comparten altura y se apilan en móvil. */}
+            <div className="assignments-detail-actions">
+              <Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>
+                Ver detalle de asistencia
+              </Link>
+              {permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') && (
+                <button type="button" className="assignments-secondary" disabled={adding || deleting} onClick={() => setAdding(true)}>
+                  Agregar participante
+                </button>
+              )}
+              <button type="button" className="assignments-secondary" onClick={() => { clearReadCache(); setRevision((value) => value + 1) }}>
+                Actualizar respuestas
+              </button>
+            </div>
+          </div>
           {adding && <AgregarParticipanteForm assignment={item.id} existing={item.participantes.map((person) => person.usuario_id)} onClose={() => setAdding(false)} onAdded={async () => {
             const saved = await getAsignacion(item.id)
             setResult({ id: item.id, item: saved, catalogos: current.catalogos })
@@ -162,6 +200,26 @@ export default function AsignacionDetallePage() {
             <div className="assignments-editor-actions"><button type="button" className="assignments-primary" disabled={!newMonitor || reassigning} onClick={() => void saveReassignment()}>{reassigning ? 'Guardando…' : 'Reasignar participación'}</button>
               <button type="button" className="assignments-secondary" disabled={reassigning} onClick={() => setReassignment(null)}>Cancelar</button></div></div>}
         </section>
+        {/* Separa la acción destructiva de las consultas y explica su alcance real. */}
+        {canDelete && (
+          <section className="assignments-detail-danger" aria-labelledby="assignment-delete-title">
+            <div>
+              <h3 id="assignment-delete-title">Eliminar esta asignación</h3>
+              <p id="assignment-delete-description">
+                Se retirará del listado y sus invitaciones quedarán invalidadas. El historial se conservará.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="assignments-delete"
+              aria-describedby="assignment-delete-description"
+              disabled={deleting || opening}
+              onClick={() => void remove()}
+            >
+              {deleting ? 'Eliminando…' : 'Eliminar asignación'}
+            </button>
+          </section>
+        )}
       </>}
     </div>}
     {confirmationDialog}

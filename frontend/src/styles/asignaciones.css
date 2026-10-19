@@ -55,3 +55,185 @@
 .assignments-detail-grid dd { margin: 5px 0 0; overflow-wrap: anywhere; }
 @media (max-width: 800px) { .assignments-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 650px) { .assignments-heading, .assignments-panel-heading { flex-direction: column; align-items: flex-start; } .assignments-panel, .assignments-editor { padding: 16px; } .assignments-filters, .assignments-form-grid, .assignments-participant-row, .assignments-detail-grid { grid-template-columns: 1fr; } .assignments-table { min-width: 750px; } }
+
+/* Detalle: centra el panel y limita su contenido sin afectar los otros listados. */
+.assignments-page--detail {
+  width: 100%;
+  min-width: 0;
+}
+
+.assignments-page--detail > .assignments-panel {
+  min-width: 0;
+}
+
+/* Título y acciones se ajustan a varias filas sin distribuir enlaces aislados. */
+.assignments-page--detail :is(.assignments-heading, .assignments-panel-heading) {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px 24px;
+}
+
+.assignments-page--detail :is(.assignments-heading > div:first-child,
+  .assignments-detail-summary > h2, .assignments-detail-participants > h3) {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.assignments-page--detail .assignments-panel-heading :is(h2, h3) {
+  margin: 0;
+}
+
+/* Agrupa acciones a la derecha y conserva la misma altura en enlaces y botones. */
+.assignments-page--detail .assignments-detail-actions {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.assignments-page--detail .assignments-detail-actions :is(.assignments-action, .assignments-secondary) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 11px 16px;
+  border: 1px solid var(--huella-border);
+  border-radius: 10px;
+  background: var(--huella-white);
+  color: var(--huella-teal-dark);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  text-decoration: none;
+}
+
+.assignments-page--detail .assignments-detail-actions .assignments-action:hover {
+  background: var(--huella-surface-soft);
+  border-color: var(--huella-teal);
+}
+
+/* El estado del resumen conserva sus colores y comparte tamaño con la acción de eliminar. */
+.assignments-page--detail .assignments-detail-summary .assignments-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  min-width: 176px;
+  padding: 11px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* Datos con columnas equilibradas y separación clara respecto a las respuestas. */
+.assignments-page--detail .assignments-detail-grid {
+  margin: 24px 0 0;
+  gap: 24px 32px;
+}
+
+.assignments-page--detail .assignments-detail-grid > div {
+  min-width: 0;
+}
+
+.assignments-page--detail .assignments-detail-grid dd {
+  margin-top: 8px;
+  line-height: 1.6;
+}
+
+.assignments-page--detail .assignments-detail-participants {
+  margin-bottom: 20px;
+}
+
+/* Advertencia separada de las acciones habituales; el diálogo de confirmación se conserva. */
+.assignments-page--detail .assignments-detail-danger {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: 32px;
+  padding: 20px;
+  border: 1px solid #efb4ae;
+  border-left: 4px solid var(--huella-danger);
+  border-radius: 12px;
+  background: var(--huella-danger-soft);
+}
+
+.assignments-page--detail .assignments-detail-danger > div {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.assignments-page--detail .assignments-detail-danger h3 {
+  margin: 0 0 8px;
+  color: var(--huella-danger);
+  font-size: 16px;
+}
+
+.assignments-page--detail .assignments-detail-danger p {
+  margin: 0;
+  color: #783b35;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.assignments-page--detail .assignments-detail-danger .assignments-delete {
+  min-width: 176px;
+  min-height: 46px;
+  margin: 0;
+  padding: 11px 16px;
+  border: 1px solid var(--huella-danger);
+  border-radius: 10px;
+  background: var(--huella-danger);
+  color: var(--huella-white);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.assignments-page--detail .assignments-detail-danger .assignments-delete:hover:not(:disabled) {
+  background: #8c2119;
+  border-color: #8c2119;
+}
+
+/* En móvil los controles ocupan el ancho disponible y la tabla se desplaza dentro del panel. */
+@media (max-width: 650px) {
+  .assignments-page--detail :is(.assignments-heading, .assignments-panel-heading) {
+    align-items: stretch;
+  }
+
+  .assignments-page--detail :is(.assignments-heading > div:first-child,
+    .assignments-detail-summary > h2, .assignments-detail-participants > h3) {
+    flex-basis: auto;
+  }
+
+  .assignments-page--detail .assignments-detail-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .assignments-page--detail .assignments-detail-actions > * {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .assignments-page--detail .assignments-detail-danger {
+    padding: 16px;
+  }
+
+  .assignments-page--detail .assignments-detail-danger .assignments-delete {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .assignments-page--detail .assignments-table-scroll {
+    max-width: 100%;
+  }
+}

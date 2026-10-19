@@ -88,8 +88,12 @@ function Sidebar({
       if ((event.target as HTMLElement).closest('a')) setMenuOpen(false)
     }}>
       <div className="sidebar__header">
+        
         <h1 className="sidebar__title">
-          HuellApp
+          HuellApp <img
+              src="/logo-huella.png"
+              alt="Fundación Huella Formación y Vocación"
+            />
         </h1>
 
         <span className="sidebar__subtitle">

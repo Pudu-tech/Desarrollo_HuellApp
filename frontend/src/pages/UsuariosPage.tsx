@@ -522,6 +522,7 @@ function UsuariosPage() {
                       className="users-action"
                       onClick={() => {
                         handleOpenEdit(item)
+                        window.scrollTo({ top: 0, behavior: 'smooth' })
                       }}
                     >
                       Editar

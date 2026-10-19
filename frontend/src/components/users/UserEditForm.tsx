@@ -509,12 +509,14 @@ function UserEditForm({
       </header>
       {['SUPERADMIN', 'DIRECTIVA'].includes(actor?.role_code ?? '') && !(actor?.role_code === 'DIRECTIVA' && currentUser.roles.codigo === 'SUPERADMIN') &&
         <div className="users-form-section"><h4>Acceso y contraseña</h4><p>Envía un enlace nuevo si la invitación anterior venció o falló.</p>
-          <button type="button" className="users-secondary" disabled={isLoading || !currentUser.activo} onClick={() => void sendInvitation()}>{loadingAction === 'invitation' ? 'Enviando…' : 'Enviar nueva invitación'}</button></div>}
+          <div></div>
+          <button type="button" className="users-secondary" disabled={isLoading || !currentUser.activo} onClick={() => void sendInvitation()}>{loadingAction === 'invitation' ? 'Enviando…' : 'Enviar nueva invitación'}</button><div> </div></div>}
 
 
       {/* DATOS BÁSICOS */}
 
       <form className="users-basic-form" onSubmit={handleSaveBasicData}>
+        <div> </div>
         <h4>Información personal</h4>
         <div>
           <label htmlFor="edit-user-rut">
@@ -759,6 +761,8 @@ function UserEditForm({
           ))}
         </select>
 
+        <p>&nbsp;</p>
+
         <button
           type="button"
           className="users-secondary"
@@ -766,7 +770,7 @@ function UserEditForm({
             void handleChangeRole()
           }}
           disabled={isLoading}
-        >
+        > 
           {loadingAction === 'role'
             ? 'Actualizando rol...'
             : 'Cambiar rol'}

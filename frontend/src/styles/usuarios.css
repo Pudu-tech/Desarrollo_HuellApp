@@ -11,6 +11,12 @@
   font-family: inherit;
 }
 
+.users-name-sort { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.users-name-sort:focus-visible { outline: 2px solid #245f6b; outline-offset: 4px; border-radius: 3px; }
+.users-name-sort > span { display: inline-flex; gap: 2px; }
+.users-name-sort > span > span { opacity: .35; }
+.users-name-sort > span > .is-active { opacity: 1; font-weight: 800; }
+
 .users-heading, .users-panel-heading {
   display: flex;
   align-items: center;

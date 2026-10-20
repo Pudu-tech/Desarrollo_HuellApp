@@ -30,6 +30,31 @@
 .assignments-contacts input { width: auto; flex-shrink: 0; }
 .assignments-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .assignments-table-scroll { overflow-x: auto; }
+.assignments-page .assignments-detail-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 12px;
+  border: 1px solid var(--huella-gray-300);
+  border-radius: 10px;
+  background: var(--huella-white);
+  color: var(--huella-teal-dark);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .15s, border-color .15s;
+}
+.assignments-page .assignments-detail-button:hover {
+  background: var(--huella-coral-soft);
+  border-color: var(--huella-coral);
+  text-decoration: none;
+}
+.assignments-page .assignments-detail-button:focus-visible {
+  outline: 2px solid var(--huella-teal);
+  outline-offset: 3px;
+}
 .assignments-date-sort { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
 .assignments-date-sort:focus-visible { outline: 2px solid #245f6b; outline-offset: 4px; border-radius: 3px; }
 .assignments-date-sort > span { display: inline-flex; gap: 2px; }

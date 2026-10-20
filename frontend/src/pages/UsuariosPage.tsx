@@ -16,6 +16,7 @@ import LoadingIndicator from '../components/LoadingIndicator'
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from 'react'
 
@@ -52,6 +53,13 @@ function UsuariosPage() {
 
   const [users, setUsers] =
     useState<UserListItem[]>([])
+
+  const [ordenNombre, setOrdenNombre] = useState<'asc' | 'desc'>('asc')
+  const usuariosOrdenados = useMemo(() => {
+    const collator = new Intl.Collator('es', { sensitivity: 'base' })
+    const nombreCompleto = (item: UserListItem) => [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ').trim()
+    return [...users].sort((a, b) => (ordenNombre === 'asc' ? 1 : -1) * collator.compare(nombreCompleto(a), nombreCompleto(b)))
+  }, [users, ordenNombre])
 
   const [loading, setLoading] =
     useState(true)
@@ -459,8 +467,12 @@ function UsuariosPage() {
                   RUT
                 </th>
 
-                <th scope="col">
-                  Nombre
+                <th scope="col" aria-sort={ordenNombre === 'asc' ? 'ascending' : 'descending'}>
+                  <button type="button" className="users-name-sort"
+                    onClick={() => setOrdenNombre((value) => value === 'asc' ? 'desc' : 'asc')}
+                    aria-label={`Ordenar por nombre: ${ordenNombre === 'asc' ? 'de Z a A' : 'de A a Z'}`}>
+                    Nombre <span aria-hidden="true"><span className={ordenNombre === 'asc' ? 'is-active' : ''}>↑</span><span className={ordenNombre === 'desc' ? 'is-active' : ''}>↓</span></span>
+                  </button>
                 </th>
 
                 <th scope="col">
@@ -486,7 +498,7 @@ function UsuariosPage() {
             </thead>
 
             <tbody>
-              {users.map((item) => (
+              {usuariosOrdenados.map((item) => (
                 <tr key={item.id}>
                   <td>
                     {item.rut}

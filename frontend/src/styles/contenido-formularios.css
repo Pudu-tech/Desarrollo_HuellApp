@@ -8,6 +8,61 @@
   --huella-text-muted: #52666e;
   --huella-radius: 18px;
   --huella-focus: 0 0 0 3px rgba(36, 100, 116, 0.18);
+  --huella-content-width: 1600px;
+  --huella-content-padding: 32px;
+  --huella-panel-padding: 24px;
+  --huella-section-gap: 24px;
+  --huella-table-radius: 12px;
+  --huella-panel-shadow: 0 5px 22px rgba(31, 83, 96, 0.045);
+  --huella-interaction-shadow: 0 4px 14px rgba(31, 83, 96, 0.09);
+  --huella-interaction-background: #f3f8f7;
+}
+
+/* Geometría común del portal; no depende del orden de carga de las páginas. */
+.app-shell .app-content {
+  padding: var(--huella-content-padding);
+}
+
+.app-shell .app-content > :is(.assignments-page, .users-page, .schools-page, .home-dashboard) {
+  width: 100%;
+  max-width: var(--huella-content-width);
+  min-width: 0;
+  margin-inline: 0;
+  color: var(--huella-ink);
+}
+
+.app-shell .app-content :is(.assignments-heading, .users-heading, .schools-heading, .home-heading) {
+  margin-bottom: var(--huella-section-gap);
+  gap: 20px;
+}
+
+.app-shell .app-content :is(.assignments-heading, .users-heading, .schools-heading) {
+  padding-bottom: 0;
+}
+
+.app-shell .app-content :is(.assignments-heading h1, .users-heading h1, .schools-heading h1) {
+  margin: 0 0 6px;
+  color: var(--huella-teal-dark);
+  font-family: var(--huella-font-heading);
+  font-size: clamp(26px, 2.5vw, 34px);
+  font-weight: 700;
+}
+
+/* Evita que filtros y resultados aparezcan pegados en Asistencia y Auditoría. */
+.app-shell .app-content :is(.assignments-page, .users-page, .schools-page) >
+  :is(.assignments-panel, .assignments-editor, .users-panel, .users-editor,
+      .users-create-form, .schools-panel, .schools-editor, .attendance-edit-panel) {
+  margin-block: 0 var(--huella-section-gap);
+}
+
+.app-shell .app-content :is(.assignments-page, .users-page, .schools-page) >
+  :is(.assignments-panel, .assignments-editor, .users-panel, .users-editor,
+      .users-create-form, .schools-panel, .schools-editor, .attendance-edit-panel):last-child {
+  margin-bottom: 0;
+}
+
+.app-shell .app-content .attendance-edit-panel > .assignments-panel {
+  margin: 0;
 }
 
 /* Roboto se hereda desde el documento y se aplica también a controles nativos. */
@@ -45,13 +100,28 @@ dialog :is(h2, h3) {
 }
 
 /* Superficies y jerarquía de formularios. */
-.app-content :is(.home-card, .assignments-panel, .assignments-editor,
-  .users-panel, .users-create-form, .users-editor, .schools-panel) {
+.app-shell .app-content :is(.home-card, .assignments-panel, .assignments-editor,
+  .users-panel, .users-create-form, .users-editor, .schools-panel, .schools-editor):where(:not(dialog)) {
   border: 1px solid var(--huella-border);
   border-radius: var(--huella-radius);
   background: var(--huella-white);
-  padding: clamp(20px, 2.5vw, 30px);
-  box-shadow: 0 5px 22px rgba(31, 83, 96, 0.045);
+  padding: var(--huella-panel-padding);
+  box-shadow: var(--huella-panel-shadow);
+}
+
+.app-shell .app-content .profile-panel { max-width: none; }
+
+.app-shell .app-content .home-heading {
+  padding: var(--huella-panel-padding);
+  border-radius: var(--huella-radius);
+  box-shadow: var(--huella-panel-shadow);
+}
+
+.app-shell .app-content .home-stats > a {
+  padding: var(--huella-panel-padding);
+  border-radius: var(--huella-radius);
+  border-color: var(--huella-border);
+  box-shadow: var(--huella-panel-shadow);
 }
 
 /* La franja coral identifica las áreas de creación y edición. */
@@ -60,7 +130,7 @@ dialog :is(h2, h3) {
 }
 
 /* Agrupa visualmente los filtros y los distingue de los resultados. */
-.app-content :is(.assignments-filters, .users-filters, .schools-filters) {
+.app-shell .app-content :is(.assignments-filters, .users-filters, .schools-filters) {
   padding: 18px;
   gap: 16px;
   background: var(--huella-surface-soft);
@@ -266,14 +336,14 @@ dialog :is(h2, h3) {
 }
 
 /* Tablas legibles, sin ocultar columnas en móvil. */
-.app-content :is(.assignments-table-scroll, .users-table-scroll, .schools-table-scroll) {
+.app-shell .app-content :is(.assignments-table-scroll, .users-table-scroll, .schools-table-scroll) {
   border: 1px solid var(--huella-border);
-  border-radius: 12px;
+  border-radius: var(--huella-table-radius);
   overscroll-behavior-x: contain;
 }
 
 /* Los encabezados distinguen las columnas del contenido de la tabla. */
-.app-content :is(.assignments-table, .users-table, .schools-table) th {
+.app-shell .app-content :is(.assignments-table, .users-table, .schools-table) th {
   padding: 14px 16px;
   background: var(--huella-surface-soft);
   color: var(--huella-teal-dark);
@@ -283,15 +353,63 @@ dialog :is(h2, h3) {
 }
 
 /* Conserva un espaciado y separadores consistentes en las celdas. */
-.app-content :is(.assignments-table, .users-table, .schools-table) td {
+.app-shell .app-content :is(.assignments-table, .users-table, .schools-table) td {
   padding: 16px;
   border-color: var(--huella-border);
   line-height: 1.5;
 }
 
 /* Ayuda a seguir una fila al recorrerla con el puntero. */
-.app-content :is(.assignments-table, .users-table, .schools-table) tbody tr:hover {
-  background: #f7faf9;
+.app-shell .app-content :is(.assignments-table, .users-table, .schools-table) tbody tr {
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.app-shell .app-content :is(.assignments-table, .users-table, .schools-table) tbody tr:is(:hover, :focus-within) {
+  background: var(--huella-interaction-background);
+  box-shadow: var(--huella-interaction-shadow);
+}
+
+/* Colorear también las celdas evita el hover coral anterior de Usuarios/Colegios. */
+.app-shell .app-content :is(.assignments-table, .users-table, .schools-table) tbody tr:is(:hover, :focus-within) > td {
+  background: var(--huella-interaction-background);
+}
+
+.app-shell .app-content :is(.home-activity, .home-chart, .home-attendance, .schools-contact-row) {
+  border-radius: var(--huella-table-radius);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.app-shell .app-content :is(.home-activity, .home-chart, .home-attendance,
+  .home-stats > a, .schools-contact-row):is(:hover, :focus-within) {
+  background: var(--huella-interaction-background);
+  box-shadow: var(--huella-interaction-shadow);
+}
+
+.app-shell .app-content :is(.assignments-secondary, .users-secondary, .schools-secondary,
+  .users-action, .schools-action, .assignments-detail-button):hover:not(:disabled) {
+  background: var(--huella-interaction-background);
+  border-color: var(--huella-teal);
+  color: var(--huella-teal-dark);
+  box-shadow: var(--huella-interaction-shadow);
+}
+
+/* Las acciones de filas usan el mismo tamaño compacto en todos los módulos. */
+.app-shell .app-content :is(.assignments-table, .users-table, .schools-table)
+  :is(.assignments-secondary, .users-action, .schools-action, .assignments-detail-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.app-shell .app-content :is(a, button, input, select, textarea, summary):focus-visible {
+  outline: 2px solid var(--huella-teal);
+  outline-offset: 3px;
+  box-shadow: var(--huella-focus);
 }
 
 /* Identifica la pestaña activa según los atributos de la interfaz existente. */
@@ -346,8 +464,20 @@ dialog:is(.confirmation-dialog, .schools-dialog, .audit-dialog)::backdrop {
   }
 }
 
+/* Mismos espacios en todas las vistas móviles; las tablas conservan scroll horizontal. */
+@media (max-width: 768px) {
+  :root {
+    --huella-content-padding: 20px 16px;
+    --huella-panel-padding: 16px;
+    --huella-section-gap: 20px;
+  }
+}
+
 /* Respeta la preferencia del sistema de reducir las animaciones. */
 @media (prefers-reduced-motion: reduce) {
+  .app-shell .app-content :is(.home-activity, .home-chart, .home-attendance,
+    .home-stats > a, .schools-contact-row, .assignments-table tbody tr,
+    .users-table tbody tr, .schools-table tbody tr) { transition: none; }
   .auth-page :is(.auth-input, .auth-button) {
     transition: none;
   }

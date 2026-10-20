@@ -18,6 +18,11 @@ class OpcionCodigo(OpcionNombre):
     codigo: str
 
 
+class ColegioListado(OpcionNombre):
+    activo: bool = True
+    deleted_at: str | None = None
+
+
 class ParticipanteOpcion(BaseModel):
     """Proyección pública para seleccionar participantes, sin datos de cuenta."""
     id: UUID
@@ -50,7 +55,7 @@ class CatalogosAsignacion(BaseModel):
     """Nombres de catálogo e históricos necesarios para el listado de gestión."""
     tipos_actividad: list[OpcionCodigo]
     estados: list[OpcionCodigo]
-    colegios: list[OpcionNombre]
+    colegios: list[ColegioListado]
 
 
 class OpcionesCreacionAsignacion(BaseModel):

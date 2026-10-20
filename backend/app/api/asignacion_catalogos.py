@@ -40,7 +40,7 @@ def listar_catalogos_asignaciones(
         queries = {
             "tipos_actividad": db.table("tipos_actividad").select("id,codigo,nombre").order("nombre"),
             "estados": db.table("estados_asignacion").select("id,codigo,nombre").order("orden"),
-            "colegios": db.table("colegios").select("id,nombre").order("nombre"),
+            "colegios": db.table("colegios").select("id,nombre,activo,deleted_at").order("nombre"),
         }
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = {key: executor.submit(_datos, query) for key, query in queries.items()}

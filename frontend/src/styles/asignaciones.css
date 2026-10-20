@@ -30,6 +30,13 @@
 .assignments-contacts input { width: auto; flex-shrink: 0; }
 .assignments-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .assignments-table-scroll { overflow-x: auto; }
+.assignments-date-sort { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.assignments-date-sort:focus-visible { outline: 2px solid #245f6b; outline-offset: 4px; border-radius: 3px; }
+.assignments-date-sort > span { display: inline-flex; gap: 2px; }
+.assignments-date-sort > span > span { opacity: .35; }
+.assignments-date-sort > span > .is-active { opacity: 1; font-weight: 800; }
+.assignments-assignees { margin: 0; padding: 0; list-style: none; min-width: 150px; line-height: 1.5; }
+.assignments-assignees li + li { margin-top: 4px; }
 .assignments-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }
 .assignments-table th { padding: 13px 12px; background: #f8fafc; color: #64748b; font-size: 12px; font-weight: 600; white-space: nowrap; }
 .assignments-table td { padding: 16px 12px; border-top: 1px solid #e2e8f0; }

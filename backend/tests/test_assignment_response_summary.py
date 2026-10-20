@@ -1,9 +1,17 @@
 """Respuesta única rechazada y proyección de participantes, sin escrituras externas."""
 import unittest
-from app.api.asignaciones import _por_reasignar, _participante_detalle
+from app.api.asignaciones import _por_reasignar, _participante_detalle, _asignados_a
 
 
 class AssignmentResponseSummaryTests(unittest.TestCase):
+    def test_assignees_include_current_participants_without_exposing_account_data(self):
+        person = {'activo': True, 'deleted_at': None, 'usuario': {
+            'nombres': ' Ana ', 'apellido_paterno': 'Pérez', 'apellido_materno': None, 'email': 'private@example.org'}}
+        self.assertEqual(_asignados_a([person, {**person, 'activo': False},
+            {**person, 'deleted_at': '2026-10-20'}]), ['Ana Pérez'])
+        self.assertEqual(_asignados_a([]), [])
+        self.assertEqual(_asignados_a([{'activo': True, 'usuario': None}]), ['Participante no disponible'])
+
     def test_single_rejection_requires_reassignment_only_while_pending(self):
         assignment = {"activo": True, "estado": {"codigo": "PENDIENTE"}}
         rejected = {"activo": True, "estado": {"codigo": "RECHAZADA"}}

@@ -18,6 +18,7 @@ export interface AsignacionItem {
   estado_id: string
   por_reasignar?: boolean
   asistencia_resumen?: Record<string, number>
+  asignados_a?: string[]
   activo: boolean
   created_at: string
   updated_at: string
@@ -46,7 +47,7 @@ export interface AsignacionDetail extends AsignacionItem {
 export interface CatalogosAsignacion {
   tipos_actividad: OpcionCodigo[]
   estados: OpcionCodigo[]
-  colegios: OpcionNombre[]
+  colegios: Array<OpcionNombre & { activo?: boolean; deleted_at?: string | null }>
 }
 export interface ParticipanteOpcion {
   id: string

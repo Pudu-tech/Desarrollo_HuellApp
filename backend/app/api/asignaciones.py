@@ -216,6 +216,18 @@ def _participante_detalle(item: dict) -> dict:
             "estado_participacion_nombre": estado.get("nombre")}
 
 
+def _asignados_a(participants: list[dict]) -> list[str]:
+    names = []
+    for part in participants:
+        if not part.get('activo') or part.get('deleted_at'):
+            continue
+        user = part.get('usuario') or {}
+        name = ' '.join(value.strip() for key in ('nombres', 'apellido_paterno', 'apellido_materno')
+                        if (value := user.get(key)) and value.strip())
+        names.append(name or 'Participante no disponible')
+    return sorted(names, key=str.casefold)
+
+
 def _attendance_state(part: dict):
     from app.services.attendance_status import effective_attendance_state
     value = part.get('asistencia') or []
@@ -1571,7 +1583,7 @@ def listar_asignaciones(
     try:
         query = (
             supabase.table("asignaciones")
-            .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,asistencia:asistencias_asignacion(estado),estado:estados_participacion!estado_participacion_id(codigo))")
+            .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,usuario:usuarios!usuario_id(nombres,apellido_paterno,apellido_materno),asistencia:asistencias_asignacion(estado),estado:estados_participacion!estado_participacion_id(codigo))")
             .is_("deleted_at", "null")
         )
 
@@ -1630,7 +1642,7 @@ def listar_asignaciones(
         )
 
         return [
-            AsignacionListItem.model_validate({**item, "por_reasignar": _por_reasignar(item, item.get("participaciones") or []), "asistencia_resumen": _attendance_counts(item.get('participaciones') or [])})
+            AsignacionListItem.model_validate({**item, "por_reasignar": _por_reasignar(item, item.get("participaciones") or []), "asistencia_resumen": _attendance_counts(item.get('participaciones') or []), "asignados_a": _asignados_a(item.get('participaciones') or [])})
             for item in (response.data or [])
         ]
 

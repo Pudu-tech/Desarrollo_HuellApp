@@ -860,6 +860,7 @@ class AsignacionListItem(BaseModel):
     estado_id: UUID
     por_reasignar: bool = False
     asistencia_resumen: dict[str, int] = Field(default_factory=dict)
+    asignados_a: list[str] = Field(default_factory=list)
 
     activo: bool
 

@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     brevo_sender_name: str = "HuellApp"
     brevo_email_logo_url: str = "https://www.fundacionhuella.cl/web/image/website/1/logo?mimetype=image/png"
     notification_token_secret: SecretStr | None = None
+    notification_webhook_secret: SecretStr | None = None
+    cron_secret: SecretStr | None = None
 
     # ============================================================
     # SUPABASE

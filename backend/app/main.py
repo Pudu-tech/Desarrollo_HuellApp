@@ -32,6 +32,7 @@ from app.api.contactos import router as contactos_router
 from app.api.catalogos import router as catalogos_router
 from app.api.cursos import router as cursos_router
 from app.api.health import router as health_router
+from app.api.notification_dispatch import router as notification_dispatch_router
 from app.api.salas import router as salas_router
 from app.api.users import router as users_router
 from app.core.config import get_settings
@@ -77,6 +78,7 @@ app.add_middleware(
 from app.api.asistencias import router as asistencias_router
 app.include_router(asistencias_router)
 app.include_router(health_router)
+app.include_router(notification_dispatch_router)
 
 # Registra los endpoints protegidos relacionados con autenticación.
 app.include_router(auth_router)

@@ -105,6 +105,18 @@ def process_one(db, settings, client):
     return True
 
 
+def process_batch(db, settings, client, *, max_jobs=100, max_seconds=180):
+    """Lote finito para HTTP. El plazo impide iniciar nuevos trabajos, no cancela envíos."""
+    deadline = time.monotonic() + max_seconds
+    processed = 0
+    while processed < max_jobs and time.monotonic() < deadline:
+        if not process_one(db, settings, client):
+            break
+        processed += 1
+    # Incluye cancelaciones; no es un contador de entregas al buzón.
+    return processed
+
+
 def main():
     parser = argparse.ArgumentParser(description="Cola de invitaciones por Brevo")
     parser.add_argument("--once", action="store_true", help="Procesa hasta 100 pendientes y termina")

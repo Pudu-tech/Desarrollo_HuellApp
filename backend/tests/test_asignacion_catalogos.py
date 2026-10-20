@@ -68,7 +68,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
             "tipos_actividad": [{"id": str(uuid4()), "nombre": "Reunión", "codigo": "REUNION"},
                                 {"id": str(uuid4()), "nombre": "Capacitación", "codigo": "CAPACITACION"}],
             "usuarios": [{"id": user_id, "nombres": "Persona", "apellido_paterno": "Prueba",
-                          "apellido_materno": None, "roles": {"codigo": "MONITOR"}}],
+                          "apellido_materno": None, "email": "persona@example.org", "roles": {"codigo": "MONITOR"}}],
         })
         def permiso(_db, *, role_code, tipo_codigo):
             if tipo_codigo == "CAPACITACION":
@@ -77,7 +77,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
             result = api.listar_opciones_creacion(SimpleNamespace(role_code="COORDINADOR"))
         self.assertEqual([item.codigo for item in result.tipos_actividad], ["REUNION"])
         self.assertEqual(str(result.participantes[0].id), user_id)
-        self.assertNotIn("email", result.participantes[0].model_dump())
+        self.assertEqual(result.participantes[0].email, "persona@example.org")
         self.assertIn(("in", "roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"]), db.queries["usuarios"].calls)
         for table in ("usuarios", "colegios", "ramos"):
             self.assertIn(("eq", "activo", True), db.queries[table].calls)

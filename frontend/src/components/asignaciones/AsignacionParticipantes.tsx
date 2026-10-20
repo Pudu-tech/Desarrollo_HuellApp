@@ -22,7 +22,7 @@ export default function AsignacionParticipantes({ rows, usuarios, tipos, onChang
       <label>Participante {index + 1}<select required value={row.usuario_id} onChange={(event) => onChange(rows.map((item) => item.key === row.key ? { ...item, usuario_id: event.target.value } : item))}>
         <option value="">Seleccionar persona</option>
         {usuarios.map((user) => <option key={user.id} value={user.id} disabled={rows.some((item) => item.key !== row.key && item.usuario_id === user.id)}>
-          {[user.nombres, user.apellido_paterno, user.apellido_materno].filter(Boolean).join(' ')} · {user.role_code}
+          {[user.nombres, user.apellido_paterno, user.apellido_materno].filter(Boolean).join(' ')} · {user.role_code}{user.email ? ` · ${user.email}` : ''}
         </option>)}
       </select></label>
       <label>Tipo de participación<select required value={row.tipo_participacion_id} onChange={(event) => onChange(rows.map((item) => item.key === row.key ? { ...item, tipo_participacion_id: event.target.value } : item))}>

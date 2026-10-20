@@ -92,13 +92,13 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
                     continue
                 raise
             allowed.append(item)
-        users = _datos(db.table("usuarios").select("id,nombres,apellido_paterno,apellido_materno,roles!inner(codigo)")
+        users = _datos(db.table("usuarios").select("id,nombres,apellido_paterno,apellido_materno,email,roles!inner(codigo)")
                        .eq("activo", True).is_("deleted_at", "null")
                        .in_("roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"]).order("nombres")) if filtrar_tipos else []
         return OpcionesCreacionAsignacion.model_validate({
             "tipos_actividad": allowed,
             "colegios": _datos(db.table("colegios").select("id,nombre").eq("activo", True).is_("deleted_at", "null").order("nombre")),
-            "participantes": [{**{key: user.get(key) for key in ("id", "nombres", "apellido_paterno", "apellido_materno")},
+            "participantes": [{**{key: user.get(key) for key in ("id", "nombres", "apellido_paterno", "apellido_materno", "email")},
                                 "role_code": user["roles"]["codigo"]} for user in users],
             "tipos_participacion": _datos(db.table("tipos_participacion").select("id,codigo,nombre").eq("activo", True).order("nombre")),
             "ramos": [proyectar_ramo(row) for row in _datos(db.table("ramos").select("id,nombre,nivel_curso_id,ramo_nivel(nivel_curso_id)").eq("activo", True).is_("deleted_at", "null").order("nombre"))],

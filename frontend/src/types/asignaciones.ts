@@ -55,6 +55,7 @@ export interface ParticipanteOpcion {
   apellido_paterno: string
   apellido_materno: string | null
   role_code: string
+  email?: string | null
 }
 export interface OpcionesCreacion {
   tipos_actividad: OpcionCodigo[]

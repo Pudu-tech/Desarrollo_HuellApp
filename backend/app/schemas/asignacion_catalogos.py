@@ -30,6 +30,7 @@ class ParticipanteOpcion(BaseModel):
     apellido_paterno: str
     apellido_materno: str | None = None
     role_code: str
+    email: str | None = None
 
 
 class CursoOpcion(BaseModel):

@@ -29,7 +29,7 @@ export default function InvitacionParticipacionPage() {
     <div className="assignments-page invitation-content">
       {!token ? <p className="assignments-warning">Abre el enlace personal recibido en tu correo.</p>
         : !result ? <p role="status">Consultando invitación…</p>
-        : result.error ? <p className="assignments-error" role="alert">{result.error}</p>
+        : result.error ? <><p className="assignments-error" role="alert">{result.error}</p><button className="assignments-primary" type="button" onClick={() => { setResult(null); setRevision((value) => value + 1) }}>Volver a consultar</button></>
         : result.info && <><PersonalAssignmentInfo info={result.info} /><ParticipationCard key={result.info.invitacion_version} info={result.info} token={token} initialAction={link.get('accion') ?? ''} onUpdate={() => setRevision((value) => value + 1)} /></>}
     </div>
     <footer className="auth-footer"><Link className="auth-link" to="/">Ingresar a HuellApp</Link></footer>

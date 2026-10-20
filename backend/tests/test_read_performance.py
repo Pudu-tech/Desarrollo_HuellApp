@@ -9,10 +9,26 @@ from fastapi import FastAPI, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from app.api import colegios, users
 from app.core import security
-from app.services.participation_notifications import personal_summaries
+from app.services.participation_notifications import personal_summaries, personal_summary
 
 
 class SecurityProjectionTests(unittest.TestCase):
+    def test_personal_invitation_filters_owner_and_deleted_assignment_in_one_query(self):
+        db = Mock()
+        query = db.table.return_value.select.return_value
+        query.eq.return_value = query
+        query.is_.return_value = query
+        query.execute.return_value.data = [{'invitacion_version': 'current', 'asignacion': {'id': 'assignment'}}]
+        with patch('app.services.participation_notifications.project_personal_summary', return_value={'estado': 'PENDIENTE'}):
+            self.assertEqual(personal_summary(db, 'assignment', 'owner', 'current'), {'estado': 'PENDIENTE'})
+        query.eq.assert_any_call('usuario_id', 'owner')
+        query.eq.assert_any_call('asignacion_id', 'assignment')
+        query.is_.assert_any_call('asignacion.deleted_at', 'null')
+        query.execute.assert_called_once()
+        with self.assertRaises(HTTPException) as error:
+            personal_summary(db, 'assignment', 'owner', 'obsolete')
+        self.assertEqual(error.exception.status_code, 410)
+
     def test_assignment_summary_shares_authenticated_actor_and_permissions(self):
         from app.api import asignaciones, asignacion_catalogos
         actor = SimpleNamespace(role_code='DIRECTIVA', effective_permissions={'VIEW_ASSIGNMENTS', 'UPDATE_ASSIGNMENT'})

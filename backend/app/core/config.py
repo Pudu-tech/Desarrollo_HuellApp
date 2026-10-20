@@ -15,6 +15,7 @@ SECURITY
 
 from functools import lru_cache
 from pydantic import SecretStr
+from app.services.invitation_email import DEFAULT_EMAIL_LOGO_URL
 
 from pydantic_settings import (
     BaseSettings,
@@ -64,7 +65,7 @@ class Settings(BaseSettings):
     brevo_api_key: SecretStr | None = None
     brevo_sender_email: str = ""
     brevo_sender_name: str = "HuellApp"
-    brevo_email_logo_url: str = "https://www.fundacionhuella.cl/web/image/website/1/logo?mimetype=image/png"
+    brevo_email_logo_url: str = DEFAULT_EMAIL_LOGO_URL
     notification_token_secret: SecretStr | None = None
     notification_webhook_secret: SecretStr | None = None
     cron_secret: SecretStr | None = None

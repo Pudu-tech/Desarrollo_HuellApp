@@ -131,10 +131,16 @@ test('El catálogo utiliza eliminación lógica HTTP 204 sin leer un cuerpo vac�
 })
 
 /** Carga los servicios reales, reemplazando solamente Auth y fetch. */
-async function harness(name, { session = { access_token: 'test-session' }, response = { ok: true, status: 200, json: async () => ({ id: 'resource' }) } } = {}) {
+async function harness(name, { session = { access_token: 'test-session' }, response = { ok: true, status: 200, json: async () => ({ id: 'resource' }) }, stall = false } = {}) {
   const requests = []
   const clone = () => ({ ...response, clone })
-  const context = vm.createContext({ Headers, fetch: async (url, options) => { requests.push({ url, ...options }); return clone() } })
+  const context = vm.createContext({ Headers, AbortController,
+    window: { setTimeout: stall ? (callback) => setTimeout(callback, 0) : setTimeout, clearTimeout },
+    fetch: async (url, options) => {
+      requests.push({ url, ...options })
+      if (stall) return new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }))
+      return clone()
+    } })
   const cache = new Map()
   const auth = new vm.SyntheticModule(['supabase'], function () {
     this.setExport('supabase', { auth: { getSession: async () => ({ data: { session }, error: null }) } })
@@ -157,6 +163,18 @@ async function harness(name, { session = { access_token: 'test-session' }, respo
   await module.evaluate()
   return { service: module.namespace, requests }
 }
+
+test('Un timeout de respuesta informa resultado incierto sin reenviar automaticamente', async () => {
+  const { service, requests } = await harness('participacionesService', { stall: true })
+  await assert.rejects(service.responderInvitacion('token', { accion: 'ACCEPT', motivo: null }), /Consulta de nuevo el estado/)
+  assert.equal(requests.length, 1)
+  assert.equal(requests[0].signal.aborted, true)
+})
+
+test('La consulta de invitacion deja de esperar cuando vence el plazo', async () => {
+  const { service } = await harness('participacionesService', { stall: true })
+  await assert.rejects(service.consultarInvitacion('token'), /consulta está tardando demasiado/)
+})
 
 test('Cursos filtra por colegio y fija el colegio de creación desde el contexto', async () => {
   const { service, requests } = await harness('cursosService')

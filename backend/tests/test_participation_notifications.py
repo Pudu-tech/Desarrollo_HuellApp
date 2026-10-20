@@ -10,6 +10,7 @@ from pydantic import SecretStr, ValidationError
 from fastapi import HTTPException
 from app.services import participation_notifications as service
 from app.workers import notifications as worker
+from app.services.invitation_email import DEFAULT_EMAIL_LOGO_URL
 from app.api.participation_notifications import ParticipationResponse, InvitationResponse, respond
 
 
@@ -48,7 +49,7 @@ class NotificationTests(unittest.TestCase):
         self.assertIn('/responder-participacion#token=', payload['htmlContent'])
         self.assertEqual(payload['headers']['idempotencyKey'], 'delivery-id')
         self.assertNotIn('src="http://localhost', payload['htmlContent'])
-        self.assertIn('https://www.fundacionhuella.cl/web/image/website/1/logo?mimetype=image/png', payload['htmlContent'])
+        self.assertIn(DEFAULT_EMAIL_LOGO_URL, payload['htmlContent'])
 
     def test_logo_configurado_no_depende_del_frontend_local(self):
         self.settings.brevo_email_logo_url = 'https://assets.example.org/logo-huella.png'

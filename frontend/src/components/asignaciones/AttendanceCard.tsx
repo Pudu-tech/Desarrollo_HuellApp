@@ -4,7 +4,7 @@ import type { ParticipacionPropia } from '../../services/participacionesService'
 import { useConfirmation } from '../../hooks/useConfirmation'
 import { useVisibleRefresh } from '../../hooks/useVisibleRefresh'
 
-export default function AttendanceCard({ info }: { info: ParticipacionPropia }) {
+export default function AttendanceCard({ info, onSaved }: { info: ParticipacionPropia; onSaved?: () => void }) {
   const [attendance, setAttendance] = useState<Asistencia | null>(null)
   const [estado, setEstado] = useState('PRESENTE')
   const [motivo, setMotivo] = useState('')
@@ -48,6 +48,7 @@ export default function AttendanceCard({ info }: { info: ParticipacionPropia }) 
         fecha_geolocalizacion: new Date(location.timestamp).toISOString(),
       }))
       setLocation(null); setMotivo('')
+      onSaved?.()
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible registrar asistencia.') }
     finally { setBusy(false) }
   }
@@ -72,7 +73,7 @@ export default function AttendanceCard({ info }: { info: ParticipacionPropia }) 
       <p>Disponible desde el inicio de la actividad hasta 24 horas después de su término. Se solicitará permiso para obtener tu ubicación.</p>
       <div className="assignments-form-grid"><label>Asistencia<select disabled={busy} value={estado} onChange={(e) => setEstado(e.target.value)}><option value="PRESENTE">Presente</option><option value="AUSENTE">Ausente</option><option value="JUSTIFICADA">Justificada</option></select></label>
       {estado !== 'PRESENTE' && <label>Motivo<textarea required maxLength={1000} disabled={busy} value={motivo} onChange={(e) => setMotivo(e.target.value)} /></label>}</div>
-      <div className="assignments-editor-actions"><button className="assignments-secondary" disabled={busy} onClick={locate}>Obtener ubicación</button><button className="assignments-primary" disabled={busy || !location || (estado !== 'PRESENTE' && !motivo.trim())} onClick={() => void save()}>{busy ? 'Procesando…' : 'Registrar asistencia'}</button></div>
+      <div className="assignments-editor-actions"><button type="button" className="assignments-secondary" disabled={busy} onClick={locate}>Obtener ubicación</button><button type="button" className="assignments-primary attendance-register" aria-describedby={`attendance-location-${info.participante_id}`} disabled={busy || !location || (estado !== 'PRESENTE' && !motivo.trim())} onClick={() => void save()}>{busy ? 'Procesando…' : 'Registrar asistencia'}</button><p id={`attendance-location-${info.participante_id}`} className="attendance-location-help" role="status">{location ? 'Ubicación obtenida. Ya puedes registrar tu asistencia.' : 'Para registrar tu asistencia, activa la ubicación y pulsa «Obtener ubicación». Acepta el permiso del navegador.'}</p></div>
     </>)}
     {attendance?.motivo && <p>Motivo: {attendance.motivo}</p>}{confirmationDialog}
   </section>

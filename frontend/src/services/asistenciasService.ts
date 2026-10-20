@@ -8,7 +8,7 @@ export interface Asistencia {
   fecha_geolocalizacion: string | null; updated_at: string
 }
 export interface AsistenciaFila {
-  id: string; asignacion_id: string; estado: { codigo: string }
+  id: string; asignacion_id: string; usuario_id: string; estado: { codigo: string }
   usuario: { nombres: string; apellido_paterno: string; apellido_materno: string | null }
   asistencia: Asistencia[] | Asistencia
   asignacion: { fecha: string; hora_inicio: string; hora_fin: string; lugar: string | null; actividad: { nombre: string }; colegio: { nombre: string } | null }

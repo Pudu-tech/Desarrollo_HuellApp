@@ -30,7 +30,7 @@ def listar_propias(actor=Depends(require_permission('REPORT_ATTENDANCE'))):
 
 def _list_rows(owner=None):
     query = get_supabase_client().table('asignacion_participantes').select(
-        'id,asignacion_id,estado:estados_participacion(codigo),'
+        'id,asignacion_id,usuario_id,estado:estados_participacion(codigo),'
         'usuario:usuarios!fk_asignacion_participantes_usuario(nombres,apellido_paterno,apellido_materno),'
         'asistencia:asistencias_asignacion(*),'
         'asignacion:asignaciones!inner(fecha,hora_inicio,hora_fin,activo,deleted_at,lugar,'

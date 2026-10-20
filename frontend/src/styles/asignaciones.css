@@ -30,6 +30,8 @@
 .assignments-contacts input { width: auto; flex-shrink: 0; }
 .assignments-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .assignments-table-scroll { overflow-x: auto; }
+.assignments-page .attendance-register:disabled { opacity: 1; background: var(--huella-coral); color: var(--huella-ink); border-color: var(--huella-coral); box-shadow: none; cursor: not-allowed; }
+.attendance-location-help { flex: 1 1 240px; margin: 0; color: var(--huella-teal-dark); font-size: 14px; line-height: 1.5; }
 .assignments-page .assignments-detail-button {
   display: inline-flex;
   align-items: center;

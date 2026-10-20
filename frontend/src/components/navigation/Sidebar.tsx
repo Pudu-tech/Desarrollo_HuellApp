@@ -89,16 +89,9 @@ function Sidebar({
     }}>
       <div className="sidebar__header">
         
-        <h1 className="sidebar__title">
-          HuellApp <img
-              src="/logo-huella.png"
-              alt="Fundación Huella Formación y Vocación"
-            />
-        </h1>
+        <img className="sidebar__brand-icon" src="/icono-logo.png" alt="Icono de Fundación Huella" width="56" height="72" />
+        <h1 className="sidebar__title">HuellApp</h1>
 
-        <span className="sidebar__subtitle">
-          Fundación Huella
-        </span>
         <button type="button" className="sidebar__toggle" aria-expanded={menuOpen} aria-controls="sidebar-navigation" onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? 'Cerrar menú' : 'Menú'}
         </button>

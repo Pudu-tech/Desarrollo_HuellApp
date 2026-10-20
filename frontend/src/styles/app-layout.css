@@ -35,43 +35,38 @@
 /* Cabecera institucional: nombre, descripción y acento coral. */
 .sidebar__header {
   flex-shrink: 0;
-  margin-bottom: 32px;
+  margin-bottom: 16px;
+  text-align: center;
+  perspective: 700px;
 }
 
 .sidebar__title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   margin: 0;
   color: var(--huella-teal-dark);
   font-family: var(--huella-font-heading);
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-/* El logo toma la altura de la fuente del título y conserva su proporción original. */
-.sidebar__title > img {
-  display: flex;
-  flex: 0 0 auto;
-  width: auto;
-  height: 2em;
+/* Icono centrado sobre el nombre, conservando la proporción del archivo. */
+.sidebar__brand-icon {
+  display: block;
+  width: 56px;
+  height: auto;
+  margin: 0 auto 12px;
   object-fit: contain;
+  animation: sidebar-icon-turn 8s linear infinite;
 }
 
-.sidebar__subtitle {
-  display: block;
-  margin-top: 4px;
-  color: var(--huella-gray-600);
-  font-size: 13px;
-}
+@keyframes sidebar-icon-turn { to { transform: rotateY(360deg); } }
 
 .sidebar__header::after {
   content: '';
   display: block;
-  width: 42px;
+  width: 100%;
   height: 4px;
-  margin-top: 16px;
+  margin-top: 10px;
   border-radius: 999px;
   background: var(--huella-coral);
 }
@@ -244,7 +239,10 @@
   }
 
   .sidebar__header { position: relative; margin-bottom: 0; padding-right: 110px; }
-  .sidebar__title { font-size: 21px; }
+  .sidebar__header { display: grid; grid-template-columns: 36px 1fr; column-gap: 10px; text-align: left; }
+  .sidebar__brand-icon { grid-column: 1; grid-row: 1; width: 36px; margin: 0; align-self: center; }
+  .sidebar__title { grid-column: 2; font-size: 23px; align-self: center; }
+  .sidebar__header::after { grid-column: 1 / -1; }
   .sidebar__toggle { display: block; position: absolute; right: 0; top: 4px; padding: 8px 12px; border: 1px solid #cbd5df; border-radius: 8px; background: white; color: #203348; cursor: pointer; }
   .sidebar__menu {
     display: grid;
@@ -289,6 +287,7 @@
 
 /* Desactiva las transiciones cuando el sistema solicita menos movimiento. */
 @media (prefers-reduced-motion: reduce) {
+  .sidebar__brand-icon { animation: none; }
   .sidebar__link, .sidebar__logout,
   .sidebar__menu, .sidebar__menu-content {
     transition: none;

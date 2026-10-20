@@ -31,6 +31,8 @@
 .assignments-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .assignments-table-scroll { overflow-x: auto; }
 .attendance-location-help { flex: 1 1 240px; margin: 0; color: var(--huella-teal-dark); font-size: 14px; line-height: 1.5; }
+.attendance-edit-panel { scroll-margin-top: 24px; }
+.attendance-edit-panel:focus { outline: 2px solid var(--huella-teal); outline-offset: 3px; }
 .assignments-page .assignments-detail-button {
   display: inline-flex;
   align-items: center;

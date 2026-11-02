@@ -47,7 +47,9 @@
 .huella-login-story__content {
   position: relative;
   z-index: 2;
-  max-width: 650px;
+  /* Permite que el carrusel utilice todo el ancho disponible del panel. */
+  width: 100%;
+  min-width: 0;
 }
 
 .huella-login-story__eyebrow {
@@ -155,6 +157,93 @@
 .huella-login-story__footer span {
   margin: 0 8px;
   color: var(--huella-coral);
+}
+
+/* En tablet y móvil conserva una altura proporcional al ancho disponible. */
+.login-carousel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--huella-teal-dark);
+}
+
+.login-carousel__image {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Conserva la proporción de las fotos; recorta los bordes sobrantes. */
+  object-fit: cover;
+  object-position: center;
+  /* Fundido suave entre fotografías sin desplazar el formulario. */
+  opacity: 0;
+  transition: opacity 10000ms ease-in-out ;
+}
+
+.login-carousel__image--active {
+  opacity: 1;
+}
+
+.login-carousel__controls {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(0 0 0 / 70%);
+  white-space: nowrap;
+  /* Oculta los controles hasta interactuar con el carrusel. */
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease;
+}
+
+/* También permite descubrir los botones al navegar con Tab. */
+.login-carousel:hover .login-carousel__controls,
+.login-carousel:focus-within .login-carousel__controls {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* En pantallas táctiles no existe hover: mantiene disponibles los controles. */
+@media (hover: none) {
+  .login-carousel__controls {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* Elimina las transiciones si el usuario solicita reducir movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  .login-carousel__image,
+  .login-carousel__controls {
+    transition: none;
+  }
+}
+
+.login-carousel__controls button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: inherit;
+  background: transparent;
+  font-size: 22px;
+  cursor: pointer;
+}
+
+/* Hace visible la navegación por teclado sobre cualquier fotografía. */
+.login-carousel__controls button:focus-visible {
+  outline: 3px solid #fff;
+  outline-offset: 3px;
 }
 
 /* Panel derecho: tarjeta compacta de acceso. */
@@ -550,6 +639,7 @@
   }
   .huella-login-access {
     min-height: auto;
+    order: -1;
     padding-block: 58px 34px;
   }
 }
@@ -965,5 +1055,37 @@
   }
   .huella-login-access__copyright {
     margin-top: 4px;
+  }
+}
+
+/* En escritorio, amplía el carrusel al área entre la marca y el pie del panel.
+   Se coloca al final para aplicar estos márgenes sobre los ajustes por resolución. */
+@media (min-width: 981px) {
+  .huella-login-story {
+    padding: clamp(24px, 4dvh, 48px) clamp(16px, 2.8vw, 56px) clamp(32px, 7dvh, 72px) 12px;
+  }
+
+  .huella-login-story__content {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .huella-login-story__eyebrow {
+    flex-shrink: 0;
+    margin-bottom: 16px;
+  }
+
+  .login-carousel {
+    /* La altura proviene del espacio libre del panel, no de la proporción 4:3. */
+    flex: 1;
+    min-height: 280px;
+    aspect-ratio: auto;
+  }
+
+  .huella-login-story__footer {
+    flex-shrink: 0;
+    margin-top: clamp(24px, 5dvh, 48px);
   }
 }

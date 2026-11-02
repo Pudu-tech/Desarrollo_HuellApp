@@ -73,7 +73,7 @@ export default function AsistenciaPage() {
     && `${person(row)} ${row.asignacion.colegio?.nombre ?? row.asignacion.lugar ?? ''} ${row.asignacion.actividad?.nombre ?? ''}`.toLocaleLowerCase('es-CL').includes(search.toLocaleLowerCase('es-CL')))
   return <section className="assignments-page"><header className="assignments-heading"><div><h1>Asistencia</h1><p>Asistencia efectiva de los participantes, independiente de su respuesta a la invitación.</p></div><button className="assignments-secondary" disabled={busy || !!editing || !!ownEditing} onClick={() => void refresh()}>Actualizar</button></header>
     {error && <p className="assignments-error" role="alert">{error}</p>}{notice && <p className="assignments-success" role="status">{notice}</p>}
-    {canSwitchView && <div className="assignments-editor-actions" role="group" aria-label="Vista de asistencia">
+    {canSwitchView && <div className="assignments-editor-actions attendance-view-actions" role="group" aria-label="Vista de asistencia">
       <button type="button" className={personal ? 'assignments-secondary' : 'assignments-primary'} aria-pressed={!personal} disabled={busy || !!editing || !!ownEditing} onClick={() => selectView(false)}>Todas las asistencias</button>
       <button type="button" className={personal ? 'assignments-primary' : 'assignments-secondary'} aria-pressed={personal} disabled={busy || !!editing || !!ownEditing} onClick={() => selectView(true)}>Mis asistencias</button>
     </div>}

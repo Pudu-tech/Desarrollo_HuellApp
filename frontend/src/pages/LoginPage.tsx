@@ -2,6 +2,7 @@ import LoadingIndicator from '../components/LoadingIndicator'
 import {
   type ChangeEvent,
   type FormEvent,
+  useEffect,
   useId,
   useState,
 } from 'react'
@@ -14,6 +15,17 @@ import {
 import { useAuth } from '../contexts/AuthContext'
 
 import '../styles/login.css'
+
+import carrusel1 from '../assets/Carrusel_1.jpg'
+import carrusel2 from '../assets/Carrusel_2.jpg'
+import carrusel3 from '../assets/Carrusel_3.jpg'
+
+// Vite procesa las imágenes locales y genera sus rutas para producción.
+const fotos = [
+  { src: carrusel1, alt: 'Fundación Huella: fotografía 1' },
+  { src: carrusel2, alt: 'Fundación Huella: fotografía 2' },
+  { src: carrusel3, alt: 'Fundación Huella: fotografía 3' },
+]
 
 interface Credentials {
   email: string
@@ -108,6 +120,83 @@ function validateCredentials(
   return ''
 }
 
+// Componente independiente: mantiene el estado de la fotografía visible.
+function LoginCarousel() {
+  const [actual, setActual] = useState(0)
+  const [pausado, setPausado] = useState(false)
+
+  useEffect(() => {
+    // Respeta la pausa y la preferencia del sistema de reducir movimiento.
+    if (pausado || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return
+    }
+
+    // Cada cambio, incluso manual, inicia una nueva espera de quince segundos.
+    const temporizador = window.setTimeout(() => {
+      setActual((indice) => (indice + 1) % fotos.length)
+    }, 15000)
+
+    // Evita temporizadores duplicados y actualizaciones al salir del login.
+    return () => window.clearTimeout(temporizador)
+  }, [actual, pausado])
+
+  const cambiar = (paso: number) => {
+    // El módulo permite avanzar de la última foto a la primera y viceversa.
+    setActual((indice) =>
+     (indice + paso + fotos.length) % fotos.length
+    )
+  }
+
+  // React muestra este contenido donde se inserta <LoginCarousel />.
+  return (
+    <section
+      className="login-carousel"
+      aria-roledescription="carrusel"
+      aria-label="Fotografías de Fundación Huella"
+    >
+      {/* Las fotos superpuestas permiten fundir la anterior con la siguiente. */}
+      {fotos.map((foto, indice) => (
+        <img
+          key={foto.src}
+          src={foto.src}
+          alt={indice === actual ? foto.alt : ''}
+          aria-hidden={indice !== actual}
+          className={`login-carousel__image${indice === actual ? ' login-carousel__image--active' : ''}`}
+        />
+      ))}
+      <div className="login-carousel__controls">
+        <button
+          type="button"
+          onClick={() => cambiar(-1)}
+          aria-label="Fotografía anterior"
+        >
+          ←
+        </button>
+        {/* Evita anuncios automáticos cada quince segundos al lector de pantalla. */}
+        <span>
+          {actual + 1} / {fotos.length}
+        </span>
+        <button
+          type="button"
+          onClick={() => cambiar(1)}
+          aria-label="Fotografía siguiente"
+        >
+          →
+        </button>
+        {/* Permite detener y reanudar la reproducción automática. */}
+        <button
+          type="button"
+          onClick={() => setPausado((valor) => !valor)}
+          aria-label={pausado ? 'Reanudar carrusel' : 'Pausar carrusel'}
+          aria-pressed={pausado}
+        >
+          {pausado ? '▶' : 'Ⅱ'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
 function LoginPage() {
   const navigate = useNavigate()
   const { user, loading, login } = useAuth()
@@ -197,28 +286,15 @@ function LoginPage() {
     <main className="huella-login-page">
       <section
         className="huella-login-story"
-        aria-labelledby="huella-story-title"
+        aria-label="Presentación de HuellApp"
       >
         <div className="huella-login-story__content">
           <p className="huella-login-story__eyebrow">
             HuellApp
           </p>
 
-          <h1 id="huella-story-title">
-            Organizar hoy.
-            <span>Transformar mañana.</span>
-          </h1>
-
-          <div
-            className="huella-login-story__rule"
-            aria-hidden="true"
-          />
-
-          <p className="huella-login-story__description">
-            Una plataforma para coordinar experiencias
-            educativas, acompañar a cada comunidad y
-            fortalecer el impacto de Fundación Huella.
-          </p>
+          {/* Monta el carrusel en el panel izquierdo, debajo de HuellApp. */}
+          <LoginCarousel />
         </div>
 
         <div

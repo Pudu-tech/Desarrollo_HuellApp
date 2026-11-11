@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Estilos de mensajes de validación accesibles.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de mensajes de validación accesibles.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 .huella-field-message {
   display: block;
   margin-top: 7px;

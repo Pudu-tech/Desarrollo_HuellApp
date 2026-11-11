@@ -1,5 +1,21 @@
-import LoadingIndicator from '../components/LoadingIndicator'
 /**
+ * HuellApp · Destino inicial según rol.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Redirigir al inicio correspondiente al usuario autenticado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Resuelve el acceso a la raíz de la zona privada.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Redirección inicial según rol.
  *
@@ -11,6 +27,8 @@ import LoadingIndicator from '../components/LoadingIndicator'
  * MONITOR
  *     -> /app/monitor
  */
+import LoadingIndicator from '../components/LoadingIndicator'
+
 
 import { Navigate } from 'react-router-dom'
 

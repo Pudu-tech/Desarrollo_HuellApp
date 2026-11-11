@@ -1,7 +1,17 @@
-"""HuellAPP · Regresión de permisos y proyecciones de los catálogos de creación.
+"""HuellApp · Pruebas de permisos y proyecciones de los catálogos de asignaciones.
 
-Usa respuestas simuladas: no conecta a Supabase ni modifica sus datos.
-Ejecutar desde backend: python -m unittest discover -s tests.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar permisos y proyecciones de los catálogos de asignaciones mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
 """
 import unittest
 from types import SimpleNamespace

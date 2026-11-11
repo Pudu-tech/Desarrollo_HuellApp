@@ -1,6 +1,17 @@
-"""Lectura propia y confirmación explícita desde WEB o un enlace personal EMAIL.
+"""HuellApp · Consulta y respuesta de participaciones.
 
-Consultar un enlace nunca altera el estado. El RPC serializa respuestas simultáneas.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Consultar participaciones propias y procesar respuestas desde la web o el correo.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Consultar una invitación no altera el estado; la respuesta se serializa mediante RPC.
+
+SECURITY
+------------------------------------------------------------
+La web usa identidad autenticada y el correo una firma limitada a la versión
+de la invitación. Ambos flujos validan sus requisitos antes de responder.
 """
 from typing import Literal
 from uuid import UUID
@@ -37,6 +48,7 @@ class InvitationResponse(ParticipationResponse, InvitationRequest):
 
 
 def respond(db, request, assignment_id, participant_id, actor_id, datos, canal, version=None):
+    """Registra una respuesta multicanal mediante RPC y traduce conflictos a errores HTTP."""
     context = _request_rpc_context(request)
     result = db.rpc("responder_participacion_canal_atomica", {
         "p_asignacion_id": str(assignment_id), "p_participante_id": str(participant_id),
@@ -54,23 +66,26 @@ def respond(db, request, assignment_id, participant_id, actor_id, datos, canal, 
             raise HTTPException(410, "La invitación venció o cambió.")
         if code == "INVALID_REJECTION_REASON":
             raise HTTPException(422, "Indica el motivo del rechazo.")
-        raise HTTPException(409, "La asignación o participación ya no admite esta respuesta. Actualiza su estado.")
+        raise HTTPException(409, "La instancia o participación ya no admite esta respuesta. Actualiza su estado.")
     return {"estado": result["estado"], "ya_respondida": result.get("ya_respondida", False)}
 
 
 @router.get("/mi-participacion")
 def my_assignments(actor: AuthenticatedUser = Depends(get_current_user)):
+    """Lista resúmenes personales usando exclusivamente la identidad autenticada."""
     return personal_summaries(get_supabase_client(), str(actor.id))
 
 
 @router.get("/mi-participacion/{asignacion_id}")
 def my_participation(asignacion_id: UUID, actor: AuthenticatedUser = Depends(get_current_user)):
+    """Consulta la participación propia en la instancia solicitada."""
     return personal_summary(get_supabase_client(), str(asignacion_id), str(actor.id))
 
 
 @router.post("/mi-participacion/{asignacion_id}/responder")
 def web_response(asignacion_id: UUID, datos: ParticipationResponse, request: Request,
                        actor: AuthenticatedUser = Depends(get_current_user)):
+    """Resuelve la participación del actor antes de registrar su respuesta por el canal WEB."""
     db = get_supabase_client()
     own = personal_summary(db, str(asignacion_id), str(actor.id))
     return respond(db, request, asignacion_id, own["participante_id"], actor.id, datos, "WEB")
@@ -78,6 +93,7 @@ def web_response(asignacion_id: UUID, datos: ParticipationResponse, request: Req
 
 @router.post("/invitaciones/consultar")
 def invitation_preview(datos: InvitationRequest):
+    """Valida firma y vigencia y consulta el resumen sin responder la invitación."""
     db = get_supabase_client()
     invitation = verify_invitation(db, datos.token)
     return personal_summary(db, invitation["entidad_id"], invitation["usuario_destino_id"], invitation["invitacion_version"])
@@ -85,6 +101,7 @@ def invitation_preview(datos: InvitationRequest):
 
 @router.post("/invitaciones/responder")
 def email_response(datos: InvitationResponse, request: Request):
+    """Usa la identidad y versión del token validado para responder por el canal EMAIL."""
     db = get_supabase_client()
     invitation = verify_invitation(db, datos.token)
     return respond(db, request, invitation["entidad_id"], invitation["participacion_id"], invitation["usuario_destino_id"],
@@ -107,6 +124,7 @@ class DeliveryRetry(BaseModel):
 @router.post("/notificaciones/envios/{envio_id}/reintentar")
 def retry_delivery(envio_id: UUID, datos: DeliveryRetry, request: Request,
                          actor: AuthenticatedUser = Depends(require_permission("RETRY_NOTIFICATION_DELIVERY"))):
+    """Solicita un reintento autorizado; una entrega incierta exige verificación previa."""
     context = _request_rpc_context(request)
     result = get_supabase_client().rpc("reintentar_envio_participacion", {
         "p_id": str(envio_id), "p_actor": str(actor.id), "p_verificado": datos.entrega_verificada,

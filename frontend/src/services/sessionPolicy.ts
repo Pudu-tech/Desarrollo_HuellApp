@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Política local de duración de sesión.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Registrar inicio y actividad y comprobar límites de inactividad y duración absoluta.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Inactividad de 60 minutos y duración absoluta de 12 horas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los tiempos locales orientan el cierre de sesión del cliente y pueden ser
+ * modificados en el navegador; no sustituyen la validación de tokens del backend.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Política de duración de sesión.
  *
@@ -84,6 +101,7 @@ export function registerSessionActivity(): void {
    OBTENER INICIO DE SESIÓN
    ============================================================ */
 
+/** Lee el inicio absoluto de sesión y descarta marcas de tiempo no numéricas. */
 export function getSessionStartedAt():
   number | null {
   const value =
@@ -107,6 +125,7 @@ export function getSessionStartedAt():
    OBTENER ÚLTIMA ACTIVIDAD
    ============================================================ */
 
+/** Lee la última actividad registrada y descarta marcas de tiempo no numéricas. */
 export function getLastActivityAt():
   number | null {
   const value =
@@ -130,6 +149,7 @@ export function getLastActivityAt():
    VALIDAR INACTIVIDAD
    ============================================================ */
 
+/** Compara la última actividad con el límite local de inactividad. */
 export function isSessionInactive(): boolean {
   const lastActivity =
     getLastActivityAt()
@@ -149,6 +169,7 @@ export function isSessionInactive(): boolean {
    VALIDAR DURACIÓN ABSOLUTA
    ============================================================ */
 
+/** Compara el inicio original con el límite absoluto, sin reiniciarlo por actividad. */
 export function isSessionExpired(): boolean {
   const startedAt =
     getSessionStartedAt()

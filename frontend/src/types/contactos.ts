@@ -1,6 +1,18 @@
 /**
- * HuellApp · Contratos de los contactos asociados a colegios.
- * La API administra permisos, normalización del RUT y auditoría.
+ * HuellApp · Contratos de contactos escolares.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir las estructuras TypeScript utilizadas para contactos escolares.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tipos compartidos entre servicios, componentes y páginas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Estos tipos no validan datos en ejecución ni conceden permisos.
+ * La API es responsable de validar los datos y autorizar las operaciones.
  */
 export interface ContactoColegio {
   id: string

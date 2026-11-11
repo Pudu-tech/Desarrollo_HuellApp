@@ -1,4 +1,19 @@
-/** Edición del catálogo: niveles compartidos por asignatura y espacios con padre fijo. */
+/**
+ * HuellApp · Formulario del catálogo académico.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Capturar asignaturas o espacios para crear o editar un recurso del catálogo.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Los espacios mantienen su asignatura padre y las asignaturas comparten niveles.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useState, type FormEvent } from 'react'
 import type { DatosAcademicos, EntidadAcademica, NivelAcademico, RecursoAcademico } from '../../types/catalogoAcademico'
 
@@ -20,6 +35,7 @@ export default function RecursoAcademicoForm({ entidad, recurso, asignatura, niv
   const [error, setError] = useState('')
   const subject = entidad === 'asignaturas'
 
+  /** Valida los datos del recurso y delega su guardado al contenedor del formulario. */
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (busy) return
@@ -47,7 +63,7 @@ export default function RecursoAcademicoForm({ entidad, recurso, asignatura, niv
       <label className="academic-description">Descripción (opcional)<textarea rows={3} maxLength={2000} value={descripcion} onChange={(event) => setDescripcion(event.target.value)} /></label>
       {subject && <section className="assignments-form-section"><h3>Niveles habilitados</h3>
         <p>Esta asignatura estará disponible en todos los colegios para los niveles seleccionados.</p>
-        {nivelIds.some((id) => !niveles.some((nivel) => nivel.id === id && nivel.activo)) && <p className="assignments-warning">Hay niveles inactivos asociados. Al guardar se retirarán; la API comprobará las asignaciones vigentes.</p>}
+        {nivelIds.some((id) => !niveles.some((nivel) => nivel.id === id && nivel.activo)) && <p className="assignments-warning">Hay niveles inactivos asociados. Al guardar se retirarán; la API comprobará las instancias vigentes.</p>}
         <div className="academic-levels">{niveles.filter((nivel) => nivel.activo).map((nivel) => <label key={nivel.id}>
           <input type="checkbox" checked={nivelIds.includes(nivel.id)} onChange={(event) => setNivelIds((previous) => event.target.checked ? [...previous, nivel.id] : previous.filter((id) => id !== nivel.id))} />{nivel.nombre}
         </label>)}</div>

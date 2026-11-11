@@ -1,13 +1,29 @@
-"""
-Schemas Pydantic del módulo de asignaciones de HuellAPP.
+"""HuellApp · Contratos de instancias y participantes.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Definir modelos Pydantic de entrada y salida para instancias y participantes.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- La validación de campos se comparte entre los endpoints que utilizan estos modelos.
+
+SECURITY
+------------------------------------------------------------
+Los modelos delimitan y validan datos; la autorización corresponde a las
+dependencias y reglas de los endpoints, no a la creación de una instancia.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+Schemas Pydantic del módulo de instancias de HuellAPP.
 
 Este módulo define:
-- creación y actualización parcial de asignaciones;
+- creación y actualización parcial de instancias;
 - participantes;
 - contactos asociados;
-- listado y detalle de asignaciones;
+- listado y detalle de instancias;
 - aceptación y rechazo de participaciones;
-- cancelación y reapertura de asignaciones;
+- cancelación y reapertura de instancias;
 - registro y regularización de asistencias.
 
 REGLAS IMPORTANTES:
@@ -15,7 +31,7 @@ REGLAS IMPORTANTES:
 - El estado inicial de una participación no se recibe desde frontend.
 - El rechazo requiere obligatoriamente un motivo.
 - La reapertura de una participación RECHAZADA requiere un motivo.
-- La cancelación de una asignación requiere obligatoriamente un motivo.
+- La cancelación de una instancia requiere obligatoriamente un motivo.
 - La aceptación no requiere información adicional.
 - La asistencia propia exige geolocalización.
 - La geolocalización propia incluye fecha/hora de captura.
@@ -69,7 +85,7 @@ def _normalizar_texto_opcional(
 
 class ParticipanteCreate(BaseModel):
     """
-    Participante que será incorporado a una asignación.
+    Participante que será incorporado a una instancia.
 
     El estado de participación no se recibe desde frontend.
     Backend siempre crea la participación en estado PENDIENTE.
@@ -185,13 +201,13 @@ class ParticipacionReaperturaRequest(BaseModel):
 
 
 # ============================================================
-# ASIGNACIÓN - CANCELACIÓN
+# INSTANCIA - CANCELACIÓN
 # ============================================================
 
 
 class AsignacionCancelacionRequest(BaseModel):
     """
-    Payload requerido para cancelar una asignación.
+    Payload requerido para cancelar una instancia.
 
     La cancelación siempre exige un motivo explícito. El actor y el
     estado CANCELADA se determinan en backend y nunca se reciben desde
@@ -234,7 +250,7 @@ class AsignacionCancelacionRequest(BaseModel):
 
 class ParticipanteSummary(BaseModel):
     """
-    Resumen de un participante asociado a una asignación.
+    Resumen de un participante asociado a una instancia.
     """
 
     id: UUID
@@ -562,7 +578,7 @@ class AsistenciaSummary(BaseModel):
 
 class ContactoAsignacionCreate(BaseModel):
     """
-    Contacto/profesor que será asociado a una asignación escolar.
+    Contacto/profesor que será asociado a una instancia escolar.
     """
 
     contacto_colegio_id: UUID
@@ -575,7 +591,7 @@ class ContactoAsignacionCreate(BaseModel):
 
 class ContactoAsignacionSummary(BaseModel):
     """
-    Relación entre una asignación y un contacto del colegio.
+    Relación entre una instancia y un contacto del colegio.
     """
 
     id: UUID
@@ -583,13 +599,13 @@ class ContactoAsignacionSummary(BaseModel):
 
 
 # ============================================================
-# CREACIÓN DE ASIGNACIÓN
+# CREACIÓN DE INSTANCIA
 # ============================================================
 
 
 class AsignacionCreate(BaseModel):
     """
-    Payload para crear una asignación.
+    Payload para crear una instancia.
 
     Las reglas específicas de obligatoriedad dependen del tipo
     de actividad y son validadas posteriormente por el backend.
@@ -665,7 +681,7 @@ class AsignacionCreate(BaseModel):
         self,
     ) -> "AsignacionCreate":
         """
-        Un usuario solo puede aparecer una vez por asignación.
+        Un usuario solo puede aparecer una vez por instancia.
         """
 
         usuarios = [
@@ -676,7 +692,7 @@ class AsignacionCreate(BaseModel):
         if len(usuarios) != len(set(usuarios)):
             raise ValueError(
                 "No se permite repetir un participante "
-                "dentro de la misma asignación."
+                "dentro de la misma instancia."
             )
 
         return self
@@ -687,7 +703,7 @@ class AsignacionCreate(BaseModel):
     ) -> "AsignacionCreate":
         """
         Un mismo contacto no puede asociarse dos veces
-        a una asignación.
+        a una instancia.
         """
 
         contactos = [
@@ -698,22 +714,22 @@ class AsignacionCreate(BaseModel):
         if len(contactos) != len(set(contactos)):
             raise ValueError(
                 "No se permite repetir un contacto "
-                "dentro de la misma asignación."
+                "dentro de la misma instancia."
             )
 
         return self
 
 
 # ============================================================
-# ACTUALIZACIÓN PARCIAL DE ASIGNACIÓN
+# ACTUALIZACIÓN PARCIAL DE INSTANCIA
 # ============================================================
 
 
 class AsignacionUpdate(BaseModel):
     """
-    Payload para actualizar parcialmente una asignación existente.
+    Payload para actualizar parcialmente una instancia existente.
 
-    Este schema modela únicamente los datos editables de la asignación.
+    Este schema modela únicamente los datos editables de la instancia.
     No permite modificar:
     - tipo_actividad_id, porque el tipo queda fijo después de crearla;
     - estado_id, porque los cambios de estado siguen reglas de negocio
@@ -726,7 +742,7 @@ class AsignacionUpdate(BaseModel):
       ese valor";
     - el backend debe distinguir ambos casos usando model_fields_set;
     - la validez final de None depende del tipo de actividad y debe comprobarse
-      contra el estado completo resultante de la asignación;
+      contra el estado completo resultante de la instancia;
     - las reglas de cambios críticos/no críticos se validan en el endpoint,
       porque dependen del estado actual, fecha/hora y rol autenticado.
     """
@@ -823,20 +839,20 @@ class AsignacionUpdate(BaseModel):
         if len(contactos) != len(set(contactos)):
             raise ValueError(
                 "No se permite repetir un contacto "
-                "dentro de la misma asignación."
+                "dentro de la misma instancia."
             )
 
         return self
 
 
 # ============================================================
-# LISTADO DE ASIGNACIONES
+# LISTADO DE INSTANCIAS
 # ============================================================
 
 
 class AsignacionListItem(BaseModel):
     """
-    Información utilizada en el listado general de asignaciones.
+    Información utilizada en el listado general de instancias.
     """
 
     id: UUID
@@ -869,13 +885,13 @@ class AsignacionListItem(BaseModel):
 
 
 # ============================================================
-# DETALLE DE ASIGNACIÓN
+# DETALLE DE INSTANCIA
 # ============================================================
 
 
 class AsignacionDetail(AsignacionListItem):
     """
-    Detalle completo de una asignación.
+    Detalle completo de una instancia.
 
     Incluye:
     - participantes activos;

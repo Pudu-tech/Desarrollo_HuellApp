@@ -1,4 +1,20 @@
-"""
+"""HuellApp · API de salas.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Gestionar salas del colegio mediante contratos validados y operaciones auditadas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Edición, activación y eliminación lógica conservando referencias históricas.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Endpoints de administración de salas en HuellAPP.
 
 Funciones disponibles:
@@ -8,7 +24,7 @@ Funciones disponibles:
 - modificar sala;
 - activar sala;
 - desactivar sala.
-- eliminar lógicamente con auditoría y protección de asignaciones futuras.
+- eliminar lógicamente con auditoría y protección de instancias futuras.
 
 SECURITY:
 - Todos los endpoints utilizan permisos RBAC.
@@ -750,7 +766,7 @@ def desactivar_sala(
     responses={
         403: {"description": "Requiere DELETE_ROOM."},
         404: {"description": "Registro inexistente o eliminado."},
-        409: {"description": "Tiene asignaciones futuras activas."},
+        409: {"description": "Tiene instancias futuras activas."},
     },
 )
 def eliminar_sala(
@@ -778,7 +794,7 @@ def eliminar_sala(
             if code == "ROOM_NOT_FOUND":
                 raise HTTPException(404, "Registro no encontrado o ya eliminado.")
             if code == "ROOM_HAS_FUTURE_ASSIGNMENTS":
-                raise HTTPException(409, "Tiene asignaciones futuras vigentes desde hoy. Cancélalas o reasígnalas antes de eliminar la sala.")
+                raise HTTPException(409, "Tiene instancias futuras vigentes desde hoy. Cancélalas o reasígnalas antes de eliminar la sala.")
             if code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
                 raise HTTPException(403, "No posee permiso para eliminar salas.")
             raise RuntimeError("Error RPC de eliminación.")

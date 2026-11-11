@@ -1,4 +1,19 @@
-"""
+"""HuellApp · Comprobaciones de salud.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Informar disponibilidad de la API y comprobar conectividad con Supabase.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Respuestas de diagnóstico sin detalles internos de conexión.
+
+SECURITY
+------------------------------------------------------------
+Las respuestas no deben exponer credenciales ni el detalle de errores internos.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Endpoints de salud del backend de HuellAPP.
 
 Este módulo permite verificar:

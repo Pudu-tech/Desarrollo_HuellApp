@@ -1,6 +1,18 @@
 /**
- * HuellApp · Reglas de presentación de creación, equivalentes a AsignacionCreate.
- * Las reglas definitivas, permisos y concurrencia permanecen en FastAPI/PostgreSQL.
+ * HuellApp · Validación del formulario de instancias.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Comprobar los campos y combinaciones requeridos antes de enviar el formulario.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas de presentación equivalentes a los contratos de creación.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import type { AsignacionPayload } from '../../types/asignaciones'
 

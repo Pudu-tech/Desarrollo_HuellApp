@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Autenticación y permisos efectivos.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Validar el token con Supabase Auth y obtener identidad, rol y permisos del usuario.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Dependencias comunes get_current_user y require_permission.
+
+SECURITY
+------------------------------------------------------------
+El rol procede de la base de datos, no del navegador. Las operaciones
+protegidas deben usar estas dependencias y validar sus reglas de dominio.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Funciones de seguridad y autenticación del backend de HuellAPP.
 
 Este módulo centraliza las utilidades relacionadas con:

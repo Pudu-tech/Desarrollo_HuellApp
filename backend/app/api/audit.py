@@ -1,7 +1,21 @@
-﻿"""Consulta paginada de auditoría, protegida por VIEW_AUDIT_LOGS."""
+"""HuellApp · Consulta del historial de auditoría.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Filtrar, ordenar y paginar eventos y proporcionar opciones de búsqueda.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Ordenación en servidor antes de paginar; consultas de solo lectura.
+
+SECURITY
+------------------------------------------------------------
+Requiere VIEW_AUDIT_LOGS y aplica la autorización en el backend.
+"""
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 from uuid import UUID
+from typing import Literal
 import unicodedata
 from fastapi import APIRouter, Depends, HTTPException, Query
 from app.core.security import require_permission
@@ -12,9 +26,11 @@ from app.schemas.auth import AuthenticatedUser
 router = APIRouter(prefix='/audit', tags=['Audit'])
 
 def person(row):
+    """Compone el nombre legible de la persona omitiendo campos ausentes."""
     return ' '.join(str(row.get(k) or '') for k in ('nombres', 'apellido_paterno', 'apellido_materno')).strip()
 
 def normalized(value):
+    """Normaliza mayúsculas y diacríticos para interpretar términos de búsqueda."""
     return ''.join(c for c in unicodedata.normalize('NFD', value.casefold()) if not unicodedata.combining(c))
 
 def display_audit_references(db, rows):
@@ -73,11 +89,12 @@ def display_audit_references(db, rows):
 
 def search_audit(query, db, text):
     # Los valores se entrecomillan y escapan para no interpretar sintaxis PostgREST.
+    """Construye filtros por palabras y referencias antes de paginar, escapando literales."""
     def literal(value):
         return '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
     words = text.strip().split()
     translations = {'crear': 'CREATE', 'editar': 'UPDATE', 'modificar': 'UPDATE', 'eliminar': 'DELETE', 'borrar': 'DELETE', 'aceptar': 'ACCEPT', 'rechazar': 'REJECT', 'confirmar': 'CONFIRM', 'cancelar': 'CANCEL', 'registrar': 'REPORT', 'regularizar': 'MANAGE', 'agregar': 'ADD', 'quitar': 'REMOVE', 'cambiar': 'CHANGE', 'reabrir': 'REOPEN'}
-    modules = {'ASSIGNMENT': 'asignacion asignaciones', 'ASSIGNMENT_PARTICIPANT': 'participante participantes participacion', 'ATTENDANCE': 'asistencia', 'USER': 'usuario usuarios', 'SCHOOL': 'colegio colegios', 'ROOM': 'sala salas', 'COURSE': 'curso cursos', 'SCHOOL_CONTACT': 'contacto contactos'}
+    modules = {'ASSIGNMENT': 'instancia instancias asignacion asignaciones', 'ASSIGNMENT_PARTICIPANT': 'participante participantes participacion', 'ATTENDANCE': 'asistencia', 'USER': 'usuario usuarios', 'SCHOOL': 'colegio colegios', 'ROOM': 'sala salas', 'COURSE': 'curso cursos', 'SCHOOL_CONTACT': 'contacto contactos'}
     for word in words:
         clean = normalized(word)
         escaped = word.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
@@ -107,6 +124,7 @@ def search_audit(query, db, text):
 
 @router.get('/options')
 def options(current_user: AuthenticatedUser = Depends(require_permission('VIEW_AUDIT_LOGS'))):
+    """Entrega opciones de personas y roles para los filtros de una consulta autorizada."""
     db = get_supabase_client()
     try:
         users = db.table('usuarios').select('id,nombres,apellido_paterno,apellido_materno').order('nombres').execute().data or []
@@ -121,12 +139,15 @@ def list_audit_logs(limit: int = Query(50, ge=1, le=100), offset: int = Query(0,
                     actor_user_id: UUID | None = None, actor_role_id: UUID | None = None,
                     desde: date | None = None, hasta: date | None = None,
                     search: str | None = Query(None, max_length=150), asignacion: UUID | None = None,
+                    sort_by: Literal['fecha', 'actor'] = 'fecha', sort_direction: Literal['asc', 'desc'] = 'desc',
                     current_user: AuthenticatedUser = Depends(require_permission('VIEW_AUDIT_LOGS'))):
+    """Aplica filtros y orden en la base de datos antes del rango de paginación."""
     if desde and hasta and desde > hasta:
         raise HTTPException(422, 'La fecha inicial debe ser anterior o igual a la final.')
     db = get_supabase_client()
     try:
-        query = db.table('audit_logs').select('*')
+        columns = '*,actor:usuarios!fk_audit_logs_actor_user(nombres,apellido_paterno,apellido_materno)' if sort_by == 'actor' else '*'
+        query = db.table('audit_logs').select(columns)
         for column, value in (('action', action), ('entity_type', entity_type), ('actor_user_id', actor_user_id), ('actor_role_id', actor_role_id)):
             if value: query = query.eq(column, str(value).strip().upper() if column in ('action','entity_type') else str(value))
         zone = ZoneInfo('America/Santiago')
@@ -141,7 +162,11 @@ def list_audit_logs(limit: int = Query(50, ge=1, le=100), offset: int = Query(0,
                 attendance = db.table('asistencias_asignacion').select('id').in_('asignacion_participante_id', [r['id'] for r in parts]).execute().data or []
                 ids.extend(r['id'] for r in attendance)
             query = query.in_('entity_id', ids)
-        rows = query.order('created_at', desc=True).order('id', desc=True).range(offset, offset+limit-1).execute().data or []
+        descending = sort_direction == 'desc'
+        if sort_by == 'actor':
+            for field in ('nombres', 'apellido_paterno', 'apellido_materno'):
+                query = query.order(f'actor({field})', desc=descending, nullsfirst=False)
+        rows = query.order('created_at', desc=descending).order('id', desc=descending).range(offset, offset+limit-1).execute().data or []
         actor_ids = list({r['actor_user_id'] for r in rows if r.get('actor_user_id')})
         role_ids = list({r['actor_role_id'] for r in rows if r.get('actor_role_id')})
         users = {r['id']: person(r) for r in (db.table('usuarios').select('id,nombres,apellido_paterno,apellido_materno').in_('id',actor_ids).execute().data or [])} if actor_ids else {}

@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Cliente privilegiado de Supabase.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Crear y reutilizar el cliente del backend desde la configuración del entorno.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Instancia compartida por las operaciones de acceso a datos.
+
+SECURITY
+------------------------------------------------------------
+El cliente posee privilegios elevados. Cada consumidor debe validar acceso
+antes de operar y nunca exponer su clave al navegador o a los logs.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Cliente central de Supabase para el backend de HuellAPP.
 
 Este módulo crea una única instancia reutilizable del cliente de Supabase

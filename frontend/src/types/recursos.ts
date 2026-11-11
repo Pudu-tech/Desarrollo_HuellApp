@@ -1,6 +1,18 @@
 /**
- * HuellApp · Contratos de Cursos y Salas definidos por los esquemas FastAPI.
- * El colegio pertenece al contexto; nombre_mostrado y auditoría son del servidor.
+ * HuellApp · Contratos de cursos y salas.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir las estructuras TypeScript utilizadas para cursos y salas.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tipos compartidos entre servicios, componentes y páginas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Estos tipos no validan datos en ejecución ni conceden permisos.
+ * La API es responsable de validar los datos y autorizar las operaciones.
  */
 export interface CursoItem {
   id: string

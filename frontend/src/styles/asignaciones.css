@@ -1,4 +1,19 @@
-/* HuellApp · Asignaciones. Misma línea visual de Usuarios/Colegios, con estilos encapsulados. */
+/**
+ * HuellApp · Estilos de listados, formularios y detalle de asignaciones.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de listados, formularios y detalle de asignaciones.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 .assignments-page { max-width: 1250px; margin: 0 auto; color: #1f2937; }
 .assignments-heading, .assignments-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .assignments-heading { margin-bottom: 24px; }
@@ -58,11 +73,6 @@
   outline: 2px solid var(--huella-teal);
   outline-offset: 3px;
 }
-.assignments-date-sort { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
-.assignments-date-sort:focus-visible { outline: 2px solid #245f6b; outline-offset: 4px; border-radius: 3px; }
-.assignments-date-sort > span { display: inline-flex; gap: 2px; }
-.assignments-date-sort > span > span { opacity: .35; }
-.assignments-date-sort > span > .is-active { opacity: 1; font-weight: 800; }
 .assignments-assignees { margin: 0; padding: 0; list-style: none; min-width: 150px; line-height: 1.5; }
 .assignments-assignees li + li { margin-top: 4px; }
 .assignments-table { width: 100%; border-collapse: collapse; font-size: 14px; text-align: left; }

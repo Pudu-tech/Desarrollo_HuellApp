@@ -1,6 +1,18 @@
 /**
- * HuellApp
- * Tipos utilizados por el módulo de usuarios.
+ * HuellApp · Contratos de usuarios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir las estructuras TypeScript utilizadas para usuarios.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tipos compartidos entre servicios, componentes y páginas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Estos tipos no validan datos en ejecución ni conceden permisos.
+ * La API es responsable de validar los datos y autorizar las operaciones.
  */
 
 export type UserRoleCode =

@@ -1,4 +1,20 @@
-"""
+"""HuellApp · API de autenticación.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Exponer el perfil autenticado y sus permisos efectivos para la interfaz.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Identidad obtenida del token validado y de los datos actuales del usuario.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Endpoints de autenticación del backend de HuellAPP.
 
 Este módulo expone rutas protegidas relacionadas con la sesión

@@ -1,6 +1,23 @@
-"""HuellAPP | Contratos para contactos reutilizables de un colegio.
+"""HuellApp · Contratos de contactos escolares.
 
-La tabla contactos_colegio constituye la fuente de contactos para Asignaciones.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Definir modelos Pydantic de entrada y salida para contactos escolares.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- La validación de campos se comparte entre los endpoints que utilizan estos modelos.
+
+SECURITY
+------------------------------------------------------------
+Los modelos delimitan y validan datos; la autorización corresponde a las
+dependencias y reglas de los endpoints, no a la creación de una instancia.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+HuellAPP | Contratos para contactos reutilizables de un colegio.
+
+La tabla contactos_colegio constituye la fuente de contactos para Instancias.
 Los identificadores, estado y auditoría no se aceptan desde el cliente.
 Los apellidos opcionales respetan los registros anteriores a la migración 042.
 """
@@ -99,7 +116,7 @@ class ContactoUpdate(BaseModel):
 
 
 class ContactoItem(ContactoBase):
-    """Respuesta estable; una asignación referencia exclusivamente su UUID."""
+    """Respuesta estable; una instancia referencia exclusivamente su UUID."""
     id: UUID
     colegio_id: UUID
     activo: bool

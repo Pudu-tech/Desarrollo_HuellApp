@@ -1,5 +1,21 @@
-import LoadingIndicator from '../LoadingIndicator'
 /**
+ * HuellApp · Contactos de un colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Listar, ordenar y gestionar personas de contacto del colegio seleccionado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Escrituras independientes con permisos efectivos y respuesta confirmada del backend.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp · Gestión de contactos de un colegio ya registrado.
  *
  * REGLAS
@@ -10,8 +26,12 @@ import LoadingIndicator from '../LoadingIndicator'
  * - La ficha no permite salir durante una escritura de contactos.
  * - El contacto abierto y la lista se sincronizan tras modificar su estado.
  * - Cada operación es independiente y auditada por el backend.
- * - Se conserva el límite de dos contactos por asignación (en backend).
+ * - Los contactos se validan por colegio; no existe máximo general de dos.
  */
+import SortButton from '../../components/common/SortButton'
+import { useListSort } from '../../hooks/useListSort'
+import LoadingIndicator from '../LoadingIndicator'
+
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   createContacto, deleteContacto, listContactos, setContactoActivo, updateContacto,
@@ -182,7 +202,7 @@ export default function ColegioContactos({ colegioId, colegioActivo, permissions
   const remove = async (item: ContactoColegio) => {
     if (working || !canDelete) return
     if (!await confirm({ title: '¿Eliminar contacto?',
-      message: <>Vas a eliminar a <strong>{item.nombre}</strong>. No aparecerá en nuevas asignaciones. El historial se conservará y quedará registro en auditoría.</>,
+      message: <>Vas a eliminar a <strong>{item.nombre}</strong>. No aparecerá en nuevas instancias. El historial se conservará y quedará registro en auditoría.</>,
       confirmLabel: 'Sí, eliminar contacto' })) return
     setWorking(true)
     onWorkingChange(true)
@@ -202,13 +222,14 @@ export default function ColegioContactos({ colegioId, colegioActivo, permissions
     }
   }
 
+  const sorting = useListSort<string>('nombre')
   return (
     <section className="schools-form-section schools-contacts">
       {confirmationDialog}
       <div className="schools-contacts-heading">
         <div>
-          <h3>Personas de contacto</h3>
-          <p>Estos contactos estarán disponibles para las asignaciones del colegio.</p>
+          <h3>Personas de contacto</h3><SortButton label="Nombre" column="nombre" sort={sorting.sort} onSort={sorting.toggle} />
+          <p>Estos contactos estarán disponibles para las instancias del colegio.</p>
         </div>
         {!showForm && canCreate && <button type="button" className="schools-secondary" disabled={working || loading || !!loadError} onClick={newContact}>+ Agregar contacto</button>}
       </div>
@@ -218,7 +239,7 @@ export default function ColegioContactos({ colegioId, colegioActivo, permissions
       {loading ? <LoadingIndicator /> : !loadError && (
         <div className="schools-contact-list">
           {items.length === 0 && !showForm && <p className="schools-feedback">Aún no hay contactos asociados a este colegio.</p>}
-          {items.map((item) => (
+          {sorting.order(items, { nombre: r => [r.nombre, r.apellido_paterno, r.apellido_materno].filter(Boolean).join(' ') }).map((item) => (
             <div key={item.id} className="schools-contact-row">
               <div>
                 <strong>{[item.nombre, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ')}</strong>
@@ -250,7 +271,7 @@ export default function ColegioContactos({ colegioId, colegioActivo, permissions
           </div>
           {selected && <div className="schools-contacts-admin">
             <h4>Administrar contacto</h4>
-            <p>La desactivación es reversible y conserva las asignaciones históricas.</p>
+            <p>La desactivación es reversible y conserva las instancias históricas.</p>
             {canToggle && (selected.activo || colegioActivo) && <button type="button" className="schools-secondary" disabled={working} onClick={() => { void toggle(selected) }}>{selected.activo ? 'Desactivar contacto' : 'Reactivar contacto'}</button>}
             {canDelete && <div className="schools-contacts-delete">
               <p>La eliminación lógica no se puede deshacer desde esta interfaz.</p>

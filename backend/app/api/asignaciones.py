@@ -1,13 +1,29 @@
-"""
-Endpoints del módulo de asignaciones de HuellAPP.
+"""HuellApp · API de instancias y participantes.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Exponer los endpoints de instancias y participantes y coordinar consultas, validaciones y respuestas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Las rutas y dependencias de este módulo definen el contrato HTTP.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+Endpoints del módulo de instancias de HuellAPP.
 
 FUNCIONES IMPLEMENTADAS:
-- listar asignaciones;
-- obtener detalle de una asignación;
-- crear asignaciones;
-- actualizar parcialmente una asignación;
-- cancelar asignaciones;
-- reabrir asignaciones canceladas;
+- listar instancias;
+- obtener detalle de una instancia;
+- crear instancias;
+- actualizar parcialmente una instancia;
+- cancelar instancias;
+- reabrir instancias canceladas;
 - agregar participantes;
 - quitar participantes mediante soft-delete;
 - cambiar tipo de participación;
@@ -20,8 +36,8 @@ FUNCIONES IMPLEMENTADAS:
 
 REGLAS DE SEGURIDAD:
 - Todos los endpoints utilizan autenticación y permisos.
-- MONITOR solo puede visualizar asignaciones donde figure como participante.
-- SUPERADMIN puede administrar asignaciones, pero no participar en ellas.
+- MONITOR solo puede visualizar instancias donde figure como participante.
+- SUPERADMIN puede administrar instancias, pero no participar en ellas.
 - Solo el propio participante puede aceptar o rechazar su participación.
 - Solo el propio participante puede registrar su propia asistencia.
 - Solo participaciones ACEPTADAS pueden registrar o regularizar asistencia.
@@ -34,8 +50,8 @@ REGLAS DE SEGURIDAD:
   motivo_regularizacion.
 - La gestión administrativa de participantes requiere REASSIGN_ASSIGNMENT.
 - CANCEL_ASSIGNMENT permite cancelar a SUPERADMIN, DIRECTIVA y COORDINADOR.
-- Solo SUPERADMIN y DIRECTIVA pueden reabrir una asignación CANCELADA.
-- Las asignaciones REALIZADAS, CANCELADAS o NO_REALIZADAS no permiten alterar
+- Solo SUPERADMIN y DIRECTIVA pueden reabrir una instancia CANCELADA.
+- Las instancias REALIZADAS, CANCELADAS o NO_REALIZADAS no permiten alterar
   participantes mediante el flujo operativo normal.
 - El actor siempre se obtiene desde la sesión autenticada.
 - Nunca se confía en actor_user_id, respondido_por, informado_por,
@@ -43,7 +59,7 @@ REGLAS DE SEGURIDAD:
 
 GESTIÓN HISTÓRICA DE PARTICIPANTES:
 - Los triggers escolares impiden crear/reabrir con colegios o recursos eliminados.
-- Se conserva el contrato de reemplazo de hasta dos contactos por asignación.
+- Se conserva el contrato de reemplazo de hasta dos contactos por instancia.
 - quitar un participante NO elimina físicamente el registro;
 - se utiliza activo=false + deleted_at;
 - la asistencia histórica se conserva;
@@ -52,19 +68,19 @@ GESTIÓN HISTÓRICA DE PARTICIPANTES:
 - cambiar tipo en una participación ya respondida conserva el registro
   anterior y crea uno nuevo PENDIENTE;
 - un usuario puede tener registros históricos anteriores, pero solo una
-  participación activa por asignación;
-- si desaparece el último RELATOR ACEPTADO de una asignación CONFIRMADA,
-  la asignación vuelve automáticamente a PENDIENTE.
+  participación activa por instancia;
+- si desaparece el último RELATOR ACEPTADO de una instancia CONFIRMADA,
+  la instancia vuelve automáticamente a PENDIENTE.
 
 CICLO DE VIDA:
-- una asignación terminada con al menos una asistencia PRESENTE puede pasar
+- una instancia terminada con al menos una asistencia PRESENTE puede pasar
   automáticamente a REALIZADA mediante la lógica central de base de datos;
 - después de 24 horas desde hora_fin sin ninguna asistencia PRESENTE puede
   pasar a NO_REALIZADA;
 - CANCELADA no participa en ese flujo automático;
 - NO_REALIZADA solo puede ser regularizada por DIRECTIVA o SUPERADMIN;
 - si una asistencia de una NO_REALIZADA es regularizada a PRESENTE,
-  la asignación pasa explícitamente a REALIZADA;
+  la instancia pasa explícitamente a REALIZADA;
 - AUSENTE o JUSTIFICADA no cambian NO_REALIZADA;
 - toda regularización de asistencia y cambio global de estado queda auditado.
 
@@ -123,16 +139,16 @@ from app.schemas.auth import AuthenticatedUser
 
 router = APIRouter(
     prefix="/asignaciones",
-    tags=["Asignaciones"],
+    tags=["Instancias"],
 )
 
 
 @router.delete("/{asignacion_id}", status_code=status.HTTP_204_NO_CONTENT)
 def eliminar_asignacion(request: Request, asignacion_id: UUID,
                               current_user: AuthenticatedUser = Depends(require_permission("DELETE_ASSIGNMENT"))) -> None:
-    """Retira la asignación preservando su historial; solo administradores."""
+    """Retira la instancia preservando su historial; solo administradores."""
     if current_user.role_code not in {"SUPERADMIN", "DIRECTIVA"}:
-        raise HTTPException(403, "Solo Superadmin y Directiva pueden eliminar asignaciones.")
+        raise HTTPException(403, "Solo Superadmin y Directiva pueden eliminar instancias.")
     try:
         request_id = getattr(request.state, "request_id", None)
         result = get_supabase_client().rpc("eliminar_asignacion_atomica", {
@@ -145,14 +161,14 @@ def eliminar_asignacion(request: Request, asignacion_id: UUID,
             raise RuntimeError("Respuesta de eliminación inválida")
         if result.get("ok") is not True:
             if result.get("error_code") == "NOT_FOUND":
-                raise HTTPException(404, "La asignación no existe o ya fue eliminada.")
+                raise HTTPException(404, "La instancia no existe o ya fue eliminada.")
             if result.get("error_code") in {"FORBIDDEN", "ACTOR_NOT_FOUND"}:
-                raise HTTPException(403, "No puedes eliminar esta asignación.")
+                raise HTTPException(403, "No puedes eliminar esta instancia.")
             raise RuntimeError("Eliminación no completada")
     except HTTPException:
         raise
     except Exception:
-        raise HTTPException(500, "No fue posible eliminar la asignación.")
+        raise HTTPException(500, "No fue posible eliminar la instancia.")
 
 
 # ============================================================
@@ -206,6 +222,7 @@ asistencia:asistencias_asignacion(estado)
 
 
 def _participante_detalle(item: dict) -> dict:
+    """Proyecta nombres, respuesta y asistencia para el detalle sin alterar el registro."""
     usuario = item.get("usuario") or {}
     estado = item.get("estado") or {}
     return {**item,
@@ -217,6 +234,7 @@ def _participante_detalle(item: dict) -> dict:
 
 
 def _asignados_a(participants: list[dict]) -> list[str]:
+    """Devuelve nombres ordenados de participantes vigentes, excluyendo los retirados."""
     names = []
     for part in participants:
         if not part.get('activo') or part.get('deleted_at'):
@@ -229,6 +247,7 @@ def _asignados_a(participants: list[dict]) -> list[str]:
 
 
 def _attendance_state(part: dict):
+    """Normaliza la relación de asistencia y deriva su estado operativo."""
     from app.services.attendance_status import effective_attendance_state
     value = part.get('asistencia') or []
     if isinstance(value, list):
@@ -237,6 +256,7 @@ def _attendance_state(part: dict):
 
 
 def _attendance_counts(participants: list[dict]):
+    """Cuenta estados de asistencia únicamente de participantes vigentes."""
     counts = {}
     for part in participants:
         if not part.get('activo') or part.get('deleted_at'):
@@ -248,6 +268,7 @@ def _attendance_counts(participants: list[dict]):
 
 
 def _por_reasignar(item: dict, participantes: list[dict]) -> bool:
+    """Detecta una instancia pendiente cuyo único participante vigente la rechazó."""
     activos = [p for p in participantes if p.get("activo") and not p.get("deleted_at")]
     return bool(item.get("activo") and (item.get("estado") or {}).get("codigo") == "PENDIENTE"
                 and len(activos) == 1 and (activos[0].get("estado") or {}).get("codigo") == "RECHAZADA")
@@ -466,7 +487,7 @@ def _obtener_codigo_estado_asignacion(
 
     if not response.data:
         raise RuntimeError(
-            "El estado de la asignación no existe."
+            "El estado de la instancia no existe."
         )
 
     return response.data[0]["codigo"]
@@ -749,7 +770,7 @@ def _validar_participantes(
     payload: AsignacionCreate,
 ) -> None:
     """
-    Valida participantes de una asignación nueva.
+    Valida participantes de una instancia nueva.
     """
 
     for participante in payload.participantes:
@@ -937,7 +958,7 @@ def _validar_contactos(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
                         "Todos los profesores/contactos deben "
-                        "pertenecer al colegio de la asignación."
+                        "pertenecer al colegio de la instancia."
                     ),
                 )
 
@@ -1180,7 +1201,7 @@ def _obtener_detalle_asignacion(
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="La asignación no existe.",
+            detail="La instancia no existe.",
         )
 
     participantes_response = (
@@ -1226,7 +1247,7 @@ def _obtener_asignaciones_monitor(
     usuario_id: UUID,
 ) -> list[str]:
     """
-    Obtiene asignaciones donde participa Monitor.
+    Obtiene instancias donde participa Monitor.
     """
 
     response = (
@@ -1251,7 +1272,7 @@ def _validar_acceso_monitor_asignacion(
     usuario_id: UUID,
 ) -> None:
     """
-    Valida acceso de Monitor a asignación.
+    Valida acceso de Monitor a instancia.
     """
 
     response = (
@@ -1268,12 +1289,12 @@ def _validar_acceso_monitor_asignacion(
     if not response.data:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="No posee acceso a esta asignación.",
+            detail="No posee acceso a esta instancia.",
         )
 
 
 # ============================================================
-# HELPERS PATCH ASIGNACIÓN
+# HELPERS PATCH INSTANCIA
 # ============================================================
 
 
@@ -1358,7 +1379,7 @@ def _validar_estado_asignacion_resultante(
         primer_error = exc.errors()[0]
         mensaje = primer_error.get(
             "msg",
-            "Datos inválidos para la asignación.",
+            "Datos inválidos para la instancia.",
         )
 
         if mensaje.startswith("Value error, "):
@@ -1415,7 +1436,7 @@ def _validar_reglas_edicion_asignacion(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Una asignación {estado_codigo} no puede modificarse "
+                f"Una instancia {estado_codigo} no puede modificarse "
                 "mediante el flujo normal."
             ),
         )
@@ -1575,7 +1596,7 @@ def listar_asignaciones(
     ),
 ) -> list[AsignacionListItem]:
     """
-    Lista asignaciones visibles para el usuario.
+    Lista instancias visibles para el usuario.
     """
 
     supabase = get_supabase_client()
@@ -1652,7 +1673,7 @@ def listar_asignaciones(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible obtener las asignaciones.",
+            detail="No fue posible obtener las instancias.",
         )
 
 
@@ -1688,7 +1709,7 @@ def obtener_asignacion(
     ),
 ) -> AsignacionDetail:
     """
-    Obtiene detalle de una asignación.
+    Obtiene detalle de una instancia.
     """
 
     supabase = get_supabase_client()
@@ -1706,7 +1727,7 @@ def obtener_asignacion(
         if not response.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="La asignación no existe.",
+                detail="La instancia no existe.",
             )
 
         if current_user.role_code == "MONITOR":
@@ -1727,12 +1748,12 @@ def obtener_asignacion(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible obtener la asignación.",
+            detail="No fue posible obtener la instancia.",
         )
 
 
 # ============================================================
-# PATCH - ACTUALIZAR ASIGNACIÓN
+# PATCH - ACTUALIZAR INSTANCIA
 # ============================================================
 
 
@@ -1749,11 +1770,11 @@ def actualizar_asignacion(
     ),
 ) -> AsignacionDetail:
     """
-    Actualiza una asignación de forma atómica.
+    Actualiza una instancia de forma atómica.
 
     El backend conserva las validaciones funcionales existentes y PostgreSQL
     ejecuta dentro de una única transacción:
-    - actualización parcial de la asignación;
+    - actualización parcial de la instancia;
     - reemplazo completo de contactos cuando fueron enviados;
     - auditoría UPDATE_ASSIGNMENT.
 
@@ -1897,20 +1918,20 @@ def actualizar_asignacion(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "La asignación no puede modificarse "
+                        "La instancia no puede modificarse "
                         "mediante el flujo normal."
                     ),
                 )
@@ -1919,7 +1940,7 @@ def actualizar_asignacion(
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "La asignación cambió antes de completar "
+                        "La instancia cambió antes de completar "
                         "la actualización. Vuelva a cargarla."
                     ),
                 )
@@ -1931,12 +1952,12 @@ def actualizar_asignacion(
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=(
-                        "No posee permiso para actualizar asignaciones."
+                        "No posee permiso para actualizar instancias."
                     ),
                 )
 
             raise RuntimeError(
-                "La RPC no pudo actualizar la asignación."
+                "La RPC no pudo actualizar la instancia."
             )
 
         return _obtener_detalle_asignacion(
@@ -1959,13 +1980,13 @@ def actualizar_asignacion(
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible actualizar la asignación.",
+            detail="No fue posible actualizar la instancia.",
         )
 
 
 
 # ============================================================
-# POST - CANCELAR ASIGNACIÓN
+# POST - CANCELAR INSTANCIA
 # ============================================================
 
 
@@ -1982,7 +2003,7 @@ def cancelar_asignacion(
     ),
 ) -> AsignacionDetail:
     """
-    Cancela una asignación PENDIENTE o CONFIRMADA de forma atómica.
+    Cancela una instancia PENDIENTE o CONFIRMADA de forma atómica.
 
     REGLAS:
     - SUPERADMIN, DIRECTIVA y COORDINADOR pueden cancelar porque poseen
@@ -2043,20 +2064,20 @@ def cancelar_asignacion(
             if error_code == "NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "INVALID_STATE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "Solo se pueden cancelar asignaciones "
+                        "Solo se pueden cancelar instancias "
                         "PENDIENTES o CONFIRMADAS."
                     ),
                 )
@@ -2085,12 +2106,12 @@ def cancelar_asignacion(
     except Exception:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible cancelar la asignación.",
+            detail="No fue posible cancelar la instancia.",
         )
 
 
 # ============================================================
-# POST - REABRIR ASIGNACIÓN
+# POST - REABRIR INSTANCIA
 # ============================================================
 
 
@@ -2106,17 +2127,17 @@ def reabrir_asignacion(
     ),
 ) -> AsignacionDetail:
     """
-    Reabre una asignación CANCELADA de forma atómica.
+    Reabre una instancia CANCELADA de forma atómica.
 
     REGLAS:
     - solo SUPERADMIN y DIRECTIVA pueden ejecutar esta operación;
-    - la asignación debe estar CANCELADA;
+    - la instancia debe estar CANCELADA;
     - se restaura exactamente el estado anterior registrado en la
       cancelación más reciente: PENDIENTE o CONFIRMADA;
     - estado, historial y auditoría se escriben dentro de una única
       transacción PostgreSQL mediante RPC.
 
-    La RPC repite la validación del rol y bloquea la fila de asignación
+    La RPC repite la validación del rol y bloquea la fila de instancia
     para impedir reaperturas concurrentes o estados parciales.
     """
 
@@ -2131,7 +2152,7 @@ def reabrir_asignacion(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=(
                     "Solo SUPERADMIN o DIRECTIVA pueden "
-                    "reabrir una asignación cancelada."
+                    "reabrir una instancia cancelada."
                 ),
             )
 
@@ -2177,20 +2198,20 @@ def reabrir_asignacion(
             if error_code == "NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "INVALID_STATE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "Solo se puede reabrir una asignación "
+                        "Solo se puede reabrir una instancia "
                         "en estado CANCELADA."
                     ),
                 )
@@ -2200,7 +2221,7 @@ def reabrir_asignacion(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No existe historial de cancelación suficiente "
-                        "para reabrir la asignación."
+                        "para reabrir la instancia."
                     ),
                 )
 
@@ -2224,7 +2245,7 @@ def reabrir_asignacion(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=(
                         "Solo SUPERADMIN o DIRECTIVA pueden "
-                        "reabrir una asignación cancelada."
+                        "reabrir una instancia cancelada."
                     ),
                 )
 
@@ -2250,7 +2271,7 @@ def reabrir_asignacion(
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible reabrir la asignación.",
+            detail="No fue posible reabrir la instancia.",
         )
 
 
@@ -2273,11 +2294,11 @@ def agregar_participante(
     ),
 ) -> ParticipanteSummary:
     """
-    Agrega un participante a una asignación de forma atómica.
+    Agrega un participante a una instancia de forma atómica.
 
     PostgreSQL ejecuta en una sola transacción:
     - validación del actor y permiso REASSIGN_ASSIGNMENT;
-    - validación de la asignación y su estado;
+    - validación de la instancia y su estado;
     - validación del usuario participante;
     - validación del tipo de participación;
     - control de participación activa duplicada;
@@ -2338,13 +2359,13 @@ def agregar_participante(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
@@ -2352,7 +2373,7 @@ def agregar_participante(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se pueden modificar participantes de una "
-                        "asignación cerrada."
+                        "instancia cerrada."
                     ),
                 )
 
@@ -2391,7 +2412,7 @@ def agregar_participante(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "El usuario ya posee una participación activa "
-                        "en esta asignación."
+                        "en esta instancia."
                     ),
                 )
 
@@ -2476,7 +2497,7 @@ def quitar_participante(
     Archiva un participante de forma atómica.
 
     PostgreSQL ejecuta en una sola transacción:
-    - validaciones críticas de actor, asignación y participación;
+    - validaciones críticas de actor, instancia y participación;
     - soft-delete de la participación;
     - conservación de asistencia e historial;
     - eventual transición CONFIRMADA -> PENDIENTE si se retiró el último
@@ -2531,13 +2552,13 @@ def quitar_participante(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
@@ -2545,7 +2566,7 @@ def quitar_participante(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se pueden modificar participantes de una "
-                        "asignación REALIZADA, CANCELADA o NO_REALIZADA."
+                        "instancia REALIZADA, CANCELADA o NO_REALIZADA."
                     ),
                 )
 
@@ -2554,7 +2575,7 @@ def quitar_participante(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe, no pertenece a esta "
-                        "asignación o ya fue archivada."
+                        "instancia o ya fue archivada."
                     ),
                 )
 
@@ -2630,7 +2651,7 @@ def cambiar_tipo_participacion(
     Cambia el tipo de participación de forma atómica.
 
     PostgreSQL ejecuta en una sola transacción:
-    - validaciones críticas de actor, asignación, usuario y tipo;
+    - validaciones críticas de actor, instancia, usuario y tipo;
     - actualización directa si la participación sigue PENDIENTE;
     - archivado y creación de una nueva PENDIENTE si ya fue respondida;
     - creación automática de asistencia para la nueva participación;
@@ -2689,13 +2710,13 @@ def cambiar_tipo_participacion(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
@@ -2703,7 +2724,7 @@ def cambiar_tipo_participacion(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se pueden modificar participantes de una "
-                        "asignación REALIZADA, CANCELADA o NO_REALIZADA."
+                        "instancia REALIZADA, CANCELADA o NO_REALIZADA."
                     ),
                 )
 
@@ -2712,7 +2733,7 @@ def cambiar_tipo_participacion(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe, no pertenece a esta "
-                        "asignación o ya fue archivada."
+                        "instancia o ya fue archivada."
                     ),
                 )
 
@@ -2721,7 +2742,7 @@ def cambiar_tipo_participacion(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "El usuario de la participación no está disponible "
-                        "para participar en asignaciones."
+                        "para participar en instancias."
                     ),
                 )
 
@@ -2884,13 +2905,13 @@ def reasignar_participante(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
@@ -2898,7 +2919,7 @@ def reasignar_participante(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se pueden modificar participantes de una "
-                        "asignación REALIZADA, CANCELADA o NO_REALIZADA."
+                        "instancia REALIZADA, CANCELADA o NO_REALIZADA."
                     ),
                 )
 
@@ -2907,7 +2928,7 @@ def reasignar_participante(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe o no pertenece "
-                        "a esta asignación."
+                        "a esta instancia."
                     ),
                 )
 
@@ -2932,7 +2953,7 @@ def reasignar_participante(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "El rol del nuevo usuario no puede participar "
-                        "en asignaciones."
+                        "en instancias."
                     ),
                 )
 
@@ -2941,7 +2962,7 @@ def reasignar_participante(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "El usuario ya posee una participación activa "
-                        "en esta asignación."
+                        "en esta instancia."
                     ),
                 )
 
@@ -3005,7 +3026,7 @@ def reasignar_participante(
 
 
 # ============================================================
-# POST - CREAR ASIGNACIÓN
+# POST - CREAR INSTANCIA
 # ============================================================
 
 
@@ -3022,12 +3043,12 @@ def crear_asignacion(
     ),
 ) -> AsignacionDetail:
     """
-    Crea una asignación completa de forma atómica.
+    Crea una instancia completa de forma atómica.
 
     Las validaciones funcionales del payload se mantienen en el backend
     para conservar el contrato actual. PostgreSQL ejecuta en una sola
     transacción la creación de:
-    - asignación;
+    - instancia;
     - participantes PENDIENTES;
     - asistencias PENDIENTES generadas por trigger;
     - contactos;
@@ -3163,7 +3184,7 @@ def crear_asignacion(
 
         if not isinstance(resultado, dict):
             raise RuntimeError(
-                "La RPC de creación de asignación devolvió "
+                "La RPC de creación de instancia devolvió "
                 "una respuesta inválida."
             )
 
@@ -3177,7 +3198,7 @@ def crear_asignacion(
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=(
-                        "No posee permiso para crear asignaciones."
+                        "No posee permiso para crear instancias."
                     ),
                 )
 
@@ -3186,7 +3207,7 @@ def crear_asignacion(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                     detail=(
                         "No existe un estado PENDIENTE activo "
-                        "para asignaciones."
+                        "para instancias."
                     ),
                 )
 
@@ -3203,20 +3224,20 @@ def crear_asignacion(
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
-                        "La asignación debe incluir al menos "
+                        "La instancia debe incluir al menos "
                         "un participante válido."
                     ),
                 )
 
             raise RuntimeError(
-                "La RPC no pudo crear la asignación."
+                "La RPC no pudo crear la instancia."
             )
 
         asignacion_id = resultado.get("asignacion_id")
 
         if not asignacion_id:
             raise RuntimeError(
-                "La RPC no devolvió la asignación creada."
+                "La RPC no devolvió la instancia creada."
             )
 
         return _obtener_detalle_asignacion(
@@ -3237,7 +3258,7 @@ def crear_asignacion(
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="No fue posible crear la asignación.",
+            detail="No fue posible crear la instancia.",
         )
 
 
@@ -3264,11 +3285,11 @@ def aceptar_participacion(
 
     PostgreSQL ejecuta en una sola transacción:
     - validación del actor y del permiso ACCEPT_PARTICIPATION;
-    - validación de la asignación y de la participación;
+    - validación de la instancia y de la participación;
     - verificación de que responde el propio participante;
     - transición de la participación PENDIENTE -> ACEPTADA;
     - auditoría de la aceptación;
-    - eventual transición de la asignación PENDIENTE -> CONFIRMADA
+    - eventual transición de la instancia PENDIENTE -> CONFIRMADA
       cuando quien acepta es un RELATOR;
     - auditoría de la confirmación automática, si corresponde.
     """
@@ -3319,20 +3340,20 @@ def aceptar_participacion(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "La asignación ya no admite respuestas "
+                        "La instancia ya no admite respuestas "
                         "de participantes."
                     ),
                 )
@@ -3342,7 +3363,7 @@ def aceptar_participacion(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe o no pertenece "
-                        "a esta asignación."
+                        "a esta instancia."
                     ),
                 )
 
@@ -3426,7 +3447,7 @@ def rechazar_participacion(
 
     PostgreSQL ejecuta en una sola transacción:
     - validación del actor y permiso REJECT_PARTICIPATION;
-    - validación de asignación operativa;
+    - validación de instancia operativa;
     - validación de participación activa y PENDIENTE;
     - comprobación de que responde el propio participante;
     - actualización a RECHAZADA con motivo obligatorio;
@@ -3482,20 +3503,20 @@ def rechazar_participacion(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "La asignación ya no admite respuestas "
+                        "La instancia ya no admite respuestas "
                         "de participantes."
                     ),
                 )
@@ -3505,7 +3526,7 @@ def rechazar_participacion(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe o no pertenece "
-                        "a esta asignación."
+                        "a esta instancia."
                     ),
                 )
 
@@ -3607,7 +3628,7 @@ def reabrir_participacion(
     Reabre de forma atómica una participación RECHAZADA.
 
     PostgreSQL ejecuta en una sola transacción:
-    - validaciones críticas de actor, asignación y participación;
+    - validaciones críticas de actor, instancia y participación;
     - archivado de la participación rechazada;
     - creación de una nueva participación PENDIENTE para el mismo usuario;
     - creación automática de su asistencia mediante el trigger existente;
@@ -3663,13 +3684,13 @@ def reabrir_participacion(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
@@ -3677,7 +3698,7 @@ def reabrir_participacion(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se pueden modificar participantes de una "
-                        "asignación REALIZADA, CANCELADA o NO_REALIZADA."
+                        "instancia REALIZADA, CANCELADA o NO_REALIZADA."
                     ),
                 )
 
@@ -3686,7 +3707,7 @@ def reabrir_participacion(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe o no pertenece "
-                        "a esta asignación."
+                        "a esta instancia."
                     ),
                 )
 
@@ -3704,7 +3725,7 @@ def reabrir_participacion(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "El usuario de la participación no está disponible "
-                        "para participar en asignaciones."
+                        "para participar en instancias."
                     ),
                 )
 
@@ -3721,7 +3742,7 @@ def reabrir_participacion(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "El usuario ya posee otra participación activa "
-                        "en esta asignación."
+                        "en esta instancia."
                     ),
                 )
 
@@ -3811,7 +3832,7 @@ def registrar_asistencia_propia(
     PostgreSQL ejecuta en una sola transacción:
     - validación del actor y permiso REPORT_ATTENDANCE;
     - evaluación previa del ciclo de vida;
-    - validación de asignación y ventana temporal;
+    - validación de instancia y ventana temporal;
     - validación de participación ACEPTADA y propiedad;
     - validación de asistencia PENDIENTE;
     - registro de estado, motivo y geolocalización;
@@ -3819,7 +3840,7 @@ def registrar_asistencia_propia(
     - evaluación posterior del ciclo de vida.
 
     Si la actividad ya terminó y existe una asistencia PRESENTE,
-    la asignación puede pasar a REALIZADA dentro de la misma transacción.
+    la instancia puede pasar a REALIZADA dentro de la misma transacción.
     """
 
     supabase = get_supabase_client()
@@ -3877,20 +3898,20 @@ def registrar_asistencia_propia(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CLOSED":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "La asignación ya no admite marcación "
+                        "La instancia ya no admite marcación "
                         "de asistencia propia."
                     ),
                 )
@@ -3900,7 +3921,7 @@ def registrar_asistencia_propia(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "La asistencia propia solo puede registrarse "
-                        "desde la hora de inicio de la asignación."
+                        "desde la hora de inicio de la instancia."
                     ),
                 )
 
@@ -3919,7 +3940,7 @@ def registrar_asistencia_propia(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe o no pertenece "
-                        "a esta asignación."
+                        "a esta instancia."
                     ),
                 )
 
@@ -4050,7 +4071,7 @@ def regularizar_asistencia(
 
     PostgreSQL ejecuta en una sola transacción:
     - validación del actor y permiso MANAGE_ATTENDANCE;
-    - validación de la asignación;
+    - validación de la instancia;
     - validación de participación ACEPTADA;
     - actualización de la asistencia;
     - auditoría MANAGE_ATTENDANCE;
@@ -4116,13 +4137,13 @@ def regularizar_asistencia(
             if error_code == "ASSIGNMENT_NOT_FOUND":
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
-                    detail="La asignación no existe.",
+                    detail="La instancia no existe.",
                 )
 
             if error_code == "ASSIGNMENT_INACTIVE":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
-                    detail="La asignación se encuentra inactiva.",
+                    detail="La instancia se encuentra inactiva.",
                 )
 
             if error_code == "ASSIGNMENT_CANCELLED":
@@ -4130,7 +4151,7 @@ def regularizar_asistencia(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se puede regularizar asistencia de una "
-                        "asignación CANCELADA."
+                        "instancia CANCELADA."
                     ),
                 )
 
@@ -4139,7 +4160,7 @@ def regularizar_asistencia(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail=(
                         "Solo DIRECTIVA o SUPERADMIN pueden modificar "
-                        "una asignación NO_REALIZADA."
+                        "una instancia NO_REALIZADA."
                     ),
                 )
 
@@ -4148,7 +4169,7 @@ def regularizar_asistencia(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=(
                         "La participación no existe o no pertenece "
-                        "a esta asignación."
+                        "a esta instancia."
                     ),
                 )
 
@@ -4200,7 +4221,7 @@ def regularizar_asistencia(
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
-                        "La asignación cambió de estado antes de "
+                        "La instancia cambió de estado antes de "
                         "completar la regularización."
                     ),
                 )

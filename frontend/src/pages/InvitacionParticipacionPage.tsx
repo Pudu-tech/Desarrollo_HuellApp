@@ -1,4 +1,19 @@
-/** Confirmación personal desde correo. Consultar no responde ni requiere sesión. */
+/**
+ * HuellApp · Respuesta a una invitación por correo.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar la invitación personal y solicitar confirmación para aceptar o rechazar.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Consultar el enlace no cambia el estado; la respuesta requiere una acción explícita.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * El enlace contiene una credencial limitada a la invitación. Se envía en el cuerpo
+ * de la petición; su firma, versión y vigencia se validan en backend.
+ */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ParticipationCard from '../components/asignaciones/ParticipationCard'
@@ -24,8 +39,8 @@ export default function InvitacionParticipacionPage() {
   return <main className="auth-page">
     <section className="auth-card invitation-card">
     <header className="auth-header"><div className="auth-logo-wrap"><img src="/logo-huella.png" alt="Fundación Huella" className="auth-logo" /></div><p className="auth-brand">HuellApp</p></header>
-    <h1 className="auth-title">Responder participación</h1>
-    <p className="auth-subtitle">Revisa la actividad y confirma tu respuesta.</p>
+    <h1 className="auth-title">{result?.info?.estado === 'ACEPTADA' ? 'Detalle de tu instancia' : 'Responder participación'}</h1>
+    <p className="auth-subtitle">{result?.info?.estado === 'ACEPTADA' ? 'Tu participación está confirmada. Revisa los datos de la actividad.' : 'Revisa la actividad y confirma tu respuesta.'}</p>
     <div className="assignments-page invitation-content">
       {!token ? <p className="assignments-warning">Abre el enlace personal recibido en tu correo.</p>
         : !result ? <p role="status">Consultando invitación…</p>

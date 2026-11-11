@@ -1,4 +1,21 @@
-"""Catálogos de apoyo para la ficha de colegios de HuellAPP.
+"""HuellApp · API de catálogos escolares.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Consultar regiones, comunas, dependencias y niveles utilizados por los mantenedores.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Solo ofrece registros activos bajo los permisos de consulta correspondientes.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+Catálogos de apoyo para la ficha de colegios de HuellAPP.
 
 Solo se exponen registros activos. Los endpoints están protegidos
 por el permiso de consulta del mantenedor que los utiliza.

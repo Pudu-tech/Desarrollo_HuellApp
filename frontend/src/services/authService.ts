@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Autenticación y validación de sesión.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Autenticar con Supabase Auth y consultar el perfil autorizado en /auth/me.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Renueva una sesión rechazada con 401 y distingue fallos temporales de falta de acceso.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
+ */
 import { clearReadCache } from './readCache'
 import { supabase } from './supabase'
 
@@ -9,6 +25,7 @@ if (!apiUrl) {
   throw new Error('Falta VITE_API_URL.')
 }
 
+/** Autentica en Supabase Auth y obtiene el perfil autorizado; limpia las lecturas de la sesión anterior. */
 export async function login(
   email: string,
   password: string,
@@ -45,11 +62,13 @@ export async function login(
   return response.json() as Promise<AuthenticatedUser>
 }
 
+/** Invalida la caché de lecturas y solicita el cierre de sesión en Supabase Auth. */
 export async function logout(): Promise<void> {
   clearReadCache()
   await supabase.auth.signOut()
 }
 
+/** Valida el perfil actual y renueva una vez ante HTTP 401; distingue indisponibilidad de falta de acceso. */
 export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
   const {
     data: { session },

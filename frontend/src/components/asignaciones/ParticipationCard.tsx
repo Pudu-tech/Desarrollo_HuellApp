@@ -1,4 +1,19 @@
-/** Estado propio y confirmación común. Aceptar una invitación no marca asistencia. */
+/**
+ * HuellApp · Respuesta personal a una instancia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Mostrar la respuesta vigente y confirmar aceptación o rechazo de participación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Aceptar la invitación no registra asistencia.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useRef, useState } from 'react'
 import { useConfirmation } from '../../hooks/useConfirmation'
 import { responderInvitacion, responderMiParticipacion, type ParticipacionPropia, type RespuestaParticipacion } from '../../services/participacionesService'
@@ -16,6 +31,7 @@ export default function ParticipationCard({ info, token, initialAction, onUpdate
   const state = answered ?? info.estado
   const canRespond = state === 'PENDIENTE' && info.admite_respuesta
 
+  /** Confirma la respuesta y la envía sin confundir aceptación de participación con asistencia. */
   async function submit() {
     if (submitting.current || !canRespond) return
     if (action === 'REJECT' && !reason.trim()) { setError('Indica el motivo del rechazo.'); return }
@@ -33,8 +49,8 @@ export default function ParticipationCard({ info, token, initialAction, onUpdate
 
   return <section className="assignments-form-section">
     <h3>Mi participación</h3>
-    {state === 'ACEPTADA' ? <p className="assignments-success" role="status">Ya aceptaste esta asignación. No necesitas responder desde otro canal.</p>
-      : state === 'RECHAZADA' ? <p className="assignments-warning" role="status">Ya rechazaste esta asignación. No necesitas responder desde otro canal.</p>
+    {state === 'ACEPTADA' ? <p className="assignments-success" role="status">Ya aceptaste esta instancia. No necesitas responder desde otro canal.</p>
+      : state === 'RECHAZADA' ? <p className="assignments-warning" role="status">Ya rechazaste esta instancia. No necesitas responder desde otro canal.</p>
       : <p>Estado: <strong>{state === 'PENDIENTE' ? 'Pendiente de respuesta' : state}</strong></p>}
     {info.motivo_rechazo && <p>Motivo: {info.motivo_rechazo}</p>}
     {error && <p className="assignments-error" role="alert">{error}</p>}
@@ -43,8 +59,8 @@ export default function ParticipationCard({ info, token, initialAction, onUpdate
       {action === 'REJECT' && <label>Motivo del rechazo<textarea required maxLength={1000} rows={3} value={reason} onChange={(event) => setReason(event.target.value)} /></label>}
       <div className="assignments-editor-actions"><button className="assignments-primary" type="button" onClick={() => void submit()}>{busy ? 'Procesando…' : 'Confirmar respuesta'}</button></div>
     </fieldset>}
-    {state === 'PENDIENTE' && !info.admite_respuesta && <p className="assignments-warning">Esta asignación ya no admite respuestas.</p>}
-    <p>Aceptar confirma tu participación. La asistencia se registra por separado desde Mis asignaciones.</p>
+    {state === 'PENDIENTE' && !info.admite_respuesta && <p className="assignments-warning">Esta instancia ya no admite respuestas.</p>}
+    <p>Aceptar confirma tu participación. La asistencia se registra por separado desde Mis instancias.</p>
     {confirmationDialog}
   </section>
 }

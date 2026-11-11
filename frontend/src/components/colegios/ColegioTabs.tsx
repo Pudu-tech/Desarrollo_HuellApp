@@ -1,7 +1,18 @@
 /**
- * HuellApp · Navegación accesible de la ficha del establecimiento.
- * Las flechas, Inicio y Fin recorren las pestañas autorizadas.
- * Cada panel conserva su estado después de su primera apertura.
+ * HuellApp · Pestañas de la ficha del colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Navegar con teclado entre las secciones disponibles de la ficha.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Conserva los paneles visitados y respeta las secciones autorizadas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import { useRef } from 'react'
 

@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Registro personal de asistencia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar el registro, obtener ubicación y confirmar el informe de asistencia.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Requiere ubicación; ausencias y justificaciones solicitan motivo.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useEffect, useState } from 'react'
 import { getAsistenciaPropia, reportAsistencia, type Asistencia } from '../../services/asistenciasService'
 import type { ParticipacionPropia } from '../../services/participacionesService'
@@ -24,12 +40,14 @@ export default function AttendanceCard({ info, onSaved }: { info: ParticipacionP
       if (isActive()) { setAttendance(data); setError('') }
     } catch { /* El registro confirmado permanece visible si falla una lectura temporal. */ }
   }, !busy && !location && !motivo)
+  /** Consulta de nuevo el registro sin borrar una asistencia ya confirmada ante un fallo temporal. */
   async function refresh() {
     setBusy(true)
     try { setAttendance(await getAsistenciaPropia(info.asignacion_id)); setError('') }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible consultar el registro.') }
     finally { setBusy(false) }
   }
+  /** Solicita permiso al navegador y captura coordenadas recientes con su precisión y fecha. */
   function locate() {
     if (!navigator.geolocation) { setError('Este dispositivo no permite obtener ubicación.'); return }
     setBusy(true); setError('')
@@ -37,6 +55,7 @@ export default function AttendanceCard({ info, onSaved }: { info: ParticipacionP
       (cause) => { setError(cause.code === 1 ? 'Permite el acceso a ubicación para registrar asistencia.' : 'No se pudo obtener la ubicación. Reintenta.'); setBusy(false) },
       { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 })
   }
+  /** Exige ubicación y motivo cuando corresponde; solicita confirmación y aplica el registro persistido. */
   async function save() {
     if (!location || busy || (estado !== 'PRESENTE' && !motivo.trim())) return
     if (!await confirm({ title: 'Registrar asistencia', confirmLabel: 'Confirmar asistencia', message: 'Se registrará tu asistencia con la ubicación capturada. Las correcciones posteriores requieren regularización administrativa.' })) return
@@ -65,7 +84,7 @@ export default function AttendanceCard({ info, onSaved }: { info: ParticipacionP
         {attendance.fecha_geolocalizacion && <div><dt>Ubicación capturada el</dt><dd>{timestamp(attendance.fecha_geolocalizacion)}</dd></div>}
         {attendance.motivo_regularizacion && <div><dt>Regularización administrativa</dt><dd>{attendance.motivo_regularizacion}</dd></div>}
       </dl>
-      <p>Puedes volver a consultar este registro desde tu asignación. Las correcciones administrativas quedan en auditoría.</p>
+      <p>Puedes volver a consultar este registro desde tu instancia. Las correcciones administrativas quedan en auditoría.</p>
     </>}
     {error && <p className="assignments-error" role="alert">{error}</p>}
     {latitude != null && longitude != null && <p>Ubicación: {attendance?.direccion_detectada || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`} · Precisión: ±{Math.round(location?.coords.accuracy ?? attendance?.precision_gps ?? 0)} m · <a href={`https://www.google.com/maps?q=${latitude},${longitude}`} target="_blank" rel="noreferrer">Ver en mapa</a></p>}

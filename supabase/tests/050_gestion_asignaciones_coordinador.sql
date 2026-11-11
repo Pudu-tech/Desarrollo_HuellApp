@@ -1,3 +1,17 @@
+-- HuellApp · gestion asignaciones coordinador.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de gestion asignaciones coordinador con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- Después de 050. Solo lectura, sin correos.
 BEGIN;
 DO $$

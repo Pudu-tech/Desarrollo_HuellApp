@@ -1,4 +1,19 @@
-/** HuellApp · Una respuesta por participante, compartida entre correo y aplicación. */
+/**
+ * HuellApp · Cliente HTTP de participaciones e invitaciones.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar y responder participaciones propias o invitaciones personales por correo.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - La aplicación y el correo comparten la misma respuesta persistida.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Las operaciones de sesión usan el transporte autenticado. El token de
+ * invitación viaja en el cuerpo HTTP, sin incluirlo en la URL de la API.
+ */
 import { recursoRequest } from './recursosService'
 
 export interface ParticipacionPropia {

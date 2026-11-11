@@ -1,5 +1,21 @@
-import LoadingIndicator from '../LoadingIndicator'
 /**
+ * HuellApp · Ficha de edición del colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Editar información y alojar los paneles de contactos, cursos y salas.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Envía campos modificados y evita cerrar la ficha durante una escritura.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp · Ficha de edición del colegio con cuatro secciones internas.
  *
  * REGLAS
@@ -11,6 +27,8 @@ import LoadingIndicator from '../LoadingIndicator'
  * - Los permisos se consultan una vez; los paneles visitados conservan estado.
  * - No se permite abandonar la ficha durante una escritura de sus recursos.
  */
+import LoadingIndicator from '../LoadingIndicator'
+
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { getComunas } from '../../services/colegiosService'
@@ -209,7 +227,7 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
       {onRequestDelete && permissions.includes('DELETE_SCHOOL') && (
         <section className="schools-form-section schools-delete-section">
           <h3>Eliminar colegio</h3>
-          <p>Se eliminarán lógicamente el colegio y sus cursos, salas y contactos. Se conservarán las asignaciones históricas y la auditoría. Primero debes cancelar o reasignar las asignaciones futuras vigentes.</p>
+          <p>Se eliminarán lógicamente el colegio y sus cursos, salas y contactos. Se conservarán las instancias históricas y la auditoría. Primero debes cancelar o reasignar las instancias futuras vigentes.</p>
           <button type="button" className="schools-danger" disabled={busy} onClick={() => onRequestDelete(current)}>
             Eliminar colegio
           </button>
@@ -220,7 +238,7 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
       {visited.includes('contactos') && <>
         {Boolean(current.nombre_contacto || current.telefono_contacto || current.email_contacto) && <section className="schools-form-section schools-legacy-contact">
           <h3>Contacto anterior (solo consulta)</h3>
-          <p>Estos datos históricos no están vinculados con Asignaciones. Registra a la persona como contacto para usarla en nuevas actividades.</p>
+          <p>Estos datos históricos no están vinculados con Instancias. Registra a la persona como contacto para usarla en nuevas actividades.</p>
           <p><strong>Nombre:</strong> {current.nombre_contacto || '—'}</p>
           <p><strong>Teléfono:</strong> {current.telefono_contacto || '—'}</p>
           <p><strong>Correo:</strong> {current.email_contacto || '—'}</p>

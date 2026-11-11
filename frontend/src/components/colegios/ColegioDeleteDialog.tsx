@@ -1,7 +1,18 @@
 /**
- * HuellApp · Confirmación accesible de eliminación lógica del colegio.
- * El diálogo nativo conserva el foco y bloquea la interacción con la ficha.
- * Escape/cancelación quedan deshabilitados mientras se confirma la transacción.
+ * HuellApp · Confirmación de eliminación del colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Solicitar confirmación de eliminación lógica y mostrar el estado de la operación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Diálogo nativo con foco modal; no permite cancelar durante el envío.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import ConfirmationDialog from '../common/ConfirmationDialog'
 import type { ColegioListItem } from '../../types/colegios'
@@ -20,6 +31,6 @@ export default function ColegioDeleteDialog({ colegio, working, error, onCancel,
       Vas a eliminar <strong>{colegio.nombre}</strong>{colegio.rbd ? ` (RBD ${colegio.rbd})` : ''}.
       También se eliminarán lógicamente sus cursos, salas y contactos.
       Esta acción no se puede deshacer desde la interfaz.
-      Se conservarán las asignaciones históricas y quedará registro en auditoría.
+      Se conservarán las instancias históricas y quedará registro en auditoría.
   </ConfirmationDialog>
 }

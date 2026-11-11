@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Estado compartido de autenticación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Restaurar la sesión, exponer el usuario y coordinar ingreso y cierre de sesión.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Control de actividad y duración de sesión; limpieza de fotografías al cerrar sesión.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import {
   createContext,
   useContext,
@@ -327,6 +343,7 @@ export function AuthProvider({
   )
 }
 
+/** Obtiene el contexto autenticado y detecta su uso fuera del proveedor correspondiente. */
 export function useAuth(): AuthContextValue {
   const context = useContext(AuthContext)
 

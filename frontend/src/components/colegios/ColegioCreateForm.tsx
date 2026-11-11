@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Creación de colegios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Validar y normalizar el formulario y solicitar la creación del colegio.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Conserva los datos ante errores y evita envíos simultáneos.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp · Formulario de creación de colegios.
  *
  * REGLAS

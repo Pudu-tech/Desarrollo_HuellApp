@@ -1,5 +1,3 @@
-import LoadingIndicator from '../components/LoadingIndicator'
-import { clearReadCache } from '../services/readCache'
 /**
  * HuellApp · Mantenedor de colegios.
  *
@@ -18,6 +16,10 @@ import { clearReadCache } from '../services/readCache'
  * ------------------------------------------------------------
  * La visibilidad de acciones es solo presentación; FastAPI valida permisos.
  */
+import SortableHeader from '../components/common/SortableHeader'
+import { useListSort } from '../hooks/useListSort'
+import LoadingIndicator from '../components/LoadingIndicator'
+import { clearReadCache } from '../services/readCache'
 
 import { useEffect, useMemo, useState } from 'react'
 import ColegioEditForm from '../components/colegios/ColegioEditForm'
@@ -57,6 +59,7 @@ function getErrorMessage(error: unknown): string {
  */
 function ColegiosPage() {
   const { user } = useAuth()
+  const sorting = useListSort<string>('nombre')
   const canManage = user?.role_code === 'SUPERADMIN' || user?.role_code === 'DIRECTIVA'
   const canDelete = user?.role_code === 'SUPERADMIN'
   const [editing, setEditing] = useState<ColegioListItem | null>(null)
@@ -320,16 +323,16 @@ function ColegiosPage() {
             <table className="schools-table">
               <thead>
                 <tr>
-                  <th scope="col">Colegio</th>
+                  <SortableHeader label="Colegio" column="nombre" sort={sorting.sort} onSort={sorting.toggle} />
                   <th scope="col">RBD</th>
-                  <th scope="col">Ubicación</th>
-                  <th scope="col">Dependencia</th>
+                  <SortableHeader label="Ubicación" column="ubicacion" sort={sorting.sort} onSort={sorting.toggle} />
+                  <SortableHeader label="Dependencia" column="dependencia" sort={sorting.sort} onSort={sorting.toggle} />
                   <th scope="col">Estado</th>
                   {canManage && <th scope="col">Acciones</th>}
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((colegio) => (
+                {sorting.order(filtered, { nombre: r => r.nombre, ubicacion: r => `${regionId ? comunaNames.get(r.comuna_id) ?? '' : ''} ${regionNames.get(r.region_id) ?? ''}`, dependencia: r => dependenciaNames.get(r.tipo_dependencia_id ?? '') }).map((colegio) => (
                   <tr key={colegio.id}>
                     <td className="schools-name">{colegio.nombre}</td>
                     <td>{colegio.rbd || '—'}</td>

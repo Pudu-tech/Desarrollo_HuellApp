@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Cliente HTTP de administración de usuarios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar usuarios y solicitar creación, edición, cambios de rol y estado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Propaga los mensajes de error del backend y usa la sesión actual.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
+ */
 import { cachedFetch } from './readCache'
 import { recursoRequest } from './recursosService'
 export const resendPasswordInvitation = (id: string) => recursoRequest<{ ok: boolean }>(`/users/${encodeURIComponent(id)}/password-invitation`, 'POST')
@@ -66,6 +82,7 @@ interface FastApiErrorResponse {
 // AUTENTICACIÓN
 // ============================================================
 
+/** Obtiene el token de la sesión vigente para autenticar la solicitud administrativa. */
 async function getAccessToken(): Promise<string> {
   const {
     data: { session },
@@ -93,6 +110,7 @@ async function getAccessToken(): Promise<string> {
 // ERRORES
 // ============================================================
 
+/** Extrae el mensaje HTTP disponible y usa el mensaje alternativo ante un cuerpo no interpretable. */
 async function getResponseErrorMessage(
   response: Response,
 ): Promise<string> {

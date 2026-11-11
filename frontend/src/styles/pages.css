@@ -1,4 +1,19 @@
-/* Tarjetas de la copia adaptadas a las pantallas actuales sin clases. Cargado desde index.css. */
+/**
+ * HuellApp · Estilos de presentación compartida de páginas.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de presentación compartida de páginas.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 
 .app-content > section:not([class]) {
   max-width: 1200px;

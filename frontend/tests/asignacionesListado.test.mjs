@@ -1,3 +1,18 @@
+/**
+ * HuellApp · Pruebas de filtros y colegios del listado de asignaciones.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Comprobar filtros y colegios del listado de asignaciones con el runner de Node.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Casos de regresión sobre los módulos TypeScript del frontend.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Las pruebas no conceden permisos ni sustituyen las comprobaciones de la API.
+ */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'

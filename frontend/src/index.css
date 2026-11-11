@@ -1,3 +1,18 @@
+/**
+ * HuellApp · Estilos globales.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la base visual e importar las reglas comunes del contenido.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Punto de entrada CSS de la aplicación.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La hoja de estilos no controla permisos ni valida datos.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;650;700&display=swap');
 @import './styles/pages.css';
 /* Estilos comunes de contenido, formularios, tablas y diálogos. */

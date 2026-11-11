@@ -1,3 +1,17 @@
+-- HuellApp · Consultas de verificación del esquema inicial.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Inspeccionar tablas, restricciones y políticas del esquema después del baseline.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Consultas de diagnóstico; este archivo no constituye una migración.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Ejecutar con una cuenta autorizada; los resultados pueden revelar la estructura interna.
+
 -- ============================================================
 -- HuellAPP - Verificación del baseline
 -- Ejecutar sobre una base donde se haya aplicado el baseline.

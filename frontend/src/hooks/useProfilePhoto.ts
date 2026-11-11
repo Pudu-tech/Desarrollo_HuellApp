@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Caché compartida de fotografías.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Reutilizar solicitudes por usuario y notificar cambios de fotografías en memoria.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Renueva URL antes de vencer y descarta respuestas anteriores a una limpieza de sesión.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useEffect, useSyncExternalStore } from 'react'
 import { recursoRequest } from '../services/recursosService'
 
@@ -11,6 +27,7 @@ const subscribe = (listener: () => void) => {
   return () => { listeners.delete(listener) }
 }
 
+/** Vacía la caché e invalida respuestas de la sesión anterior. */
 export function clearProfilePhotos() {
   generation += 1
   photos.clear()
@@ -18,23 +35,27 @@ export function clearProfilePhotos() {
   notify()
 }
 
+/** Publica una foto obtenida o actualizada para todos sus consumidores. */
 export function updateProfilePhoto(userId: string, url: string | null) {
   // Las URL firmadas duran una hora; renueva antes de su vencimiento.
   photos.set(userId, { url, until: Date.now() + 50 * 60_000 })
   notify()
 }
 
+/** Obtiene la foto desde el endpoint autenticado indicado y devuelve su URL vigente. */
 export function useProfilePhoto(userId: string | undefined, path: string) {
   const url = useSyncExternalStore(subscribe, () => userId ? photos.get(userId)?.url ?? null : null)
   useEffect(() => {
     const load = async () => {
       if (!userId || (photos.get(userId)?.until ?? 0) > Date.now()) return
+      // Los componentes que muestran al mismo usuario comparten la petición.
       const existing = pending.get(userId)
       if (existing) return existing
       const revision = generation
       const previous = photos.get(userId)
       const request = recursoRequest<{ foto_url: string | null }>(path, 'GET', undefined, true)
         .then(profile => {
+          // Una respuesta antigua no debe reemplazar una foto recién actualizada.
           if (revision === generation && photos.get(userId) === previous) updateProfilePhoto(userId, profile.foto_url)
         })
         .catch(() => { /* Mantiene el saludo y las iniciales ante un fallo temporal. */ })

@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Perfil personal.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar y actualizar el teléfono y la fotografía del usuario autenticado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - La foto se consulta mediante URL firmada y se comparte con la caché del perfil.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useEffect, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { recursoRequest } from '../services/recursosService'
@@ -19,6 +35,7 @@ export default function PerfilPage(){
  const [notice,setNotice]=useState('')
  const [revision,setRevision]=useState(0)
  useEffect(()=>{let active=true;recursoRequest<Profile>('/mi-perfil','GET',undefined,true).then(p=>{if(active){updateProfilePhoto(p.id,p.foto_url);setProfile(p);setPhone(p.telefono||'');setError('')}}).catch(e=>{if(active)setError(e.message)});return()=>{active=false}},[revision])
+ /** Valida tipo y tamaño y prepara la vista previa; la foto aún no se guarda. */
  async function selectPhoto(file:File|undefined){
   if(!file)return
   setError('');setNotice('')
@@ -30,6 +47,7 @@ export default function PerfilPage(){
   }catch(e){setError(e instanceof Error?e.message:'No se pudo leer la foto.')}
   finally{setReading(false)}
  }
+ /** Envía los cambios del perfil y publica la URL confirmada en la caché compartida de fotos. */
  async function save(){
   if(busy||reading)return
   setBusy(true);setError('');setNotice('')

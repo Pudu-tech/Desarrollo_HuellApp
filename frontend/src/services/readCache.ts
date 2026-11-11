@@ -1,15 +1,32 @@
-/** Lecturas por sesión, solo en memoria. Escrituras y actualización manual invalidan. */
+/**
+ * HuellApp · Caché de lecturas autenticadas.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Reutilizar respuestas y solicitudes pendientes y limpiar resultados tras escrituras.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Caché en memoria por sesión, con caducidad y exclusiones para consultas sensibles.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Cambiar la cabecera de autorización invalida la caché. No persiste respuestas
+ * en almacenamiento del navegador ni sustituye la autorización del servidor.
+ */
 const entries = new Map<string, { response: Response; until: number }>()
 const pending = new Map<string, Promise<Response>>()
 let scope = ''
 let generation = 0
 
+/** Invalida respuestas y solicitudes compartidas; la generación impide repoblar con respuestas antiguas. */
 export function clearReadCache() {
   generation += 1
   entries.clear()
   pending.clear()
 }
 
+/** Reutiliza GET autenticados elegibles y devuelve clones; escrituras y cambios de sesión invalidan la caché. */
 export async function cachedFetch(url: string, init: RequestInit = {}): Promise<Response> {
   const authorization = new Headers(init.headers).get('Authorization') ?? ''
   if (scope !== authorization) { clearReadCache(); scope = authorization }

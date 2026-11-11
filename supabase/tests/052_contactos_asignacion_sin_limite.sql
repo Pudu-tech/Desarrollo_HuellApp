@@ -1,3 +1,17 @@
+-- HuellApp · contactos asignacion sin limite.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de contactos asignacion sin limite con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- Después de 052, fixtures aislados y ROLLBACK. No envía correos.
 BEGIN;
 DO $$

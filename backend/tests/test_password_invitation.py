@@ -1,3 +1,18 @@
+"""HuellApp · Pruebas de invitaciones para establecer contraseña.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar invitaciones para establecer contraseña mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch

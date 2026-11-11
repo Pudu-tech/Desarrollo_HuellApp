@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Configuración del backend.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Cargar y validar variables de entorno utilizadas por la API y los servicios.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Configuración centralizada mediante Settings y get_settings.
+
+SECURITY
+------------------------------------------------------------
+Los secretos se reciben desde el entorno y no deben registrarse ni enviarse
+al frontend. Las claves privilegiadas se utilizan solo en backend.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Configuración central del backend de HuellAPP.
 
 Este módulo se encarga de cargar y validar las variables de entorno
@@ -60,7 +76,7 @@ class Settings(BaseSettings):
     # seguros de invitaciones y flujos de autenticación.
     frontend_url: str = "http://localhost:5173"
     google_maps_api_key: SecretStr | None = None
-    # Correo de asignaciones: deshabilitado hasta configurar remitente y secretos.
+    # Correo de instancias: deshabilitado hasta configurar remitente y secretos.
     brevo_notifications_enabled: bool = False
     brevo_api_key: SecretStr | None = None
     brevo_sender_email: str = ""

@@ -1,4 +1,19 @@
-/* Diseño de UsuariosPage.css adaptado a users-*. Se conservan los formularios y estados actuales. */
+/**
+ * HuellApp · Estilos de mantenedor y formularios de usuarios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de mantenedor y formularios de usuarios.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 
 .users-page {
   max-width: 1200px;
@@ -11,11 +26,6 @@
   font-family: inherit;
 }
 
-.users-name-sort { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
-.users-name-sort:focus-visible { outline: 2px solid #245f6b; outline-offset: 4px; border-radius: 3px; }
-.users-name-sort > span { display: inline-flex; gap: 2px; }
-.users-name-sort > span > span { opacity: .35; }
-.users-name-sort > span > .is-active { opacity: 1; font-weight: 800; }
 
 .users-heading, .users-panel-heading {
   display: flex;

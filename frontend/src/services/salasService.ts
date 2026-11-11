@@ -1,6 +1,18 @@
 /**
- * HuellApp · Operaciones de Salas dentro de un colegio.
- * Reutiliza /salas y sus RPC auditadas. El colegio solo se envía al crear.
+ * HuellApp · Cliente HTTP de salas escolares.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar salas y enviar cambios de datos, estado y eliminación lógica.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - El colegio se envía en la creación y no cambia desde la edición.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
  */
 import { recursoRequest } from './recursosService'
 import type { SalaItem, SalaPayload } from '../types/recursos'

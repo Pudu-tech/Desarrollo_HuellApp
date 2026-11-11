@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Estructura de las pantallas del monitor.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Componer la navegación del monitor y el contenido de su ruta activa.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reutiliza la estructura visual del sitio para la experiencia personal.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Layout exclusivo para MONITOR.
  *
@@ -10,7 +27,7 @@
  *
  * El monitor solamente visualiza:
  * - Inicio.
- * - Mis asignaciones.
+ * - Mis instancias.
  *
  * No visualiza mantenedores administrativos.
  *

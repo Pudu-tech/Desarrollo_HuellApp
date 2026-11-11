@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Validadores de datos compartidos.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Comprobar el RUT chileno mediante su formato y dígito verificador.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Utilidad reutilizada por los contratos que aceptan datos de identidad.
+
+SECURITY
+------------------------------------------------------------
+La validación en backend es obligatoria aunque el formulario también valide.
+Un RUT válido no acredita identidad ni concede acceso.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Funciones de validación reutilizables para HuellAPP.
 
 Actualmente contiene validaciones de datos nacionales chilenos.

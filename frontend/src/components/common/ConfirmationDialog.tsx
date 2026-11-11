@@ -1,7 +1,18 @@
 /**
- * HuellApp · Formato único de confirmaciones de la aplicación.
- * Conserva el diseño aprobado de Eliminar colegio y el foco del diálogo nativo.
- * Durante una operación pendiente no permite cerrar ni confirmar nuevamente.
+ * HuellApp · Diálogo común de confirmación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Pedir confirmación explícita y bloquear cierres durante operaciones pendientes.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Utiliza el diálogo nativo para gestionar el foco y la interacción modal.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import { useEffect, useId, useRef, type ReactNode } from 'react'
 import '../../styles/confirmation-dialog.css'

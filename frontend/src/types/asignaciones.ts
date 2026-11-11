@@ -1,4 +1,19 @@
-/** HuellApp · Contratos existentes de Asignaciones y proyecciones de sus catálogos. */
+/**
+ * HuellApp · Contratos de instancias y participantes.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir las estructuras TypeScript utilizadas para instancias y participantes.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tipos compartidos entre servicios, componentes y páginas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Estos tipos no validan datos en ejecución ni conceden permisos.
+ * La API es responsable de validar los datos y autorizar las operaciones.
+ */
 export interface OpcionNombre { id: string; nombre: string }
 export interface OpcionCodigo extends OpcionNombre { codigo: string }
 export interface AsignacionItem {

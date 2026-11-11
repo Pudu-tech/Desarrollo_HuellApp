@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Estructura de las pantallas de gestión.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Componer la barra lateral y el contenido de la ruta administrativa activa.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Estructura compartida para SUPERADMIN, DIRECTIVA y COORDINADOR.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Layout principal para:
  * - SUPERADMIN

@@ -1,4 +1,19 @@
-/* Login de la copia. Los tokens compartidos se definen en ../index.css. */
+/**
+ * HuellApp · Estilos de formulario de ingreso.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de formulario de ingreso.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 
 /* Reinicio local: evita modificar componentes externos a esta pantalla. */
 

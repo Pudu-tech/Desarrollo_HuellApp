@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Ingreso al sitio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Capturar las credenciales y solicitar la autenticación mediante el contexto común.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Presenta estados de envío y errores de autenticación.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import LoadingIndicator from '../components/LoadingIndicator'
 import {
   type ChangeEvent,
@@ -92,6 +108,7 @@ function ShieldIcon() {
   )
 }
 
+/** Comprueba los campos del ingreso para mostrar errores antes de solicitar autenticación. */
 function validateCredentials(
   credentials: Credentials,
 ): string {

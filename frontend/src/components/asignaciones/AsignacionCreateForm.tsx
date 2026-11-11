@@ -1,9 +1,21 @@
-import LoadingIndicator from '../LoadingIndicator'
 /**
- * HuellApp · Formulario completo de creación de asignaciones.
- * Cambiar colegio/tipo/curso/ramo limpia sus selecciones dependientes.
- * El backend determina estado inicial, actor y auditoría; el formulario no los envía.
+ * HuellApp · Formulario de instancias.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Capturar la actividad, recursos, contactos y participantes para crear o editar.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Limpia selecciones dependientes y utiliza catálogos recibidos desde la API.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
+import LoadingIndicator from '../LoadingIndicator'
+
 import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getOpcionesColegio, getOpcionesEspacios, getColegioEdicion, getEspaciosEdicion } from '../../services/asignacionesService'
@@ -45,6 +57,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
   const ramos = opciones.ramos.filter((item) => curso && item.nivel_ids.includes(curso.nivel_curso_id))
   const espacioOptions = tipo?.codigo === 'ESPACIO_REFLEXION' ? espacios.data?.reflexion : espacios.data?.encuentro
 
+  /** Actualiza un campo y limpia el error de validación de la edición anterior. */
   function change<K extends keyof AsignacionPayload>(key: K, value: AsignacionPayload[K]) {
     setForm((previous) => ({ ...previous, [key]: value }))
     setError('')
@@ -53,6 +66,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
   /* ============================================================
      VALIDACIÓN Y CREACIÓN ATÓMICA CONFIRMADA
      ============================================================ */
+  /** Normaliza y valida el formulario y sus opciones; bloquea envíos simultáneos con una referencia. */
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (submitting.current) return
@@ -74,18 +88,18 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
     submitting.current = true
     setError('')
     try {
-      if (!await confirm({ title: editing ? '¿Guardar cambios?' : '¿Crear asignación?', confirmLabel: editing ? 'Sí, guardar cambios' : 'Sí, crear asignación',
+      if (!await confirm({ title: editing ? '¿Guardar cambios?' : '¿Crear instancia?', confirmLabel: editing ? 'Sí, guardar cambios' : 'Sí, crear instancia',
         message: editing ? <>Si cambian fecha, horario o contexto, los participantes deberán responder nuevamente y recibirán otra invitación. Las observaciones no solicitan reconfirmación.</> : <>Vas a crear <strong>{tipo?.nombre}</strong> para el {payload.fecha.split('-').reverse().join('/')} de {payload.hora_inicio} a {payload.hora_fin}, con {payload.participantes.length} participante(s).</> })) return
       setWorking(true)
       await onCreate(payload)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No fue posible crear la asignación.')
+      setError(cause instanceof Error ? cause.message : 'No fue posible crear la instancia.')
     } finally { submitting.current = false; setWorking(false) }
   }
 
   return <div className="assignments-editor">
     {confirmationDialog}
-    <div className="assignments-panel-heading"><div><h2>{editing ? 'Editar asignación' : 'Nueva asignación'}</h2><p>{editing ? 'Actualiza las condiciones de la actividad. El tipo y los participantes se conservan.' : 'Completa los datos de la actividad y las personas que participarán.'}</p></div>
+    <div className="assignments-panel-heading"><div><h2>{editing ? 'Editar instancia' : 'Nueva instancia'}</h2><p>{editing ? 'Actualiza las condiciones de la actividad. El tipo y los participantes se conservan.' : 'Completa los datos de la actividad y las personas que participarán.'}</p></div>
       <button type="button" className="assignments-secondary" disabled={working} onClick={onClose}>Volver al listado</button>
     </div>
     {error && <p className="assignments-error" role="alert">{error}</p>}
@@ -127,7 +141,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
                 {[item.nombre, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ')}{item.cargo ? ` · ${item.cargo}` : ''}
               </label>
             })}
-            {!colegio.data.contactos.length && <p className="assignments-warning">Este colegio no tiene contactos activos. Agrégalos desde la ficha del colegio antes de crear la asignación.</p>}
+            {!colegio.data.contactos.length && <p className="assignments-warning">Este colegio no tiene contactos activos. Agrégalos desde la ficha del colegio antes de crear la instancia.</p>}
           </div></>}
         </section>}
         {academica && <section className="assignments-form-section"><h3>Contexto académico</h3><div className="assignments-form-grid">
@@ -152,7 +166,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
         <section className="assignments-form-section"><h3>Observaciones</h3><label>Observación (opcional)<textarea maxLength={2000} rows={3} value={form.observacion ?? ''} onChange={(event) => change('observacion', event.target.value)} /></label></section>
       </fieldset>
       <div className="assignments-editor-actions">
-        <button className="assignments-primary" type="submit" disabled={working || colegio.loading || espacios.loading || !!colegio.error || !!espacios.error}>{working ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear asignación'}</button>
+        <button className="assignments-primary" type="submit" disabled={working || colegio.loading || espacios.loading || !!colegio.error || !!espacios.error}>{working ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear instancia'}</button>
         <button className="assignments-secondary" type="button" disabled={working} onClick={onClose}>Cancelar</button>
       </div>
     </form>

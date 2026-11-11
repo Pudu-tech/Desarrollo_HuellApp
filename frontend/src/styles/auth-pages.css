@@ -1,4 +1,21 @@
-/* *
+/**
+ * HuellApp · Estilos de pantallas de recuperación y configuración de contraseña.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de pantallas de recuperación y configuración de contraseña.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Estilos compartidos para:
  * - Recuperar contraseña
@@ -14,7 +31,8 @@
  * - Enlaces teal.
  * - Tamaño visual cómodo.
  * - Ocupa correctamente la altura disponible.
- * - Responsive por ancho y alto. */
+ * - Responsive por ancho y alto.
+ */
 
 /* ============================================================
    PÁGINA

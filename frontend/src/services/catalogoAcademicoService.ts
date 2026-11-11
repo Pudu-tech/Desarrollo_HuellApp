@@ -1,4 +1,19 @@
-/** Transporte autenticado; todas las escrituras pasan por FastAPI y su RPC auditada. */
+/**
+ * HuellApp · Cliente HTTP del catálogo académico.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar y gestionar asignaturas y espacios mediante la API.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Las escrituras se delegan a los endpoints auditados del catálogo.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
+ */
 import { recursoRequest } from './recursosService'
 import type { CatalogoAcademico, DatosAcademicos, EntidadAcademica, RecursoAcademico } from '../types/catalogoAcademico'
 

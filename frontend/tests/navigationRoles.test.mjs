@@ -1,3 +1,18 @@
+/**
+ * HuellApp · Pruebas de navegación disponible por rol.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Comprobar navegación disponible por rol con el runner de Node.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Casos de regresión sobre los módulos TypeScript del frontend.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Las pruebas no conceden permisos ni sustituyen las comprobaciones de la API.
+ */
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'

@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Identificador de petición.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Asignar un UUID a cada solicitud para correlacionar auditoría y diagnóstico.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Middleware transversal de trazabilidad HTTP.
+
+SECURITY
+------------------------------------------------------------
+Genera el identificador en el backend sin confiar en el enviado por el
+cliente. El identificador sirve para trazabilidad y no como credencial.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Middleware para generar un identificador único por petición HTTP.
 
 Cada request recibido por HuellAPP obtiene un UUID generado por el backend.

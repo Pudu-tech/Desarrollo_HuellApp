@@ -1,4 +1,19 @@
-﻿import unittest
+"""HuellApp · Pruebas de consulta y actualización del perfil propio.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar consulta y actualización del perfil propio mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
+import unittest
 from fastapi import HTTPException
 from pydantic import ValidationError
 from app.api.profile import ProfileUpdate, image_bytes

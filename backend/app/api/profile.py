@@ -1,4 +1,18 @@
-﻿"""Perfil propio: identidad del token, foto privada y escritura auditada."""
+"""HuellApp · Perfil del usuario autenticado.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Consultar y actualizar el teléfono y la fotografía del perfil propio.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Fotografías privadas, URL firmada y actualización auditada.
+
+SECURITY
+------------------------------------------------------------
+La identidad procede del token. Se valida la imagen y la pertenencia de su
+ruta; el cliente no puede elegir otro actor para actualizar el perfil.
+"""
 import base64
 import binascii
 import re
@@ -23,6 +37,7 @@ class ProfileUpdate(BaseModel):
         return value.strip() or None if value else None
 
 def image_bytes(encoded):
+    """Decodifica la imagen y comprueba tamaño y firma de formato PNG, JPEG o WebP."""
     try: raw=base64.b64decode(encoded,validate=True)
     except (ValueError,binascii.Error) as exc: raise HTTPException(422,'La imagen no es válida.') from exc
     if not raw or len(raw)>3*1024*1024: raise HTTPException(422,'La foto debe pesar como máximo 3 MB.')
@@ -32,6 +47,7 @@ def image_bytes(encoded):
     raise HTTPException(422,'Selecciona una foto JPG, PNG o WebP.')
 
 def present(db,row):
+    """Oculta la ruta privada y genera una URL temporal para consultar la fotografía."""
     result={k:v for k,v in row.items() if k!='foto_perfil_path'}
     result['foto_url']=None
     if row.get('foto_perfil_path'):
@@ -41,6 +57,7 @@ def present(db,row):
 
 @router.get('')
 def profile(actor:AuthenticatedUser=Depends(get_current_user)):
+    """Obtiene el perfil activo del actor y traduce fallos de infraestructura a HTTP 503."""
     db=get_supabase_client()
     try:
         rows=db.table('usuarios').select(FIELDS).eq('id',str(actor.id)).eq('activo',True).is_('deleted_at','null').execute().data or []
@@ -51,6 +68,7 @@ def profile(actor:AuthenticatedUser=Depends(get_current_user)):
 
 @router.patch('')
 def update(payload:ProfileUpdate,actor:AuthenticatedUser=Depends(get_current_user)):
+    """Guarda foto y perfil con compensación si falla la RPC, sin falsear un guardado confirmado."""
     if payload.foto_base64 and payload.quitar_foto: raise HTTPException(422,'Selecciona una foto o quita la actual, no ambas opciones.')
     db=get_supabase_client()
     path=None

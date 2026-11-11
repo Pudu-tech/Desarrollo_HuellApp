@@ -1,6 +1,21 @@
-import { clearReadCache } from '../services/readCache'
-import LoadingIndicator from '../components/LoadingIndicator'
 /**
+ * HuellApp · Mantenedor de usuarios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Listar y ordenar usuarios y abrir sus formularios de creación y edición.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Gestiona invitaciones, datos, roles y estado a través de los servicios administrativos.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Mantenedor de usuarios.
  *
@@ -13,10 +28,14 @@ import LoadingIndicator from '../components/LoadingIndicator'
  * - activar/desactivar;
  * - eliminar mediante borrado lógico.
  */
+import SortableHeader from '../components/common/SortableHeader'
+import { useListSort } from '../hooks/useListSort'
+import { clearReadCache } from '../services/readCache'
+import LoadingIndicator from '../components/LoadingIndicator'
+
 
 import {
   useEffect,
-  useMemo,
   useState,
 } from 'react'
 
@@ -54,12 +73,8 @@ function UsuariosPage() {
   const [users, setUsers] =
     useState<UserListItem[]>([])
 
-  const [ordenNombre, setOrdenNombre] = useState<'asc' | 'desc'>('asc')
-  const usuariosOrdenados = useMemo(() => {
-    const collator = new Intl.Collator('es', { sensitivity: 'base' })
-    const nombreCompleto = (item: UserListItem) => [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ').trim()
-    return [...users].sort((a, b) => (ordenNombre === 'asc' ? 1 : -1) * collator.compare(nombreCompleto(a), nombreCompleto(b)))
-  }, [users, ordenNombre])
+  const sorting = useListSort<string>('nombre')
+  const usuariosOrdenados = sorting.order(users, { nombre: item => [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ').trim() })
 
   const [loading, setLoading] =
     useState(true)
@@ -467,13 +482,7 @@ function UsuariosPage() {
                   RUT
                 </th>
 
-                <th scope="col" aria-sort={ordenNombre === 'asc' ? 'ascending' : 'descending'}>
-                  <button type="button" className="users-name-sort"
-                    onClick={() => setOrdenNombre((value) => value === 'asc' ? 'desc' : 'asc')}
-                    aria-label={`Ordenar por nombre: ${ordenNombre === 'asc' ? 'de Z a A' : 'de A a Z'}`}>
-                    Nombre <span aria-hidden="true"><span className={ordenNombre === 'asc' ? 'is-active' : ''}>↑</span><span className={ordenNombre === 'desc' ? 'is-active' : ''}>↓</span></span>
-                  </button>
-                </th>
+                <SortableHeader label="Nombre" column="nombre" sort={sorting.sort} onSort={sorting.toggle} />
 
                 <th scope="col">
                   Correo

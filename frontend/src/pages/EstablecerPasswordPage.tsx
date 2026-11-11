@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Contraseña inicial de una invitación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Permitir que el usuario invitado establezca su contraseña.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Usa la sesión habilitada por el enlace de Supabase Auth.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Supabase Auth valida la sesión y actualiza la contraseña. El formulario no
+ * concede permisos administrativos ni define roles.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Página para establecer la contraseña inicial de un usuario invitado.
  *

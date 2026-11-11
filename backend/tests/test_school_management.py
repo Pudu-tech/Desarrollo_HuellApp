@@ -1,7 +1,17 @@
-"""HuellAPP · Regresión de contratos, catálogo y errores de la ficha escolar.
+"""HuellApp · Pruebas de contratos y errores de gestión escolar.
 
-No se conecta a Supabase: usa el cliente simulado para comprobar contratos HTTP.
-Ejecutar desde backend con python -m unittest discover -s tests.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar contratos y errores de gestión escolar mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
 """
 import unittest
 from types import SimpleNamespace

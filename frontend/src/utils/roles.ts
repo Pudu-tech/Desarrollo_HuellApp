@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Utilidades de roles.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Centralizar la interpretación y presentación de los roles usados por la interfaz.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Ayuda compartida de navegación y visualización.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Roles globales utilizados por el frontend.
  *
@@ -31,6 +48,7 @@ export const MONITOR_ROLES: RoleCode[] = [
   'MONITOR',
 ]
 
+/** Comprueba si un texto corresponde a un rol conocido por la interfaz; no concede autorización. */
 export function isRoleCode(
   value: string,
 ): value is RoleCode {

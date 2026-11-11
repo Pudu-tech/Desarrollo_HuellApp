@@ -1,4 +1,19 @@
-/* Catálogo académico · Complementa el diseño común de páginas administrativas. */
+/**
+ * HuellApp · Estilos de pestañas y formularios del catálogo académico.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de pestañas y formularios del catálogo académico.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 .academic-tabs { display: flex; gap: 6px; border-bottom: 1px solid #e2e8f0; margin-bottom: 24px; overflow-x: auto; }
 .academic-tabs button { padding: 14px 18px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64748b; font: inherit; font-size: 14px; white-space: nowrap; cursor: pointer; }
 .academic-tabs button[aria-current="page"] { border-bottom-color: #1e293b; color: #1e293b; font-weight: 600; }

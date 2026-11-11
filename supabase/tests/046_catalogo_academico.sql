@@ -1,3 +1,17 @@
+-- HuellApp · catalogo academico.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de catalogo academico con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- DEV/QA después de 046. Requiere SUPERADMIN, colegio, dos niveles y ESPACIO_REFLEXION activos.
 -- Fixtures aislados; no requiere asignaciones previas. Todo se revierte.
 BEGIN;

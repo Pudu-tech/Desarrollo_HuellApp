@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Vista básica de la sesión.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Mostrar correo y rol del usuario y ofrecer el cierre de sesión.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tras cerrar sesión redirige a la raíz del sitio.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useNavigate } from 'react-router-dom'
 
 import { useAuth } from '../contexts/AuthContext'

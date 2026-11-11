@@ -1,4 +1,19 @@
-/** Datos legibles de una asignación personal, sin datos de otros participantes. */
+/**
+ * HuellApp · Resumen de una instancia propia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Presentar actividad, fecha, horario, lugar y participación en formato legible.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Componente de presentación que recibe la proyección personal de la API.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import type { ParticipacionPropia } from '../../services/participacionesService'
 
 export default function PersonalAssignmentInfo({ info }: { info: ParticipacionPropia }) {

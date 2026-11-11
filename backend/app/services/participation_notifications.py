@@ -1,7 +1,17 @@
-"""Invitaciones personales: firma de enlaces y vista mínima del destinatario.
+"""HuellApp · Firma y proyección de invitaciones.
 
-El token autoriza únicamente la respuesta a una versión de participación.
-No se registra en logs, se usa en cuerpos HTTP y se transporta como fragmento.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Firmar y validar tokens y construir resúmenes personales y ventanas de respuesta.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Una invitación autoriza solo la respuesta a su versión de participación.
+
+SECURITY
+------------------------------------------------------------
+La firma se valida con un secreto del backend. No registrar tokens ni
+exponer datos de otras personas en la proyección personal.
 """
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
@@ -13,6 +23,7 @@ from app.core.config import get_settings
 
 
 def signing_secret() -> str:
+    """Obtiene el secreto de firma y rechaza una configuración ausente o demasiado corta."""
     value = get_settings().notification_token_secret
     secret = value.get_secret_value() if value else ""
     if len(secret) < 32:
@@ -21,6 +32,7 @@ def signing_secret() -> str:
 
 
 def invitation_token(notification: dict) -> str:
+    """Firma los datos que vinculan el enlace a una notificación y su versión de invitación."""
     expires = datetime.fromisoformat(notification["expires_at"].replace("Z", "+00:00"))
     return jwt.encode({"iss": "huellapp-invitations", "aud": "participation-response",
                        "sub": notification["usuario_destino_id"], "nid": notification["id"],
@@ -29,6 +41,7 @@ def invitation_token(notification: dict) -> str:
 
 
 def verify_invitation(db, token: str) -> dict:
+    """Valida el token y su correspondencia con una invitación persistida y vigente."""
     try:
         secret = signing_secret()
     except RuntimeError as exc:
@@ -53,7 +66,7 @@ def verify_invitation(db, token: str) -> dict:
 def personal_summary(db, assignment_id: str, actor_id: str, version: str | None = None) -> dict:
     """Solo consulta la participación propia, sin revelar correos de terceros."""
     rows = db.table("asignacion_participantes").select(
-        "id,usuario_id,created_at,notificaciones(invitacion_version,created_at),asistencia:asistencias_asignacion(estado),"
+        "id,usuario_id,created_at,notificaciones(invitacion_version,created_at,tipo_notificacion),asistencia:asistencias_asignacion(estado),"
         "invitacion_version,estado_participacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta,"
         "asignacion:asignaciones!inner(id,fecha,hora_inicio,hora_fin,lugar,observacion,activo,deleted_at,tipos_actividad(nombre),"
         "colegios(nombre),cursos_colegio(nombre_mostrado),salas(nombre),ramos(nombre),espacios_reflexion(nombre),"
@@ -61,14 +74,15 @@ def personal_summary(db, assignment_id: str, actor_id: str, version: str | None 
     ).eq("asignacion_id", assignment_id).eq("usuario_id", actor_id).eq("activo", True) \
         .is_("deleted_at", "null").is_("asignacion.deleted_at", "null").execute().data or []
     if not rows:
-        raise HTTPException(404, "No tienes una participación disponible en esta asignación.")
+        raise HTTPException(404, "No tienes una participación disponible en esta instancia.")
     part = rows[0]
     if version is not None and part["invitacion_version"] != version:
-        raise HTTPException(410, "La asignación cambió. Utiliza la invitación más reciente.")
+        raise HTTPException(410, "La instancia cambió. Utiliza la invitación más reciente.")
     return project_personal_summary(part, part['asignacion'], assignment_id)
 
 
 def attendance_available(part, assignment, state, now=None):
+    """Evalúa la ventana temporal y el estado requeridos para informar asistencia."""
     if (not assignment.get('activo') or assignment['estados_asignacion']['codigo'] in ('CANCELADA', 'NO_REALIZADA')
         or part['estados_participacion']['codigo'] != 'ACEPTADA' or state != 'PENDIENTE'):
         return False
@@ -79,17 +93,28 @@ def attendance_available(part, assignment, state, now=None):
 
 
 def response_available(assignment, now=None):
+    """Evalúa si la instancia y el plazo operativo permiten responder la participación."""
     if not assignment.get('activo') or assignment['estados_asignacion']['codigo'] not in ('PENDIENTE', 'CONFIRMADA', 'REALIZADA'):
         return False
     end = datetime.fromisoformat(f"{assignment['fecha']}T{assignment['hora_fin']}").replace(tzinfo=ZoneInfo('America/Santiago')).astimezone(timezone.utc)
     return (now or datetime.now(timezone.utc)) < end + timedelta(hours=24)
 
 
+def reminder_available(part, assignment, now=None):
+    """Tres días calendario antes; no enviar recordatorios atrasados ni de actividades cerradas."""
+    today = (now or datetime.now(timezone.utc)).astimezone(ZoneInfo('America/Santiago')).date()
+    return (bool(assignment.get('activo')) and not assignment.get('deleted_at')
+            and assignment['estados_asignacion']['codigo'] in ('PENDIENTE', 'CONFIRMADA')
+            and part['estados_participacion']['codigo'] in ('PENDIENTE', 'ACEPTADA')
+            and datetime.fromisoformat(assignment['fecha']).date() == today + timedelta(days=3))
+
+
 def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -> dict:
     """Proyección compartida de lectura propia, sin nuevas consultas."""
     def name(key, field="nombre"):
         return (assignment.get(key) or {}).get(field)
-    invitations = part.get("notificaciones") or []
+    invitations = [n for n in (part.get("notificaciones") or [])
+                   if n.get('tipo_notificacion', 'INVITACION_PARTICIPACION') == 'INVITACION_PARTICIPACION']
     current_dates = [n["created_at"] for n in invitations
                      if n.get("invitacion_version") == part["invitacion_version"] and n.get("created_at")]
     received = part.get("created_at")
@@ -107,6 +132,7 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
             "hora_fin": assignment["hora_fin"], "colegio": name("colegios"), "curso": name("cursos_colegio", "nombre_mostrado"),
             "sala": name("salas"), "asignatura": name("ramos"), "lugar": assignment["lugar"], "observacion": assignment["observacion"],
             "espacio": name("espacios_reflexion") or name("espacios_encuentro"), "tipo_participacion": (part.get("tipos_participacion") or {}).get("nombre"),
+            "admite_recordatorio": reminder_available(part, assignment),
             "admite_respuesta": response_available(assignment)
                 and part["estados_participacion"]["codigo"] == "PENDIENTE"}
 
@@ -114,7 +140,7 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
 def personal_summaries(db, actor_id: str) -> list[dict]:
     """Una consulta de relaciones; no realiza dos consultas por actividad."""
     rows = db.table("asignacion_participantes").select(
-        "id,usuario_id,created_at,notificaciones(invitacion_version,created_at),asistencia:asistencias_asignacion(estado),invitacion_version,asignacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta,"
+        "id,usuario_id,created_at,notificaciones(invitacion_version,created_at,tipo_notificacion),asistencia:asistencias_asignacion(estado),invitacion_version,asignacion_id,estados_participacion(codigo),tipos_participacion(nombre),motivo_rechazo,fecha_respuesta,"
         "asignacion:asignaciones!inner(id,fecha,hora_inicio,hora_fin,lugar,observacion,activo,deleted_at,tipos_actividad(nombre),"
         "colegios(nombre),cursos_colegio(nombre_mostrado),salas(nombre),ramos(nombre),espacios_reflexion(nombre),"
         "espacios_encuentro(nombre),estados_asignacion(codigo))"

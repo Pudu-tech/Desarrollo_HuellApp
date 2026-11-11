@@ -1,9 +1,23 @@
-import LoadingIndicator from '../LoadingIndicator'
 /**
- * HuellApp · Administración de salas de un establecimiento.
- * El colegio es fijo por contexto; CRUD y cambios de estado se auditan en RPC.
- * La eliminación se ofrece al final de editar y conserva relaciones históricas.
+ * HuellApp · Salas de un colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Listar, ordenar y gestionar salas y sus cambios de estado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Eliminación lógica confirmada desde la edición; conserva relaciones históricas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
+import SortableHeader from '../../components/common/SortableHeader'
+import { useListSort } from '../../hooks/useListSort'
+import LoadingIndicator from '../LoadingIndicator'
+
 import { useState, type FormEvent } from 'react'
 import { createSala, deleteSala, listSalas, setSalaActivo, updateSala } from '../../services/salasService'
 import type { SalaItem, SalaPayload } from '../../types/recursos'
@@ -23,6 +37,7 @@ const emptyForm = (): SalaPayload => ({ nombre: '', descripcion: null, capacidad
 
 export default function ColegioSalas({ colegioId, colegioActivo, permissions, onWorkingChange }: Props) {
   const state = useRecursosColegio(colegioId, listSalas, onWorkingChange)
+  const sorting = useListSort<string>('nombre')
   const [selected, setSelected] = useState<SalaItem | null>(null)
   const [form, setForm] = useState<SalaPayload>(emptyForm)
   const [showForm, setShowForm] = useState(false)
@@ -32,6 +47,7 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
   const canDeactivate = permissions.includes('DEACTIVATE_ROOM')
   const canDelete = permissions.includes('DELETE_ROOM')
 
+  /** Prepara el formulario para crear o editar y limpia los mensajes de la operación anterior. */
   function open(item: SalaItem | null) {
     setSelected(item)
     setForm(item ? toForm(item) : emptyForm())
@@ -42,6 +58,7 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
   /* ============================================================
      PERSISTENCIA Y ACTUALIZACIÓN INMEDIATA DE LA FICHA
      ============================================================ */
+  /** Valida los campos y aplica la respuesta confirmada mediante el estado compartido del colegio. */
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (state.working || (selected ? !canEdit : !canCreate)) return
@@ -74,6 +91,7 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
     )
   }
 
+  /** Comprueba la capacidad visible y sincroniza el recurso tras cambiar su estado en la API. */
   async function toggle(item: SalaItem) {
     if (item.activo ? !canDeactivate : !canActivate) return
     await state.run(() => setSalaActivo(item.id, !item.activo), 'Estado de la sala actualizado.', (updated) => {
@@ -82,6 +100,7 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
     })
   }
 
+  /** Solicita la eliminación lógica y retira el recurso del listado después de la confirmación del backend. */
   async function remove(item: SalaItem) {
     if (!canDelete) return
     await state.run(() => deleteSala(item.id), 'Sala eliminada. El historial se conservó.', () => {
@@ -99,8 +118,8 @@ export default function ColegioSalas({ colegioId, colegioActivo, permissions, on
     {state.message && <p className="schools-success" role="status">{state.message}</p>}
     {state.loadError && <button className="schools-secondary" type="button" disabled={state.loading} onClick={state.refresh}>Reintentar</button>}
     {state.loading ? <LoadingIndicator /> : !state.loadError && <div className="schools-table-scroll">
-      <table className="schools-table"><thead><tr><th scope="col">Sala</th><th scope="col">Capacidad</th><th scope="col">Ubicación</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
-        <tbody>{state.items.map((item) => <tr key={item.id}>
+      <table className="schools-table"><thead><tr><SortableHeader label="Sala" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Capacidad</th><SortableHeader label="Ubicación" column="ubicacion" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
+        <tbody>{sorting.order(state.items, { nombre: r => r.nombre, ubicacion: r => r.ubicacion }).map((item) => <tr key={item.id}>
           <td>{item.nombre}</td><td>{item.capacidad ?? '—'}</td><td>{item.ubicacion || '—'}</td><td><span className={`schools-status schools-status--${item.activo ? 'active' : 'inactive'}`}>{item.activo ? 'Activo' : 'Inactivo'}</span></td>
           <td><button type="button" className="schools-action" disabled={state.working} onClick={() => open(item)}>{canEdit ? 'Editar' : 'Ver'}</button></td>
         </tr>)}</tbody>

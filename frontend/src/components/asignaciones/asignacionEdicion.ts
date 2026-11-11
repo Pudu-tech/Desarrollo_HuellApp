@@ -1,7 +1,23 @@
-/** HuellApp · PATCH solo de campos editados; tipo y participantes quedan fijos. */
+/**
+ * HuellApp · Preparación de cambios de una instancia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Construir el PATCH y describir los campos modificados para su confirmación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Compara el formulario con el detalle persistido; tipo y participantes quedan separados.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import type { AsignacionDetail, AsignacionPayload } from '../../types/asignaciones'
 import type { AsignacionCambios } from '../../services/asignacionesService'
 
+/** Construye el PATCH comparando con el detalle persistido, sin enviar campos intactos. */
 export function payloadEdicion(item: AsignacionDetail): AsignacionPayload {
   return { tipo_actividad_id: item.tipo_actividad_id, colegio_id: item.colegio_id, curso_colegio_id: item.curso_colegio_id,
     sala_id: item.sala_id, ramo_id: item.ramo_id, espacio_reflexion_id: item.espacio_reflexion_id,
@@ -15,6 +31,7 @@ const normalizar = (key: string, value: unknown) => {
   if (key === 'contactos') return (value as AsignacionPayload['contactos']).map((item) => item.contacto_colegio_id).sort().join(',')
   return value
 }
+/** Describe los campos modificados para confirmar la edición antes de enviarla. */
 export function cambiosEdicion(original: AsignacionPayload, nuevo: AsignacionPayload): AsignacionCambios {
   const changes: Record<string, unknown> = {}
   for (const key of Object.keys(original) as Array<keyof AsignacionPayload>) {

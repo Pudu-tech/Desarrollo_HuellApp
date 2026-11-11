@@ -1,5 +1,9 @@
 # Carga de pantallas: diagnóstico y cambios
 
+Referencia revisada el 20-10-2026. Las cifras de benchmark y tamaños que aparecen
+a continuación son mediciones históricas de cambios anteriores, no métricas del
+despliegue actual ni garantías de tiempo de respuesta.
+
 El cliente Supabase instalado en backend es síncrono. Los endpoints y dependencias
 que lo usan ahora son funciones `def`, para que FastAPI los ejecute en su pool de
 hilos en lugar de bloquear el bucle de eventos. Se conservan firmas, permisos,
@@ -16,6 +20,9 @@ consulta con relaciones, reemplazando el patrón de una consulta inicial y dos
 consultas adicionales por cada actividad. Se filtra propietario, participación
 activa y asignación no eliminada. La lectura individual y las respuestas conservan
 sus comprobaciones originales de versión y propiedad.
+La lectura individual de la participación también obtiene sus datos y los de la
+asignación en una consulta con relaciones. Consultar una invitación requiere además
+validar el token y la notificación; no es una única petición a la base en total.
 
 ## Medición reproducible
 
@@ -87,3 +94,23 @@ dependencias. Los filtros se completan al llegar sus catálogos. Los catálogos 
 de regiones, comunas, niveles y dependencias se conservan diez minutos en memoria;
 Actualizar y cualquier escritura los invalidan. Los datos operativos conservan dos
 minutos. Los tres catálogos de lectura de Asignaciones se consultan en paralelo.
+
+## Diagnóstico en Vercel
+
+Comparar duración de solicitudes y Server-Timing en Network; no atribuir toda la
+espera a un arranque de la función sin medir. Registrar ruta, commit desplegado,
+resultado HTTP y si el problema ocurre al abrir una página o al guardar.
+No incluir tokens de invitaciones, cabeceras Authorization ni datos personales.
+
+Las consultas/respuestas de invitación tienen límite de espera de 20 segundos
+en el frontend y permiten volver a consultar el estado. Abortar la espera del
+navegador no garantiza cancelar una escritura ya iniciada en backend: no reenviar
+una respuesta automáticamente por timeout.
+
+Si la pantalla queda en blanco al navegar, conservar el error de Console antes
+de actualizar y revisar las descargas de módulos en Network. Un error de ejecución
+JavaScript o de carga de un módulo tras un despliegue requiere evidencia distinta
+de una API lenta. La causa del caso observado no se ha confirmado.
+
+Para medir entregas de correos, revisar por separado webhook, cola y Brevo según
+[Correos en Vercel](correos_vercel.md); no confundirlas con el renderizado del sitio.

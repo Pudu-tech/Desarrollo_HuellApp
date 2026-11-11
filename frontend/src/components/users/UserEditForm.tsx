@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Edición administrativa de usuarios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Gestionar datos, correo, rol, activación y eliminación del usuario seleccionado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Cada acción utiliza su endpoint y las confirmaciones comunes del sitio.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Formulario funcional de edición de usuarios.
  *
@@ -164,6 +181,7 @@ function UserEditForm({
   const isLoading =
     loadingAction !== null
 
+  /** Solicita un nuevo correo de invitación sin crear una contraseña administrativa. */
   async function sendInvitation() {
     if (!await confirm({ title: 'Enviar nueva invitación', confirmLabel: 'Enviar correo',
       message: `Se enviará a ${currentUser.email} un enlace para establecer o restablecer su contraseña.` })) return

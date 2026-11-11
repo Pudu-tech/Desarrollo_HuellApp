@@ -1,3 +1,17 @@
+-- HuellApp · eliminacion logica cursos salas.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de eliminacion logica cursos salas con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- Ejecutar en DEV/QA con migración 044 aplicada y datos maestros.
 -- Requiere SUPERADMIN, colegio y nivel activos y tipo REUNION; no requiere asignaciones previas. Todas las pruebas se revierten con ROLLBACK.
 BEGIN;

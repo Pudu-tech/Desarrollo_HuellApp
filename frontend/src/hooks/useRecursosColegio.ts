@@ -1,10 +1,21 @@
-import { clearReadCache } from '../services/readCache'
 /**
- * HuellApp · Estado compartido de los mantenedores de recursos del colegio.
- * Las operaciones actualizan la lista con la respuesta confirmada del backend.
- * Una carga fallida no se presenta como lista vacía; permite reintentar.
+ * HuellApp · Estado de los recursos del colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Centralizar carga, mensajes y escrituras de los mantenedores escolares.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Bloquea escrituras simultáneas y aplica la respuesta confirmada por la API.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import { useEffect, useRef, useState } from 'react'
+import { clearReadCache } from '../services/readCache'
 
 /** Centraliza carga, errores, mensajes y exclusión de operaciones simultáneas. */
 export function useRecursosColegio<T extends { id: string }>(
@@ -30,8 +41,9 @@ export function useRecursosColegio<T extends { id: string }>(
     return () => { active = false }
   }, [colegioId, list, revision])
 
-  /** La ficha permanece abierta mientras hay una escritura pendiente. */
+  /** Ejecuta una escritura y aplica su respuesta confirmada; informa al padre si está ocupada. */
   async function run<R>(operation: () => Promise<R>, success: string, apply: (result: R) => void): Promise<boolean> {
+    // La referencia bloquea dobles clics incluso antes del siguiente renderizado.
     if (writing.current) return false
     writing.current = true
     setWorking(true)
@@ -53,7 +65,9 @@ export function useRecursosColegio<T extends { id: string }>(
     }
   }
 
+  /** Invalida la caché de lectura y fuerza una nueva carga del listado. */
   function refresh() { clearReadCache(); setLoading(true); setRevision((value) => value + 1) }
+  /** Limpia los mensajes de operaciones sin modificar los recursos cargados. */
   function clearFeedback() { setError(''); setMessage('') }
   return { items, setItems, loading, loadError, error, setError, message, working, run, refresh, clearFeedback }
 }

@@ -1,4 +1,18 @@
-"""Pruebas de contratos, permisos y conflictos del catálogo sin credenciales reales."""
+"""HuellApp · Pruebas de contratos y permisos del catálogo académico.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar contratos y permisos del catálogo académico mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch

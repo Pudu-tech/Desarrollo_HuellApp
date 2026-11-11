@@ -1,9 +1,21 @@
-import { cachedFetch } from './readCache'
 /**
- * HuellApp · Transporte común de Cursos, Salas y Asignaciones.
- * Reutiliza la sesión actual; FastAPI valida permisos y audita escrituras.
- * Maneja los errores Pydantic y las respuestas vacías de eliminación lógica.
+ * HuellApp · Transporte HTTP autenticado común.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Adjuntar la sesión y normalizar errores y respuestas de los recursos de la API.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Comparte la caché de lecturas y admite respuestas vacías de eliminación lógica.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
  */
+import { cachedFetch } from './readCache'
+
 import { supabase } from './supabase'
 
 /** Ejecuta una operación autenticada sin incorporar estado ni reglas de UI. */

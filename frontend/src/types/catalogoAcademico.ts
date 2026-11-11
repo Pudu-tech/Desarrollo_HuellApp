@@ -1,4 +1,19 @@
-/** Catálogo global; las referencias históricas conservan sus identificadores. */
+/**
+ * HuellApp · Contratos de catálogo académico.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir las estructuras TypeScript utilizadas para catálogo académico.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tipos compartidos entre servicios, componentes y páginas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Estos tipos no validan datos en ejecución ni conceden permisos.
+ * La API es responsable de validar los datos y autorizar las operaciones.
+ */
 export type EntidadAcademica = 'asignaturas' | 'reflexion' | 'encuentro'
 export interface RecursoAcademico {
   id: string

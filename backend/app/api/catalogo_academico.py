@@ -1,7 +1,17 @@
-"""Catálogo transversal con permisos efectivos y escrituras RPC auditadas.
+"""HuellApp · API de catálogo académico.
 
-No permite borrado físico, traslado de espacios ni estado/actor enviados por UI.
-Las comprobaciones de concurrencia y asignaciones vigentes ocurren en PostgreSQL.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Exponer los endpoints de catálogo académico y coordinar consultas, validaciones y respuestas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Las rutas y dependencias de este módulo definen el contrato HTTP.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
 """
 from typing import Literal
 from uuid import UUID
@@ -24,6 +34,7 @@ def proyectar_ramo(row: dict) -> dict:
 
 @router.get("", response_model=CatalogoAcademico)
 def consultar_catalogo(_actor: AuthenticatedUser = Depends(require_permission("VIEW_ACADEMIC_CATALOG"))):
+    """Consulta recursos no eliminados y sus relaciones para construir el catálogo."""
     try:
         db = get_supabase_client()
         def recursos(table, extra=""):
@@ -63,7 +74,7 @@ def ejecutar_operacion(entidad, accion, registro_id, datos, actor, request):
                 "FORBIDDEN": (403, "No posee permiso para esta operación."),
                 "ACTOR_NOT_FOUND": (403, "El usuario no está disponible."),
                 "NOT_FOUND": (404, "Recurso inexistente o eliminado."),
-                "HAS_FUTURE_ASSIGNMENTS": (409, "Hay asignaciones vigentes desde hoy. Cancélalas o reasígnalas antes de retirar este recurso o nivel."),
+                "HAS_FUTURE_ASSIGNMENTS": (409, "Hay instancias vigentes desde hoy. Cancélalas o reasígnalas antes de retirar este recurso o nivel."),
                 "PARENT_UNAVAILABLE": (409, "La asignatura debe estar activa para administrar sus espacios."),
                 "PARENT_IMMUTABLE": (409, "Un espacio conserva su asignatura original."),
                 "INVALID_LEVELS": (422, "Selecciona al menos un nivel activo."),
@@ -86,12 +97,14 @@ def ejecutar_operacion(entidad, accion, registro_id, datos, actor, request):
 @router.post("/{entidad}", response_model=RecursoAcademicoItem, status_code=201)
 def crear_recurso(entidad: Entidad, datos: RecursoAcademicoDatos, request: Request,
                         actor: AuthenticatedUser = Depends(require_permission("CREATE_ACADEMIC_CATALOG"))):
+    """Delega la creación autorizada a la operación transaccional y auditada."""
     return ejecutar_operacion(entidad, "CREATE", None, datos, actor, request)
 
 
 @router.put("/{entidad}/{registro_id}", response_model=RecursoAcademicoItem)
 def editar_recurso(entidad: Entidad, registro_id: UUID, datos: RecursoAcademicoDatos, request: Request,
                          actor: AuthenticatedUser = Depends(require_permission("UPDATE_ACADEMIC_CATALOG"))):
+    """Delega la edición autorizada conservando las reglas del recurso académico."""
     return ejecutar_operacion(entidad, "UPDATE", registro_id, datos, actor, request)
 
 
@@ -99,6 +112,7 @@ def editar_recurso(entidad: Entidad, registro_id: UUID, datos: RecursoAcademicoD
 def cambiar_estado(entidad: Entidad, registro_id: UUID, accion: Literal["activate", "deactivate"], request: Request,
                          actor: AuthenticatedUser = Depends(get_current_user)):
     # Dependencia parametrizada: usa exactamente el permiso de la acción solicitada.
+    """Exige el permiso específico de activar o desactivar antes de ejecutar la operación."""
     require_permission(accion.upper() + "_ACADEMIC_CATALOG")(actor)
     return ejecutar_operacion(entidad, accion.upper(), registro_id, None, actor, request)
 
@@ -106,4 +120,5 @@ def cambiar_estado(entidad: Entidad, registro_id: UUID, accion: Literal["activat
 @router.delete("/{entidad}/{registro_id}", status_code=204)
 def eliminar_recurso(entidad: Entidad, registro_id: UUID, request: Request,
                           actor: AuthenticatedUser = Depends(require_permission("DELETE_ACADEMIC_CATALOG"))):
+    """Solicita eliminación lógica mediante la operación común y el permiso correspondiente."""
     ejecutar_operacion(entidad, "DELETE", registro_id, None, actor, request)

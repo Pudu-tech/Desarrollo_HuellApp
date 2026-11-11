@@ -1,8 +1,26 @@
+/**
+ * HuellApp · Mantenedor del catálogo académico.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Listar, filtrar y ordenar asignaturas y espacios asociados.
+ * - Crear, editar, activar, desactivar y eliminar recursos según permisos.
+ * - Recargar el catálogo tras una escritura para reflejar sus cascadas.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Pestañas de asignaturas, espacios de reflexión y espacios de encuentro.
+ * - Operaciones con confirmaciones y mensajes de resultado.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La visibilidad de acciones es solo presentación; FastAPI valida
+ * los permisos y las restricciones de modificación de cada recurso.
+ */
+import SortableHeader from '../components/common/SortableHeader'
+import { useListSort } from '../hooks/useListSort'
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
-/** HuellApp · Mantenedor transversal de asignaturas y sus espacios.
- * Respeta permisos efectivos, confirmaciones comunes e historial de asignaciones.
- */
 import { useEffect, useState } from 'react'
 import RecursoAcademicoForm from '../components/catalogoAcademico/RecursoAcademicoForm'
 import { useConfirmation } from '../hooks/useConfirmation'
@@ -18,6 +36,7 @@ const tabs: Array<{ key: EntidadAcademica; label: string }> = [
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : 'No fue posible completar la operación.'
 
 export default function CatalogoAcademicoPage() {
+  const sorting = useListSort<string>('nombre')
   const [data, setData] = useState<CatalogoAcademico | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
   const [tab, setTab] = useState<EntidadAcademica>('asignaturas')
@@ -49,6 +68,7 @@ export default function CatalogoAcademicoPage() {
     try { setData(await getCatalogoAcademico()) }
     catch (cause) { setData(null); setError(`El cambio se guardó. ${messageOf(cause)} Usa Actualizar para volver a cargar.`) }
   }
+  /** Guarda el recurso y recarga el catálogo para reflejar relaciones y cascadas. */
   async function save(datos: DatosAcademicos) {
     setBusy(true)
     try {
@@ -59,12 +79,13 @@ export default function CatalogoAcademicoPage() {
     } finally { setBusy(false) }
   }
 
+  /** Confirma un cambio de estado o eliminación lógica y actualiza el catálogo persistido. */
   async function change(item: RecursoAcademico, remove = false) {
     if (busy) return
     const action = remove ? 'Eliminar' : item.activo ? 'Desactivar' : 'Activar'
     if (!await confirm({ title: `¿${action} ${isSubject ? 'asignatura' : 'espacio'}?`, confirmLabel: `Sí, ${action.toLowerCase()}`,
       message: <>{action} <strong>{item.nombre}</strong>. {remove && isSubject ? 'También se eliminarán lógicamente sus espacios. ' : ''}
-        {remove ? 'Se conservará el historial de asignaciones. La acción no se puede deshacer desde la interfaz.' : 'El cambio de estado es reversible.'} Quedará registro en auditoría.</> })) return
+        {remove ? 'Se conservará el historial de instancias. La acción no se puede deshacer desde la interfaz.' : 'El cambio de estado es reversible.'} Quedará registro en auditoría.</> })) return
     setBusy(true); setError(''); setNotice('')
     try {
       if (remove) await deleteRecursoAcademico(tab, item.id)
@@ -97,8 +118,8 @@ export default function CatalogoAcademicoPage() {
       {loading ? <LoadingIndicator /> : !data ? <p className="assignments-feedback">El catálogo no está disponible.</p>
         : !isSubject && !subject ? <p className="assignments-feedback">Selecciona una asignatura para administrar sus espacios.</p>
         : !items.length ? <p className="assignments-feedback">No hay recursos para los filtros seleccionados.</p>
-        : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th>Nombre</th><th>{isSubject ? 'Niveles' : 'Orden'}</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
-          {items.map((item) => <tr key={item.id}><td><span className="assignments-name">{item.nombre}</span>{item.descripcion && <p className="academic-item-description">{item.descripcion}</p>}</td>
+        : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><SortableHeader label="Nombre" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>{isSubject ? 'Niveles' : 'Orden'}</th><th>Estado</th><th>Acciones</th></tr></thead><tbody>
+          {sorting.order(items, { nombre: r => r.nombre }).map((item) => <tr key={item.id}><td><span className="assignments-name">{item.nombre}</span>{item.descripcion && <p className="academic-item-description">{item.descripcion}</p>}</td>
             <td>{isSubject ? item.nivel_ids.map((id) => data.niveles.find((nivel) => nivel.id === id)?.nombre ?? 'Nivel histórico').join(', ') : item.orden ?? '—'}</td>
             <td><span className={`assignments-status ${item.activo ? 'assignments-status--confirmada' : ''}`}>{item.activo ? 'Activo' : 'Inactivo'}</span></td>
             <td><div className="academic-actions">

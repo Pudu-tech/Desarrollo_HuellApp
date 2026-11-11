@@ -1,4 +1,18 @@
-"""Firma, transporte y fallos de correo sin enviar mensajes ni usar credenciales."""
+"""HuellApp · Pruebas de firma, transporte y procesamiento de invitaciones.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar firma, transporte y procesamiento de invitaciones mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace

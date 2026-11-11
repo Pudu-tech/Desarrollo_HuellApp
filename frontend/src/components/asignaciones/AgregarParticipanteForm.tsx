@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Incorporación de participantes.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar opciones elegibles y enviar una nueva participación a la instancia.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Formulario separado de la edición de datos generales de la actividad.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import LoadingIndicator from '../LoadingIndicator'
 import { useEffect, useState, type FormEvent } from 'react'
 import { addParticipante, getOpcionesParticipantes } from '../../services/asignacionesService'
@@ -23,6 +39,7 @@ export default function AgregarParticipanteForm({ assignment, existing, onAdded,
       .catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudieron cargar las opciones.') })
     return () => { active = false }
   }, [])
+  /** Valida la selección y espera la incorporación confirmada antes de cerrar el formulario. */
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (!usuario || !tipo || busy) return

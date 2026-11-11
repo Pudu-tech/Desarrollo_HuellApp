@@ -1,5 +1,21 @@
-import { cachedFetch } from './readCache'
 /**
+ * HuellApp · Cliente HTTP de colegios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar colegios y catálogos y enviar operaciones de administración escolar.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Utiliza la sesión vigente y los contratos de colegios y ubicación.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp · Cliente HTTP de colegios y catálogos.
  *
  * SECURITY
@@ -13,6 +29,8 @@ import { cachedFetch } from './readCache'
  * Consultas GET, creación POST, edición PATCH y cambio reversible de estado.
  * DELETE aplica eliminación lógica auditada mediante el backend.
  */
+import { cachedFetch } from './readCache'
+
 
 import { supabase } from './supabase'
 import type {

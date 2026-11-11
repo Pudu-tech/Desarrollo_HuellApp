@@ -1,3 +1,18 @@
+/**
+ * HuellApp · Pruebas de caducidad, aislamiento e invalidación de caché.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Comprobar caducidad, aislamiento e invalidación de caché con el runner de Node.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Casos de regresión sobre los módulos TypeScript del frontend.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Las pruebas no conceden permisos ni sustituyen las comprobaciones de la API.
+ */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import vm from 'node:vm'

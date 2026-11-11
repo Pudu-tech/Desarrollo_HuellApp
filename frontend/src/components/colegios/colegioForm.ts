@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Normalización de formularios escolares.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Convertir datos persistidos al formulario y validar y normalizar su envío.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Opcionales vacíos pasan a null; el estado y la auditoría no se incluyen.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp · Estado y normalización de formularios de colegios.
  *
  * REGLAS

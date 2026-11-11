@@ -1,4 +1,20 @@
-"""
+"""HuellApp · API de cursos.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Gestionar cursos del colegio mediante contratos validados y operaciones auditadas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Edición, activación y eliminación lógica con protección de instancias futuras.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Endpoints de administración de cursos en HuellAPP.
 
 Funciones disponibles:
@@ -8,7 +24,7 @@ Funciones disponibles:
 - modificar curso;
 - activar curso;
 - desactivar curso.
-- eliminar lógicamente con auditoría y protección de asignaciones futuras.
+- eliminar lógicamente con auditoría y protección de instancias futuras.
 
 SECURITY:
 - Todos los endpoints utilizan permisos RBAC.
@@ -817,7 +833,7 @@ def desactivar_curso(
     responses={
         403: {"description": "Requiere DELETE_COURSE."},
         404: {"description": "Registro inexistente o eliminado."},
-        409: {"description": "Tiene asignaciones futuras activas."},
+        409: {"description": "Tiene instancias futuras activas."},
     },
 )
 def eliminar_curso(
@@ -845,7 +861,7 @@ def eliminar_curso(
             if code == "COURSE_NOT_FOUND":
                 raise HTTPException(404, "Registro no encontrado o ya eliminado.")
             if code == "COURSE_HAS_FUTURE_ASSIGNMENTS":
-                raise HTTPException(409, "Tiene asignaciones futuras vigentes desde hoy. Cancélalas o reasígnalas antes de eliminar el curso.")
+                raise HTTPException(409, "Tiene instancias futuras vigentes desde hoy. Cancélalas o reasígnalas antes de eliminar el curso.")
             if code in {"ACTOR_NOT_FOUND", "FORBIDDEN"}:
                 raise HTTPException(403, "No posee permiso para eliminar cursos.")
             raise RuntimeError("Error RPC de eliminación.")

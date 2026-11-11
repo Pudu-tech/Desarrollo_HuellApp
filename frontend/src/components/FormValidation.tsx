@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Validación accesible de formularios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Presentar los errores de restricciones HTML mediante avisos en la interfaz.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Sustituye los globos nativos y conserva las restricciones de los campos.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useId, type ReactNode, type FormEvent } from 'react'
 import '../styles/form-validation.css'
 
@@ -7,6 +23,7 @@ const isField = (target: EventTarget): target is Field => target instanceof HTML
 /** Conserva las restricciones HTML y sustituye los globos nativos por avisos accesibles. */
 export default function FormValidation({ children }: { children: ReactNode }) {
   const prefix = useId()
+  /** Retira el aviso del campo cuando cambia su contenido. */
   function clear(event: FormEvent<HTMLDivElement>) {
     if (!isField(event.target) || !event.target.validity.valid) return
     const field = event.target
@@ -19,6 +36,7 @@ export default function FormValidation({ children }: { children: ReactNode }) {
     else field.removeAttribute('aria-describedby')
     delete field.dataset.validationMessage
   }
+  /** Convierte una restricción HTML incumplida en un aviso visible y accesible. */
   function invalid(event: FormEvent<HTMLDivElement>) {
     if (!isField(event.target)) return
     event.preventDefault()

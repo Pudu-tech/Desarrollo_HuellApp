@@ -1,6 +1,17 @@
-"""Diseño email de HuellApp: tarjeta blanca, teal/coral y logo como recuperación.
+"""HuellApp · Plantilla de invitación por correo.
 
-Tablas y estilos inline para clientes de correo. Escapa todos los datos y URLs.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Construir el HTML con resumen de actividad y enlaces de respuesta personal.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Tablas y estilos inline para clientes de correo; botones después del resumen.
+
+SECURITY
+------------------------------------------------------------
+Escapa datos y URL antes de incluirlos en HTML. El contenido del mensaje
+no debe registrarse porque sus enlaces contienen credenciales limitadas.
 """
 from html import escape
 
@@ -8,23 +19,35 @@ from html import escape
 DEFAULT_EMAIL_LOGO_URL = 'https://blmqcxxussubgzvtendl.supabase.co/storage/v1/object/public/huellapp-email-assets/logo-huella-55ebe75ae253eec1.png'
 
 
-def render_invitation_email(frontend_url, title, fields, accept_url, reject_url, logo_url=None):
+def render_invitation_email(frontend_url, title, fields, accept_url, reject_url, logo_url=None,
+                            *, reminder=False, accepted=False, detail_url=None):
+    """Construye la tarjeta HTML escapando valores y enlaces del resumen y de la respuesta."""
     rows=''.join(f'<tr><td width="35%" valign="top" style="padding:8px 0;color:#245f6b;font-size:13px">{escape(str(label))}</td>'
                 f'<td style="padding:8px 0 8px 16px;color:#111111;font-size:14px">{escape(str(value))}</td></tr>'
                 for label,value in fields if value)
     logo=escape(logo_url or DEFAULT_EMAIL_LOGO_URL,quote=True)
+    intro = ('Tu instancia es en tres días. Ya confirmaste tu participación; revisa los datos para prepararte.'
+             if accepted else 'Tu instancia es en tres días. Aún tienes pendiente confirmar tu participación.'
+             if reminder else 'Revisa los datos de la actividad y confirma tu participación.')
+    explanation = ('No necesitas confirmar nuevamente. La asistencia se registra por separado.' if accepted else
+                   'Tu respuesta se comparte con HuellApp. Si la actividad cambió, deberás responder esta nueva invitación.')
+    primary_url = detail_url if accepted else accept_url
+    primary_label = 'Ver detalle de la instancia' if accepted else 'Aceptar participación'
+    secondary = '' if accepted else f'<p style="text-align:center;margin:20px 0"><a href="{escape(reject_url,quote=True)}" style="color:#245f6b;font-weight:bold">Rechazar participación</a></p>'
+    note = ('Tu participación ya está aceptada. Este recordatorio no modifica tu respuesta ni registra asistencia.' if accepted else
+            'Los botones abren una confirmación. Aceptar confirma tu participación; la asistencia se registra por separado.')
     return f'''<!doctype html><html lang="es"><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body style="margin:0;padding:12px;background:#f4f6f7;font-family:Arial,sans-serif">
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center">
     <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid #dbe3e6;border-radius:18px">
       <tr><td align="center" style="padding:24px 20px 12px"><img src="{logo}" width="112" alt="Fundación Huella" style="display:block;margin:0 auto 12px;width:112px;height:auto;border:0;background:#ffffff">
       <p style="color:#245f6b;font-size:22px;font-weight:bold;margin:12px 0">HuellApp</p></td></tr>
       <tr><td style="padding:0 20px 24px"><h1 style="text-align:center;color:#111111;font-size:24px;margin:0 0 14px">{escape(title)}</h1>
-      <p style="text-align:center;color:#66717a;line-height:1.6">Revisa los datos de la actividad y confirma tu participación.</p>
+      <p style="text-align:center;color:#66717a;line-height:1.6">{escape(intro)}</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0">{rows}</table>
-      <p style="color:#66717a;line-height:1.6">Tu respuesta se comparte con HuellApp. Si la actividad cambió, deberás responder esta nueva invitación.</p>
+      <p style="color:#66717a;line-height:1.6">{escape(explanation)}</p>
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="background:#f58a5b;border-radius:8px;padding:15px">
-      <a href="{escape(accept_url,quote=True)}" style="color:#ffffff;font-weight:bold;text-decoration:none;display:block">Aceptar participación</a></td></tr></table>
-      <p style="text-align:center;margin:20px 0"><a href="{escape(reject_url,quote=True)}" style="color:#245f6b;font-weight:bold">Rechazar participación</a></p>
-      <div style="background:#edf8f6;border:1px solid #b9ded8;border-radius:8px;padding:14px;color:#246b65;font-size:13px;line-height:1.6">Los botones abren una confirmación. Aceptar confirma tu participación; la asistencia se registra por separado.</div>
+      <a href="{escape(primary_url or frontend_url,quote=True)}" style="color:#ffffff;font-weight:bold;text-decoration:none;display:block">{primary_label}</a></td></tr></table>
+      {secondary}
+      <div style="background:#edf8f6;border:1px solid #b9ded8;border-radius:8px;padding:14px;color:#246b65;font-size:13px;line-height:1.6">{escape(note)}</div>
       <p style="text-align:center;font-size:13px;margin:24px 0 0"><a href="{escape(frontend_url,quote=True)}" style="color:#245f6b">Ingresar a HuellApp</a></p>
       </td></tr></table></td></tr></table></body></html>'''

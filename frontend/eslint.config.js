@@ -1,3 +1,18 @@
+/**
+ * HuellApp · Configuración de análisis estático.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Configurar reglas de JavaScript, TypeScript y hooks de React.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Excluye dist y aplica las reglas a los archivos TypeScript y TSX.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * El análisis estático complementa la revisión; no valida autorización en ejecución.
+ */
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'

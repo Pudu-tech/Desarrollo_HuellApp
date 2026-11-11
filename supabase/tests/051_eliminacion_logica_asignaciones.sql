@@ -1,3 +1,17 @@
+-- HuellApp · eliminacion logica asignaciones.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de eliminacion logica asignaciones con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- DEV/QA después de 051. Fixture aislado; no envía correos.
 BEGIN;
 CREATE FUNCTION public.test051_fail_audit() RETURNS trigger LANGUAGE plpgsql AS $$

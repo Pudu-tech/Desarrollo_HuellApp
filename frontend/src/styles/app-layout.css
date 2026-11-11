@@ -1,4 +1,19 @@
-/* Estructura de la aplicación y barra lateral compartida por administración y monitor. */
+/**
+ * HuellApp · Estilos de estructura de la aplicación, menú lateral y adaptación móvil.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de estructura de la aplicación, menú lateral y adaptación móvil.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 
 /* Distribuye la navegación y el contenido en columnas en escritorio. */
 .app-shell {

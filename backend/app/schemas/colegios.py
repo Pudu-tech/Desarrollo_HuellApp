@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Contratos de colegios.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Definir modelos Pydantic de entrada y salida para colegios.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- La validación de campos se comparte entre los endpoints que utilizan estos modelos.
+
+SECURITY
+------------------------------------------------------------
+Los modelos delimitan y validan datos; la autorización corresponde a las
+dependencias y reglas de los endpoints, no a la creación de una instancia.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Schemas utilizados para la administración de colegios en HuellAPP.
 
 Estos modelos definen:

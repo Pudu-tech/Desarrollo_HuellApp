@@ -1,10 +1,24 @@
+/**
+ * HuellApp · Listado y creación de instancias.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar, filtrar y ordenar actividades y abrir el formulario de creación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Consulta permisos efectivos y refleja las instancias confirmadas por la API.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
+import SortableHeader from '../components/common/SortableHeader'
+import { useListSort } from '../hooks/useListSort'
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
-/**
- * HuellApp · Listado y creación de asignaciones para roles de gestión.
- * Mantiene la presentación de Usuarios/Colegios y consulta permisos efectivos.
- * Las altas se confirman en backend y actualizan inmediatamente el listado.
- */
+
 import { useEffect, useMemo, useState } from 'react'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -12,7 +26,7 @@ import AsignacionCreateForm from '../components/asignaciones/DeferredAsignacionF
 import { createAsignacion, getAsignacionesResumen, getOpcionesCreacion } from '../services/asignacionesService'
 import type { AsignacionItem, AsignacionPayload, CatalogosAsignacion, OpcionesCreacion } from '../types/asignaciones'
 import '../styles/asignaciones.css'
-import { colegiosDisponibles, ordenarPorFecha } from '../utils/asignacionesListado'
+import { colegiosDisponibles } from '../utils/asignacionesListado'
 
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : 'No fue posible completar la operación.'
 
@@ -37,13 +51,13 @@ export default function AsignacionesPage() {
   const [desde, setDesde] = useState(params.get('desde') || '')
   const [upcomingOnly, setUpcomingOnly] = useState(params.get('proximas') === '1')
   const [hasta, setHasta] = useState('')
-  const [ordenFecha, setOrdenFecha] = useState<'asc' | 'desc'>('asc')
+  const sorting = useListSort<string>('fecha')
   const canCreate = permissions.includes('CREATE_ASSIGNMENT')
   useVisibleRefresh(async (isActive) => {
     try {
       const data = await getAsignacionesResumen(true)
       if (!isActive()) return
-      setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions)
+      setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions); setColegioId(previous => colegiosDisponibles(data.catalogos.colegios).some(school => school.id === previous) ? previous : '')
       setError('')
     } catch { /* Una falla temporal conserva el listado; el siguiente ciclo reintenta. */ }
   }, !loading && !creating && !loadingOptions)
@@ -51,7 +65,7 @@ export default function AsignacionesPage() {
     let active = true
     void getAsignacionesResumen().then((data) => {
       if (!active) return
-      setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions)
+      setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions); setColegioId(previous => colegiosDisponibles(data.catalogos.colegios).some(school => school.id === previous) ? previous : '')
       setError(''); setCatalogError(''); setLoading(false)
       if (revision === 0) setEstadoId(data.catalogos.estados.find(e => e.codigo === params.get('estado'))?.id || '')
     }).catch((cause: unknown) => { if (active) { setError(messageOf(cause)); setPermissions([]); setLoading(false) } })
@@ -62,9 +76,6 @@ export default function AsignacionesPage() {
   const estados = useMemo(() => new Map(catalogos?.estados.map((item) => [item.id, item]) ?? []), [catalogos])
   const colegios = useMemo(() => new Map(catalogos?.colegios.map((item) => [item.id, item.nombre]) ?? []), [catalogos])
   const colegiosFiltro = useMemo(() => colegiosDisponibles(catalogos?.colegios ?? []), [catalogos])
-  useEffect(() => {
-    if (catalogos && colegioId && !colegiosFiltro.some((item) => item.id === colegioId)) setColegioId('')
-  }, [catalogos, colegioId, colegiosFiltro])
   const rangoInvalido = !!desde && !!hasta && desde > hasta
   const filtered = useMemo(() => items.filter((item) => {
     if (upcomingOnly && ['REALIZADA', 'CANCELADA', 'NO_REALIZADA'].includes(estados.get(item.estado_id)?.codigo || '')) return false
@@ -76,7 +87,7 @@ export default function AsignacionesPage() {
     const text = `${tipos.get(item.tipo_actividad_id)?.nombre ?? ''} ${colegios.get(item.colegio_id ?? '') ?? ''} ${item.lugar ?? ''} ${item.observacion ?? ''}`
     return text.toLocaleLowerCase('es-CL').includes(search.trim().toLocaleLowerCase('es-CL'))
   }), [items, tipoId, estadoId, colegioId, desde, hasta, search, tipos, colegios, upcomingOnly, estados])
-  const ordered = useMemo(() => ordenarPorFecha(filtered, ordenFecha), [filtered, ordenFecha])
+  const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, participantes: r => r.asignados_a?.join(', ') })
 
   /** Carga opciones nuevas al abrir: un recurso eliminado no queda como opción cacheada. */
   async function openCreate() {
@@ -93,6 +104,7 @@ export default function AsignacionesPage() {
     finally { setLoadingOptions(false) }
   }
 
+  /** Guarda la instancia y actualiza el listado con la respuesta confirmada de la API. */
   async function save(payload: AsignacionPayload) {
     const created = await createAsignacion(payload)
     const asignados = payload.participantes.map((participant) => {
@@ -102,20 +114,21 @@ export default function AsignacionesPage() {
     setItems((previous) => [...previous, { ...created, asignados_a: asignados }])
     setSearch(''); setTipoId(''); setEstadoId(''); setColegioId(''); setDesde(''); setHasta('')
     setCreating(false)
-    setNotice('Asignación creada correctamente. Participantes, contactos y auditoría quedaron registrados.')
+    setNotice('Instancia creada correctamente. Participantes, contactos y auditoría quedaron registrados.')
     return created
   }
 
+  /** Invalida lecturas previas y vuelve a consultar el resumen y sus catálogos. */
   function refresh() { clearReadCache(); setLoading(true); setError(''); setRevision((value) => value + 1) }
 
   return <section className="assignments-page">
-    <header className="assignments-heading"><div><h1>Asignaciones</h1><p>Organiza actividades, establecimientos y participantes.</p></div>
-      {canCreate && !creating && <button type="button" className="assignments-primary" disabled={loading || loadingOptions || !!error} onClick={() => void openCreate()}>{loadingOptions ? 'Cargando opciones…' : '+ Crear asignación'}</button>}
+    <header className="assignments-heading"><div><h1>Instancias</h1><p>Organiza actividades, establecimientos y participantes.</p></div>
+      {canCreate && !creating && <button type="button" className="assignments-primary" disabled={loading || loadingOptions || !!error} onClick={() => void openCreate()}>{loadingOptions ? 'Cargando opciones…' : '+ Crear instancia'}</button>}
     </header>
     {notice && <p className="assignments-success" role="status">{notice}</p>}
     {creationError && <p className="assignments-error" role="alert">{creationError}</p>}
     {creating && opciones ? <AsignacionCreateForm opciones={opciones} onCreate={save} onClose={() => setCreating(false)} /> : <div className="assignments-panel">
-      <div className="assignments-panel-heading"><div><h2>Actividades registradas</h2><p>{loading ? 'Cargando…' : `${filtered.length} de ${items.length} asignaciones`}</p></div>
+      <div className="assignments-panel-heading"><div><h2>Actividades registradas</h2><p>{loading ? 'Cargando…' : `${filtered.length} de ${items.length} instancias`}</p></div>
         <button type="button" className="assignments-secondary" disabled={loading || loadingOptions} onClick={refresh}>Actualizar</button>
       </div>
       {catalogError && <p className="assignments-warning" role="alert">{catalogError}</p>}
@@ -130,8 +143,8 @@ export default function AsignacionesPage() {
       </div>
       {rangoInvalido && <p className="assignments-error" role="alert">La fecha desde debe ser anterior o igual a la fecha hasta.</p>}
       {loading ? <LoadingIndicator /> : error ? <div className="assignments-feedback" role="alert"><p>{error}</p><button type="button" className="assignments-secondary" onClick={refresh}>Reintentar</button></div>
-        : !filtered.length ? <p className="assignments-feedback">{items.length ? 'No hay asignaciones que coincidan con los filtros.' : 'Aún no hay asignaciones registradas.'}</p>
-          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><th scope="col">Actividad</th><th scope="col">Colegio / Lugar</th><th scope="col">Asignada a</th><th scope="col" aria-sort={ordenFecha === 'asc' ? 'ascending' : 'descending'}><button type="button" className="assignments-date-sort" onClick={() => setOrdenFecha((value) => value === 'asc' ? 'desc' : 'asc')} aria-label={`Ordenar por fecha: ${ordenFecha === 'asc' ? 'más recientes primero' : 'más antiguas primero'}`}>Fecha <span aria-hidden="true"><span className={ordenFecha === 'asc' ? 'is-active' : ''}>↑</span><span className={ordenFecha === 'desc' ? 'is-active' : ''}>↓</span></span></button></th><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
+        : !filtered.length ? <p className="assignments-feedback">{items.length ? 'No hay instancias que coincidan con los filtros.' : 'Aún no hay instancias registradas.'}</p>
+          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / Lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Asignada a" column="participantes" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
             <tbody>{ordered.map((item) => <tr key={item.id}>
               <td className="assignments-name">{tipos.get(item.tipo_actividad_id)?.nombre ?? 'Actividad'}</td>
               <td>{item.colegio_id ? colegios.get(item.colegio_id) ?? 'Colegio no disponible' : item.lugar || '—'}</td>

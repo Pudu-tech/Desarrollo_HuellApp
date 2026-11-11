@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Menú lateral de la aplicación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Mostrar navegación por rol, identidad del usuario y cierre de sesión.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Marca HuellApp y navegación adaptada a la estructura del sitio.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Sidebar principal de la aplicación.
  *
@@ -113,7 +130,7 @@ function Sidebar({
                 label={item.label}
                 path={item.path}
                 count={pending?.user === userId ? ['/app/mis-asignaciones', '/app/monitor/asignaciones'].includes(item.path) ? pending.count : ['/app/asistencia', '/app/monitor/asistencia'].includes(item.path) ? pending.attendance : 0 : 0}
-                countLabel={item.path.endsWith('/asistencia') ? 'asistencias propias pendientes dentro del plazo' : 'asignaciones pendientes de respuesta'}
+                countLabel={item.path.endsWith('/asistencia') ? 'asistencias propias pendientes dentro del plazo' : 'instancias pendientes de respuesta'}
               />
             ),
           )}

@@ -1,4 +1,19 @@
-/* HuellApp · Respuesta de correo con el diseño compartido de recuperación. */
+/**
+ * HuellApp · Estilos de consulta y respuesta pública a la invitación personal.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de consulta y respuesta pública a la invitación personal.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 .invitation-card { width: 100%; max-width: 760px; }
 .invitation-content { padding: 0 38px 24px; color: var(--huellapp-text); }
 .invitation-content h2 { font-size: 19px; color: var(--huellapp-teal); margin: 0 0 20px; }

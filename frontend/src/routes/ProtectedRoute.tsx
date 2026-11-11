@@ -1,8 +1,21 @@
-import LoadingIndicator from '../components/LoadingIndicator'
 /**
- * HuellApp
- * Guard general para rutas que requieren sesión autenticada.
+ * HuellApp · Control de sesión en las rutas privadas.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Esperar la restauración de sesión y redirigir al ingreso cuando falta usuario.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Protección de navegación mediante el contexto de autenticación.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
+import LoadingIndicator from '../components/LoadingIndicator'
+
 
 import type { ReactNode } from 'react'
 

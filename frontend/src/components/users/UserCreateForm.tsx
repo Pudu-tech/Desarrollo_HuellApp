@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Creación e invitación de usuarios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Capturar los datos de una nueva cuenta y solicitar su creación e invitación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - El administrador no define la contraseña; el usuario la establece desde su invitación.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Formulario estructural para creación de usuarios.
  *

@@ -1,6 +1,18 @@
 /**
- * HuellApp · Selección de participantes para una nueva asignación.
- * Los usuarios elegibles y tipos se consultan en backend; no se admite duplicación.
+ * HuellApp · Selección de participantes.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Gestionar filas de personas y tipos de participación sin duplicar usuarios.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Muestra nombre, rol y correo de las opciones elegibles recibidas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import type { OpcionCodigo, ParticipanteOpcion, ParticipantePayload } from '../../types/asignaciones'
 

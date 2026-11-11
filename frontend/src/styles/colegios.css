@@ -1,4 +1,19 @@
-/* Diseño de ColegiosPage.css adaptado a schools-*. Incluye edición, contactos y confirmación existentes. */
+/**
+ * HuellApp · Estilos de listado y ficha de colegios.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de listado y ficha de colegios.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 
 .schools-page {
   max-width: 1200px;

@@ -1,10 +1,27 @@
+/**
+ * HuellApp · Detalle y gestión de una instancia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar los datos, catálogos y participantes de la instancia.
+ * - Editar la actividad y gestionar incorporaciones, retiros y reasignaciones.
+ * - Ordenar participantes y actualizar el detalle fuera de la edición.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Formularios y confirmaciones reflejan las respuestas del backend.
+ * - La edición solicita reconfirmación sin alterar la asistencia histórica.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los controles visibles dependen del rol y los permisos recibidos.
+ * FastAPI valida la autorización y las reglas de cada operación.
+ */
+import SortableHeader from '../components/common/SortableHeader'
+import { useListSort } from '../hooks/useListSort'
+import { dateSortValue } from '../utils/listSort'
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
-/**
- * HuellApp · Resumen persistido de una asignación de gestión.
- * Consulta el detalle real y conserva el diseño del listado, sin datos de demostración.
- * La edición respeta permisos y solicita reconfirmación sin alterar asistencia histórica.
- */
 import { useEffect, useState } from 'react'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
 import { Link, useNavigate, useParams } from 'react-router-dom'
@@ -21,6 +38,7 @@ import '../styles/asignaciones.css'
 export default function AsignacionDetallePage() {
   const { asignacionId = '' } = useParams()
   const { user } = useAuth()
+  const sorting = useListSort<string>('nombre')
   const navigate = useNavigate()
   const { confirm, confirmationDialog } = useConfirmation()
   const [deleting, setDeleting] = useState(false)
@@ -55,20 +73,22 @@ export default function AsignacionDetallePage() {
       setResult((previous) => previous?.id === asignacionId ? { ...previous, item: saved } : previous)
     } catch { /* Mantiene el detalle ante una falla temporal y reintenta en el siguiente ciclo. */ }
   }, !!item && !opciones && !adding && !reassignment && !reassigning && !deleting && !opening)
+  /** Confirma el retiro del participante conservando su historial y las respuestas de los demás. */
   async function removePerson(participant: string, name: string) {
     if (!item || reassigning || deleting) return
     if (!await confirm({ title: 'Quitar participante', confirmLabel: 'Quitar participante',
-      message: `Se retirará a ${name} de esta asignación. Su participación y asistencia se conservarán como historial. Las respuestas de las otras personas se conservarán.` })) return
+      message: `Se retirará a ${name} de esta instancia. Su participación y asistencia se conservarán como historial. Las respuestas de las otras personas se conservarán.` })) return
     setReassigning(true); setEditError('')
     try {
       await removeParticipante(item.id, participant)
       const saved = await getAsignacion(item.id)
       setResult({ id: item.id, item: saved, catalogos: current?.catalogos })
       setReassignment(null)
-      setNotice('Participante retirado. La asignación dejará de aparecer en su panel y se conserva el historial.')
+      setNotice('Participante retirado. La instancia dejará de aparecer en su panel y se conserva el historial.')
     } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible quitar al participante.') }
     finally { setReassigning(false) }
   }
+  /** Carga las opciones permitidas antes de abrir el cambio de participante. */
   async function openReassignment(participant: string) {
     setReassigning(true); setEditError(''); setNewMonitor('')
     try {
@@ -77,6 +97,7 @@ export default function AsignacionDetallePage() {
     } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible cargar los participantes.') }
     finally { setReassigning(false) }
   }
+  /** Confirma y guarda la sustitución del participante con las opciones seleccionadas. */
   async function saveReassignment() {
     if (!item || !reassignment || !newMonitor || reassigning) return
     if (!await confirm({ title: 'Reasignar participación', confirmLabel: 'Reasignar',
@@ -90,23 +111,26 @@ export default function AsignacionDetallePage() {
     } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible reasignar la participación.') }
     finally { setReassigning(false) }
   }
+  /** Confirma la eliminación lógica y vuelve al listado cuando el backend la completa. */
   async function remove() {
     if (!item || !canDelete || deleting) return
-    if (!await confirm({ title: 'Eliminar asignación', confirmLabel: 'Eliminar asignación',
+    if (!await confirm({ title: 'Eliminar instancia', confirmLabel: 'Eliminar instancia',
       message: `Se eliminará del listado la actividad del ${item.fecha.split('-').reverse().join('/')} a las ${item.hora_inicio.slice(0, 5)}. Las invitaciones quedarán invalidadas y se conservará el historial. ¿Deseas continuar?` })) return
     setDeleting(true); setEditError('')
     try {
       await deleteAsignacion(item.id)
       navigate('/app/asignaciones', { replace: true })
-    } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible eliminar la asignación.') }
+    } catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible eliminar la instancia.') }
     finally { setDeleting(false) }
   }
+  /** Carga las opciones de edición conservando el tipo de actividad de la instancia. */
   async function openEdit() {
     setOpening(true); setEditError(''); setNotice('')
     try { setOpciones(await getOpcionesEdicion()) }
     catch (cause) { setEditError(cause instanceof Error ? cause.message : 'No fue posible cargar la edición.') }
     finally { setOpening(false) }
   }
+  /** Presenta los cambios para confirmar y aplica la respuesta persistida de la edición. */
   async function saveEdit(payload: AsignacionPayload) {
     if (!item || !current?.catalogos) throw new Error('Actualiza el detalle antes de editar.')
     const changes = cambiosEdicion(payloadEdicion(item), payload)
@@ -120,7 +144,7 @@ export default function AsignacionDetallePage() {
   return <section className="assignments-page assignments-page--detail">
     <header className="assignments-heading">
       <div>
-        <h1>Detalle de asignación</h1>
+        <h1>Detalle de instancia</h1>
         <p>Información registrada de la actividad.</p>
       </div>
       {/* Agrupa los enlaces de navegación para mantenerlos al mismo nivel. */}
@@ -145,7 +169,7 @@ export default function AsignacionDetallePage() {
             </span>
             {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && (
               <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>
-                {opening ? 'Cargando…' : 'Editar asignación'}
+                {opening ? 'Cargando…' : 'Editar instancia'}
               </button>
             )}
           </div>
@@ -183,8 +207,8 @@ export default function AsignacionDetallePage() {
             setNotice('Participante agregado. Recibirá una invitación para aceptar o rechazar; las respuestas anteriores se conservaron.')
           }} />}
           {!item.participantes.length ? <p>No hay participantes activos.</p> : <div className="assignments-table-scroll"><table className="assignments-table">
-            <thead><tr><th>Participante</th><th>Participación</th><th>Respuesta</th><th>Asistencia</th><th>Fecha de respuesta</th><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
-            <tbody>{item.participantes.map((participante) => <tr key={participante.id}>
+            <thead><tr><SortableHeader label="Participante" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Respuesta</th><th>Asistencia</th><SortableHeader label="Fecha de respuesta" column="respuesta" sort={sorting.sort} onSort={sorting.toggle} /><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
+            <tbody>{sorting.order(item.participantes, { nombre: p => p.usuario_nombre, respuesta: p => dateSortValue(p.fecha_respuesta) }).map((participante) => <tr key={participante.id}>
               <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || '—'}</td>
               <td><span className={`assignments-status assignments-status--${participante.estado_participacion_codigo?.toLowerCase() ?? 'unknown'}`}>{participante.estado_participacion_nombre || 'Estado no disponible'}</span></td>
               <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{participante.asistencia_estado === 'NO_REQUERIDA' ? 'No requerida' : participante.asistencia_estado ?? 'Sin registro'}</Link></td>
@@ -204,7 +228,7 @@ export default function AsignacionDetallePage() {
         {canDelete && (
           <section className="assignments-detail-danger" aria-labelledby="assignment-delete-title">
             <div>
-              <h3 id="assignment-delete-title">Eliminar esta asignación</h3>
+              <h3 id="assignment-delete-title">Eliminar esta instancia</h3>
               <p id="assignment-delete-description">
                 Se retirará del listado y sus invitaciones quedarán invalidadas. El historial se conservará.
               </p>
@@ -216,7 +240,7 @@ export default function AsignacionDetallePage() {
               disabled={deleting || opening}
               onClick={() => void remove()}
             >
-              {deleting ? 'Eliminando…' : 'Eliminar asignación'}
+              {deleting ? 'Eliminando…' : 'Eliminar instancia'}
             </button>
           </section>
         )}

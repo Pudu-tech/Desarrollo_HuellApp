@@ -1,3 +1,18 @@
+"""HuellApp · Pruebas de comportamiento de las consultas de lectura.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar comportamiento de las consultas de lectura mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import asyncio
 import threading
 import unittest

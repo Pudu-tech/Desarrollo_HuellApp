@@ -1,10 +1,28 @@
-"""Worker Brevo: python -m app.workers.notifications [--once].
+"""HuellApp · Worker de correo transaccional.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Reservar trabajos, enviar a Brevo y actualizar resultados de procesamiento.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Admite CLI y lotes HTTP; resultados ambiguos quedan INCIERTA.
+
+SECURITY
+------------------------------------------------------------
+Valida configuración antes de reservar y utiliza reservas excluyentes.
+ENVIADA significa aceptación del proveedor, no entrega confirmada al buzón.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+Worker Brevo: python -m app.workers.notifications [--once].
 
 Reserva duradera y excluyente; no envía si falta configuración. Una caída o
 timeout ambiguo queda INCIERTA y exige verificar Brevo antes de reenviar.
 ENVIADA significa aceptada por Brevo, no confirmación de entrega al buzón.
 """
 import argparse
+import re
 import time
 from urllib.parse import urlencode, urlparse
 import httpx
@@ -14,8 +32,11 @@ from app.services.participation_notifications import invitation_token, personal_
 from fastapi import HTTPException
 from app.services.invitation_email import render_invitation_email
 
+REMINDER_TYPE = 'RECORDATORIO_INSTANCIA_3_DIAS'
+
 
 def check_configuration(settings):
+    """Valida canal, remitente, URL y firma antes de reservar cualquier trabajo."""
     if not settings.brevo_notifications_enabled:
         raise RuntimeError("Los correos están deshabilitados. Configura BREVO_NOTIFICATIONS_ENABLED.")
     if not settings.brevo_api_key or not settings.brevo_api_key.get_secret_value() or not settings.brevo_sender_email:
@@ -37,18 +58,31 @@ def build_message(settings, notification, own, recipient, delivery_id):
               ("Colegio / lugar", own["colegio"] or own["lugar"]),
               ("Curso", own["curso"]), ("Sala", own["sala"]), ("Asignatura", own["asignatura"]),
               ("Espacio", own.get("espacio")), ("Tu participación", own.get("tipo_participacion"))]
-    title = notification.get('titulo') or 'Nueva asignación en HuellApp'
+    title = notification.get('titulo') or 'Nueva instancia en HuellApp'
+    title = re.sub(r'\basignaci[oó]n(?:es)?\b', lambda match: (
+        ('Instancias' if match.group().lower().endswith('es') else 'Instancia')
+        if match.group()[0].isupper() else
+        ('instancias' if match.group().lower().endswith('es') else 'instancia')
+    ), title, flags=re.IGNORECASE)
+    reminder = notification.get('tipo_notificacion') == REMINDER_TYPE
+    accepted = reminder and own.get('estado') == 'ACEPTADA'
+    detail = base + urlencode({'token': token})
     content = render_invitation_email(settings.normalized_frontend_url, title, fields, accept, reject,
-                                      getattr(settings, 'brevo_email_logo_url', None))
+                                      getattr(settings, 'brevo_email_logo_url', None),
+                                      reminder=reminder, accepted=accepted, detail_url=detail)
     text = '\n'.join(f'{label}: {value}' for label, value in fields if value)
+    intro = ('Tu instancia es en tres días. Ya confirmaste tu participación.' if accepted else
+             'Tu instancia es en tres días. Confirma tu participación.' if reminder else '')
+    actions = (f'Ver instancia: {detail}' if accepted else f'Aceptar: {accept}\nRechazar: {reject}')
     return {"sender": {"name": settings.brevo_sender_name, "email": settings.brevo_sender_email},
             "to": [{"email": recipient["email"], "name": recipient["nombres"]}],
             "subject": title, "htmlContent": content,
-            "textContent": f'HuellApp\n{text}\nAceptar: {accept}\nRechazar: {reject}\nAceptar no registra asistencia.',
+            "textContent": f'HuellApp\n{intro}\n{text}\n{actions}\nLa asistencia se registra por separado.',
             "headers": {"idempotencyKey": delivery_id}}
 
 
 def process_one(db, settings, client):
+    """Reserva un trabajo y persiste el resultado; los fallos ambiguos no se reenvían a ciegas."""
     job = db.rpc("reservar_envio_participacion", {}).execute().data
     if not job:
         return False
@@ -62,7 +96,12 @@ def process_one(db, settings, client):
             raise RuntimeError("La reserva de envío perdió vigencia; revisar la entrega.")
     try:
         own = personal_summary(db, notification["entidad_id"], notification["usuario_destino_id"], notification["invitacion_version"])
-        if not own["admite_respuesta"]:
+        reminder = notification.get('tipo_notificacion') == REMINDER_TYPE
+        if reminder and (not own.get('admite_recordatorio')
+                         or notification.get('recordatorio_fecha') != own['fecha']):
+            finish('CANCELADA', 'La instancia ya no cumple la regla del recordatorio.')
+            return True
+        if not reminder and not own["admite_respuesta"]:
             finish("CANCELADA", "La participación ya fue respondida.")
             return True
         recipients = db.table("usuarios").select("email,nombres").eq("id", notification["usuario_destino_id"]) \
@@ -118,6 +157,7 @@ def process_batch(db, settings, client, *, max_jobs=100, max_seconds=180):
 
 
 def main():
+    """Ejecuta el worker CLI de forma continua o hasta agotar el lote indicado por --once."""
     parser = argparse.ArgumentParser(description="Cola de invitaciones por Brevo")
     parser.add_argument("--once", action="store_true", help="Procesa hasta 100 pendientes y termina")
     args = parser.parse_args()
@@ -126,8 +166,12 @@ def main():
     db = get_supabase_client()
     with httpx.Client(timeout=30) as client:
         count = 0
+        next_reminders = 0
         while True:
             try:
+                if time.monotonic() >= next_reminders:
+                    db.rpc('encolar_recordatorios_instancias', {}).execute()
+                    next_reminders = time.monotonic() + 60
                 worked = process_one(db, settings, client)
             except Exception:
                 print("No se pudo completar el ciclo de correo. Revisar estado de la cola; no se muestran datos privados.", flush=True)

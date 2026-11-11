@@ -1,0 +1,22 @@
+/**
+ * HuellApp · Estilos de flechas y controles de ordenación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de flechas y controles de ordenación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
+.list-sort-button { display: inline-flex; align-items: center; gap: 8px; padding: 4px 0; border: 0; border-radius: 3px; background: transparent; color: inherit; font: inherit; text-align: left; white-space: nowrap; cursor: pointer; }
+.list-sort-button > span { display: inline-flex; gap: 2px; }
+.list-sort-button > span > span { opacity: .35; }
+.list-sort-button > span > .is-active { opacity: 1; font-weight: 800; }
+.list-sort-button:focus-visible { outline: 2px solid var(--huella-teal, #245f6b); outline-offset: 4px; }
+.home-list-order { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0; color: var(--huella-teal-dark); font-size: 13px; }

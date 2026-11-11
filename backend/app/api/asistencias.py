@@ -1,4 +1,18 @@
-"""Lecturas administrativas y propias de asistencia; escrituras usan RPC existentes."""
+"""HuellApp · API de asistencia.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Exponer los endpoints de asistencia y coordinar consultas, validaciones y respuestas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Las rutas y dependencias de este módulo definen el contrato HTTP.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+"""
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import require_permission
@@ -10,6 +24,7 @@ router = APIRouter(prefix='/asistencias', tags=['Asistencia'])
 
 
 def _read(query):
+    """Materializa una consulta y convierte fallos de lectura en indisponibilidad temporal."""
     try:
         return query.execute().data or []
     except Exception as exc:
@@ -18,6 +33,7 @@ def _read(query):
 
 @router.get('')
 def listar(actor=Depends(require_permission('VIEW_ASSIGNMENTS'))):
+    """Permite la consulta de gestión solo a los roles administrativos previstos."""
     if actor.role_code not in ('SUPERADMIN', 'DIRECTIVA', 'COORDINADOR'):
         raise HTTPException(403, 'No tienes acceso al panel de asistencia.')
     return _list_rows()
@@ -25,10 +41,12 @@ def listar(actor=Depends(require_permission('VIEW_ASSIGNMENTS'))):
 
 @router.get('/mias')
 def listar_propias(actor=Depends(require_permission('REPORT_ATTENDANCE'))):
+    """Restringe los resultados al identificador del usuario autenticado."""
     return _list_rows(str(actor.id))
 
 
 def _list_rows(owner=None):
+    """Consulta participaciones vigentes y normaliza la asistencia; owner limita la vista propia."""
     query = get_supabase_client().table('asignacion_participantes').select(
         'id,asignacion_id,usuario_id,estado:estados_participacion(codigo),'
         'usuario:usuarios!fk_asignacion_participantes_usuario(nombres,apellido_paterno,apellido_materno),'
@@ -51,6 +69,7 @@ def _list_rows(owner=None):
 
 @router.get('/propia/{asignacion_id}')
 def propia(asignacion_id: UUID, actor=Depends(require_permission('REPORT_ATTENDANCE'))):
+    """Consulta asistencia verificando que la participación pertenece al actor autenticado."""
     db = get_supabase_client()
     rows = _read(db.table('asignacion_participantes').select(
         'id,estado:estados_participacion(codigo),asignacion:asignaciones!inner(deleted_at)'

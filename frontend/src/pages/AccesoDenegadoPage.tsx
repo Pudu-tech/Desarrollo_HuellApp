@@ -1,7 +1,19 @@
 /**
- * HuellApp
- * Página mostrada cuando un usuario autenticado intenta
- * acceder a una ruta no habilitada para su rol.
+ * HuellApp · Aviso de acceso no disponible.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Informar que la sección no está habilitada para el rol del usuario.
+ * - Ofrecer un enlace de regreso al inicio correspondiente.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Los monitores regresan a /app/monitor; los demás roles, a /app/inicio.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Esta pantalla es informativa. La autorización de los datos y las
+ * operaciones corresponde al backend.
  */
 
 import { Link } from 'react-router-dom'

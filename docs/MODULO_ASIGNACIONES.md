@@ -1,211 +1,149 @@
-# HuellAPP — Módulo de Asignaciones
+# Módulo de Asignaciones
 
-**Estado:** diseño cerrado / implementación en curso  
-**Fecha de referencia:** 15-09-2026
+Referencia de develop, actualizada el 20-10-2026. Consolida las antiguas notas
+de listado/creación, participantes adicionales y pruebas de contactos/reasignación.
 
-> Este archivo debe mantenerse versionado junto al código. Si una regla de negocio cambia, primero se actualiza esta documentación y luego la implementación.
+## Modelo y permisos
 
-## 1. Modelo central
+`asignaciones` representa la actividad; `asignacion_participantes`, las personas
+involucradas. Cada participación tiene respuesta y asistencia independientes.
+No se admiten participantes activos duplicados; las bajas conservan el historial.
 
-`asignaciones` representa la **actividad**.  
-`asignacion_participantes` representa las **personas involucradas**.
+| Rol | Reflexión / Encuentro / Reunión | Capacitación / Evento Casa Central |
+| --- | --- | --- |
+| SUPERADMIN | Puede crear | Puede crear |
+| DIRECTIVA | Puede crear | Puede crear |
+| COORDINADOR | Puede crear | No puede crear |
+| MONITOR | No puede crear | No puede crear |
 
-Una asignación puede tener múltiples participantes, sin límite general.
+Crear requiere CREATE_ASSIGNMENT. Capacitación y Evento requieren además
+CREATE_TRAINING y CREATE_CENTRAL_EVENT. La API comprueba permisos efectivos.
+SUPERADMIN administra, pero no es participante elegible.
+MONITOR consulta y responde solo sus participaciones y registra su asistencia.
+Los controles del frontend no reemplazan la autorización en backend/DB.
 
-Un usuario solo puede aparecer una vez dentro de la misma asignación:
+## Listado y formulario
 
-```sql
-UNIQUE (asignacion_id, usuario_id)
+GET /asignaciones/resumen obtiene listado, catálogos y permisos de presentación.
+La pantalla filtra por texto, actividad, estado, colegio y fechas. «Asignada a»
+muestra participantes vigentes. Las flechas de Fecha alternan orden ascendente
+y descendente, con la hora como desempate. «Ver detalle» abre la ficha.
+
+Los listados comparten flechas para ordenar nombres y fechas en ambos sentidos,
+incluidas las vistas propias de monitor, coordinación y directiva. También se
+ordenan las actividades de Inicio, los participantes del detalle, Colegios,
+cursos, salas, contactos y Catálogo académico. Los nombres usan comparación
+en español y orden natural de números; las fechas vacías quedan al final.
+Auditoría ordena por fecha o actor en backend antes de paginar, conservando filtros.
+
+El selector de colegios excluye inactivos y eliminados; sus nombres se conservan
+en el catálogo para interpretar asignaciones históricas. Actualizar descarta la caché.
+
+Crear consulta opciones nuevas al abrir el formulario. Los participantes elegibles
+son DIRECTIVA, COORDINADOR y MONITOR activos, con nombre, rol y correo visibles.
+No se concede acceso al mantenedor de Usuarios ni se exponen credenciales.
+Cambiar actividad/colegio limpia referencias dependientes; cambiar curso limpia
+ramo/espacios y cambiar ramo limpia espacios. Las respuestas tardías no deben
+mezclar opciones de colegios distintos.
+
+| Actividad | Contexto requerido | Contactos |
+| --- | --- | --- |
+| Espacio de Reflexión | Colegio, curso, sala, ramo y espacio de reflexión | Al menos uno |
+| Espacio de Encuentro | Colegio, curso, sala, ramo y espacio de encuentro | Al menos uno |
+| Reunión | Colegio; curso y sala opcionales | Al menos uno |
+| Capacitación | Lugar, sin contexto escolar | No admite |
+| Evento Casa Central | Lugar, sin contexto escolar | No admite |
+
+Todas requieren participante, tipo de participación, fecha y hora_fin > hora_inicio.
+La observación es opcional. Los contactos deben estar activos, no duplicarse y
+pertenecer al colegio. Desde la migración 052 se permiten tres o más: no existe
+el antiguo máximo de dos contactos.
+
+POST /asignaciones usa crear_asignacion_atomica. Actor, estados iniciales,
+invitaciones, asistencia y auditoría se determinan en backend/DB.
+El detalle ofrece edición, cancelación, reapertura y gestión de participantes
+según permisos y estado; no es una pantalla provisional.
+
+## Participación y gestión de personas
+
+Tipos: RELATOR, ACOMPANAMIENTO y OBSERVADOR.
+Respuestas: PENDIENTE, ACEPTADA y RECHAZADA; rechazar requiere motivo.
+La respuesta desde correo y web modifica la misma participación.
+Estados globales: PENDIENTE, CONFIRMADA, REALIZADA, NO_REALIZADA y CANCELADA.
+La aceptación de un relator puede confirmar la actividad según las reglas de DB.
+«Por reasignar» es una proyección del listado, no otro estado global.
+
+SUPERADMIN, DIRECTIVA y COORDINADOR pueden agregar participantes a actividades
+pendientes o confirmadas con los permisos correspondientes. Se excluyen personas
+con participación activa; cada nueva incorporación genera invitación y asistencia.
+Cambiar participante y Quitar participante requieren confirmación y
+REASSIGN_ASSIGNMENT. Pueden aplicarse a participaciones pendientes o aceptadas
+cuando la actividad lo permite. El reemplazo conserva el tipo, archiva la
+participación anterior y genera una invitación nueva. La reasignación de rechazos
+ofrece monitores activos. Retirar al último relator aceptado de una actividad
+confirmada la devuelve a pendiente mediante las funciones existentes.
+
+La eliminación lógica excluye la asignación de las lecturas propias y conserva
+historial/auditoría. El refresco al recuperar el foco y mientras la pantalla es
+visible refleja cambios externos en la siguiente consulta disponible.
+
+## Asistencia y correos
+
+Aceptar no registra asistencia. El registro propio exige ubicación, participación
+aceptada y la ventana horaria validada por PostgreSQL.
+Ver [Asistencia](asistencia.md) para registro y corrección administrativa.
+
+Supabase guarda notificaciones internas y entregas pendientes; el webhook invoca
+la API de Vercel, que procesa la cola con Brevo. La plantilla muestra primero el
+resumen y después Aceptar/Rechazar. Abrir el enlace no responde automáticamente.
+Ver [Correos en Vercel](correos_vercel.md) para configuración y recuperación.
+WhatsApp no forma parte del envío de invitaciones implementado en este flujo.
+
+## Catálogos y migraciones
+
+| Endpoint GET | Permiso / uso |
+| --- | --- |
+| /catalogos/asignaciones | VIEW_ASSIGNMENTS; catálogos administrativos e históricos |
+| /catalogos/asignaciones/creacion | CREATE_ASSIGNMENT; opciones autorizadas |
+| /catalogos/asignaciones/colegios/{id} | CREATE_ASSIGNMENT; cursos, salas y contactos activos |
+| /catalogos/asignaciones/ramos/{id}/espacios | CREATE_ASSIGNMENT; espacios del ramo |
+| /catalogos/asignaciones/edicion | UPDATE_ASSIGNMENT; opciones de edición |
+
+historial_asignacion conserva eventos globales y audit_logs acciones auditables.
+Las migraciones viven en supabase/migrations; sus pruebas SQL, en supabase/tests.
+La 010 introdujo el rediseño inicial; las posteriores corrigen/amplían el modelo.
+No volver a ejecutar migraciones ya aplicadas. Validar en DEV/QA antes de promover.
+
+El [diseño original](archivo/Diseno_Tecnico_Modulo_Asignaciones_HuellAPP.docx)
+se conserva como antecedente de septiembre de 2026, no como especificación vigente.
+
+## Invitaciones de acceso de usuarios
+
+Usuarios → Editar → Acceso y contraseña → Enviar nueva invitación utiliza
+Supabase Auth/SMTP, no la cola de actividades. SUPERADMIN y DIRECTIVA requieren
+UPDATE_USER; DIRECTIVA no recupera cuentas SUPERADMIN. Se utiliza el correo actual
+del perfil y se audita antes de contactar al proveedor. Una solicitud no demuestra
+entrega. Autorizar /restablecer-password en las Redirect URLs de Supabase Auth.
+
+## Verificación
+
+Desde backend: `python -m unittest discover -s tests`.
+Desde frontend:
+
+```powershell
+npm.cmd run build
+node --experimental-vm-modules --test tests/recursosService.test.mjs
+node --test tests/asignacionesListado.test.mjs
 ```
 
-## 2. Tipos de actividad
-
-- `ESPACIO_REFLEXION`
-- `ESPACIO_ENCUENTRO`
-- `REUNION`
-- `CAPACITACION`
-- `EVENTO_CASA_CENTRAL`
-
-### Creación por rol
-
-| Rol | Reflexión | Encuentro | Reunión | Capacitación | Evento Casa Central |
-|---|---:|---:|---:|---:|---:|
-| SUPERADMIN | Sí | Sí | Sí | Sí | Sí |
-| DIRECTIVA | Sí | Sí | Sí | Sí | Sí |
-| COORDINADOR | Sí | Sí | Sí | No | No |
-| MONITOR | No | No | No | No | No |
-
-**Regla especial:** SUPERADMIN administra y crea cualquier actividad, pero nunca puede ser participante.
-
-## 3. Campos por tipo
-
-| Campo | Reflexión | Encuentro | Reunión | Capacitación | Evento Central |
-|---|---|---|---|---|---|
-| colegio | Obligatorio | Obligatorio | Obligatorio | No aplica | No aplica |
-| curso | Obligatorio | Obligatorio | Opcional | No aplica | No aplica |
-| sala | Obligatorio | Obligatorio | Opcional | No aplica | No aplica |
-| ramo | Obligatorio | Obligatorio | No aplica | No aplica | No aplica |
-| espacio reflexión | Obligatorio | No aplica | No aplica | No aplica | No aplica |
-| espacio encuentro | No aplica | Obligatorio | No aplica | No aplica | No aplica |
-| profesor/contacto | 1-2 | 1-2 | 1-2 | Ninguno | Ninguno |
-| fecha | Obligatorio | Obligatorio | Obligatorio | Obligatorio | Obligatorio |
-| hora inicio/fin | Obligatorio | Obligatorio | Obligatorio | Obligatorio | Obligatorio |
-| lugar | No aplica | No aplica | No aplica | Obligatorio | Obligatorio |
-| observación | Opcional | Opcional | Opcional | Opcional | Opcional |
-
-Siempre: `hora_fin > hora_inicio`.
-
-## 4. Participación
-
-Tipos:
-
-- `RELATOR`
-- `ACOMPANAMIENTO`
-- `OBSERVADOR`
-
-`LOCUTOR` está descartado.
-
-Estados:
-
-- `PENDIENTE`
-- `ACEPTADA`
-- `RECHAZADA`
-
-Una participación rechazada requiere motivo.
-
-## 5. Estado global
-
-Estados de `asignaciones`:
-
-- `PENDIENTE`
-- `CONFIRMADA`
-- `REALIZADA`
-- `CANCELADA`
-
-La asignación pasa a `CONFIRMADA` cuando al menos un participante `RELATOR` acepta.
-
-Los estados `ACEPTADA` y `RECHAZADA` no son estados globales: pertenecen a la participación.
-
-## 6. Alcance del Monitor
-
-MONITOR:
-
-- ve solo asignaciones donde aparece en `asignacion_participantes`;
-- acepta/rechaza solo su propia participación;
-- registra solo su propia asistencia;
-- no modifica, cancela, reasigna ni administra asignaciones ajenas.
-
-El filtro debe aplicarse en backend; poseer `VIEW_ASSIGNMENTS` no otorga visibilidad global.
-
-## 7. Profesores/contactos
-
-`contactos_colegio` mantiene contactos reutilizables.
-
-`asignacion_contactos` relaciona la actividad con sus profesores/contactos.
-
-Para `ESPACIO_REFLEXION`, `ESPACIO_ENCUENTRO` y `REUNION`:
-
-- mínimo 1;
-- máximo 2;
-- deben pertenecer al mismo colegio de la asignación.
-
-`CAPACITACION` y `EVENTO_CASA_CENTRAL` no admiten contactos.
-
-## 8. Asistencia
-
-Estados:
-
-- `PENDIENTE`
-- `PRESENTE`
-- `AUSENTE`
-- `JUSTIFICADA`
-
-`AUSENTE` y `JUSTIFICADA` requieren motivo.
-
-### Marcación propia
-
-El participante debe conceder ubicación.
-
-Sin una posición válida no puede registrar asistencia.
-
-Se almacenan:
-
-- latitud;
-- longitud;
-- precisión cuando esté disponible;
-- fecha de geolocalización;
-- dirección detectada como dato informativo.
-
-No existe seguimiento continuo.
-
-### Regularización
-
-DIRECTIVA y SUPERADMIN pueden regularizar asistencia de terceros.
-
-- GPS no obligatorio.
-- `motivo_regularizacion` obligatorio.
-- auditoría obligatoria.
-
-## 9. Notificaciones
-
-Se reutilizan:
-
-- `notificaciones`
-- `notificacion_envios`
-
-Canales:
-
-- `INTERNA`
-- `EMAIL` (Brevo)
-- `WHATSAPP` (proveedor a implementar)
-
-WhatsApp debe permitir:
-
-- **Aceptar**
-- **Rechazar**
-
-El rechazo solicita motivo antes de completar la acción.
-
-La respuesta modifica `asignacion_participantes`, no directamente la asignación completa.
-
-## 10. Permisos nuevos
-
-- `CREATE_TRAINING`
-- `CREATE_CENTRAL_EVENT`
-- `ACCEPT_PARTICIPATION`
-- `REJECT_PARTICIPATION`
-- `REPORT_ATTENDANCE`
-- `MANAGE_ATTENDANCE`
-
-Los antiguos `ACCEPT_ASSIGNMENT` y `REJECT_ASSIGNMENT` se retiran al migrar al nuevo modelo.
-
-## 11. Auditoría
-
-`historial_asignacion` conserva eventos globales de la actividad.
-
-Se eliminan del modelo antiguo:
-
-- `usuario_asignado_anterior_id`
-- `usuario_asignado_nuevo_id`
-
-Los cambios individuales se representan en `asignacion_participantes` y se registran además en `audit_logs` cuando corresponda.
-
-## 12. Migración
-
-Archivo:
-
-```text
-supabase/migrations/010_redisenio_modulo_asignaciones.sql
-```
-
-La migración:
-
-1. limpia datos de prueba del módulo;
-2. elimina la estructura antigua de asignaciones;
-3. crea el nuevo modelo;
-4. carga catálogos;
-5. agrega restricciones y triggers;
-6. actualiza permisos;
-7. habilita RLS en las nuevas tablas.
-
-**No ejecutar manualmente en PROD.** Primero DEV/QA, pruebas y luego promoción mediante el flujo de migraciones del proyecto.
+Las pruebas simuladas no reemplazan la aceptación en DEV/QA:
+
+1. Probar filtros, nombres de participantes, correos y ambos órdenes de fecha.
+2. Crear los cinco tipos con roles permitidos; comprobar detalle y auditoría.
+3. Probar tres contactos o más, duplicados y horarios invertidos.
+4. Cambiar colegio/curso/ramo durante la carga y comprobar referencias limpias.
+5. Desactivar un recurso antes de guardar: rechazar sin creación parcial.
+6. Agregar, cambiar y quitar participantes, conservando historial e invitaciones.
+7. Rechazar, reasignar y aceptar por correo; verificar el resultado en web.
+8. Comprobar roles sin permisos, teclado y móvil.
+9. Probar recuperación de acceso desde roles autorizados sin confundirla con actividades.

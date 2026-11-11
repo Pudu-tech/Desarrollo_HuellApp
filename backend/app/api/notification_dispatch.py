@@ -1,4 +1,26 @@
-"""Ejecuciones finitas del worker para Supabase Webhooks y Vercel Cron."""
+"""HuellApp · Disparadores HTTP de la cola de correos.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Ejecutar lotes acotados del worker desde el webhook o el cron.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Webhook de un trabajo; cron de hasta cien, con reservas gestionadas por el worker.
+
+SECURITY
+------------------------------------------------------------
+Cada disparador valida su secreto Bearer. El cuerpo recibido no define
+destinatarios ni contenido; los mensajes se leen de la cola persistida.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+Procesamiento acotado de la cola de correos desde Vercel.
+
+Expone disparadores autenticados para Supabase Webhooks y Cron. Los mensajes
+se leen únicamente de la cola; el cuerpo del webhook no define destinatarios.
+Las reservas y los estados de entrega se gestionan en el worker compartido.
+"""
 import logging
 from secrets import compare_digest
 
@@ -14,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 
 def authorize(authorization, secret):
+    """Valida Bearer con comparación constante y rechaza secretos sin configurar."""
     value = secret.get_secret_value() if secret else ''
     if len(value) < 32:
         raise HTTPException(503, 'El procesamiento de correos no está configurado.')
@@ -22,12 +45,15 @@ def authorize(authorization, secret):
         raise HTTPException(401, 'No autorizado.')
 
 
-def dispatch(settings, *, max_jobs):
+def dispatch(settings, *, max_jobs, enqueue_reminders=False):
+    """Procesa un lote limitado; el contador indica trabajos procesados, no entregas confirmadas."""
     try:
         # Validar antes de reservar entregas. La cola es la única fuente de datos:
         # no se usan destinatarios ni contenido del cuerpo recibido por webhook.
         check_configuration(settings)
         db = get_supabase_client()
+        if enqueue_reminders:
+            db.rpc('encolar_recordatorios_instancias', {}).execute()
         with httpx.Client(timeout=30) as client:
             processed = process_batch(db, settings, client, max_jobs=max_jobs, max_seconds=180)
     except Exception:
@@ -39,6 +65,7 @@ def dispatch(settings, *, max_jobs):
 
 @router.post('/webhook')
 def notification_webhook(response: Response, authorization: str | None = Header(default=None)):
+    """Atiende un aviso de inserción intentando procesar un trabajo pendiente de la cola."""
     settings = get_settings()
     authorize(authorization, settings.notification_webhook_secret)
     response.headers['Cache-Control'] = 'no-store'
@@ -49,7 +76,8 @@ def notification_webhook(response: Response, authorization: str | None = Header(
 
 @router.get('/cron')
 def notification_cron(response: Response, authorization: str | None = Header(default=None)):
+    """Procesa pendientes en un lote mayor usando el secreto independiente de Cron."""
     settings = get_settings()
     authorize(authorization, settings.cron_secret)
     response.headers['Cache-Control'] = 'no-store'
-    return dispatch(settings, max_jobs=100)
+    return dispatch(settings, max_jobs=100, enqueue_reminders=True)

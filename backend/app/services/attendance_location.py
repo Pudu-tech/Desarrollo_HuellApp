@@ -1,9 +1,24 @@
-"""Dirección derivada opcional: no altera GPS ni impide registrar asistencia."""
+"""HuellApp · Dirección complementaria de asistencia.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Resolver coordenadas a una dirección y enriquecer un registro ya confirmado.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- La geocodificación es opcional y sus fallos no invalidan la asistencia.
+
+SECURITY
+------------------------------------------------------------
+Envía coordenadas al proveedor configurado solo desde backend; la clave
+del proveedor permanece en el entorno y no se devuelve al cliente.
+"""
 import httpx
 from app.core.config import get_settings
 
 
 def lookup_address(latitude, longitude):
+    """Consulta geocodificación opcional; falta de clave o fallo del proveedor devuelve None."""
     key = get_settings().google_maps_api_key
     if not key or not key.get_secret_value():
         return None
@@ -26,6 +41,7 @@ def lookup_address(latitude, longitude):
 
 
 def enrich_attendance(db, participant, latitude, longitude):
+    """Añade una dirección si puede resolverse; el informe ya confirmado no se revierte."""
     address = lookup_address(latitude, longitude)
     if address:
         try:

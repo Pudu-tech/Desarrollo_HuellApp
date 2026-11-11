@@ -1,7 +1,18 @@
 /**
- * HuellApp · Cliente HTTP del listado, detalle y creación de Asignaciones.
- * Reutiliza el transporte autenticado; las escrituras son RPC auditadas en backend.
- * No envía actor, estado inicial ni campos de auditoría desde el navegador.
+ * HuellApp · Cliente HTTP de instancias.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar catálogos y actividades y enviar operaciones de gestión y participantes.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reutiliza el transporte autenticado y los contratos de instancias.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
  */
 import { recursoRequest } from './recursosService'
 import type { AsignacionItem, AsignacionDetail, AsignacionPayload, CatalogosAsignacion, OpcionesCreacion, OpcionesColegio, OpcionesEspacios } from '../types/asignaciones'

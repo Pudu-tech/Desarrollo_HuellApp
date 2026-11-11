@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Restablecimiento de contraseña.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Actualizar la contraseña desde una sesión de recuperación válida.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Utiliza el flujo de recuperación de Supabase Auth.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Supabase Auth valida la sesión de recuperación. Las comprobaciones visuales
+ * del formulario no sustituyen esa validación.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Página para restablecer la contraseña.
  *

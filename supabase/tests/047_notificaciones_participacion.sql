@@ -1,3 +1,17 @@
+-- HuellApp · notificaciones participacion.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de notificaciones participacion con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- DEV/QA después de 047. Requiere SUPERADMIN y participante activo no SUPERADMIN.
 -- No envía correos. Cola, auditoría, participaciones y asistencia se revierten.
 BEGIN;

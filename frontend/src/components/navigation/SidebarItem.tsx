@@ -1,6 +1,18 @@
 /**
- * HuellApp
- * Elemento individual de navegación del sidebar.
+ * HuellApp · Enlace del menú lateral.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Renderizar una opción de navegación y reflejar su estado activo.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Elemento común utilizado por la barra lateral.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 
 import { NavLink } from 'react-router-dom'
@@ -16,7 +28,7 @@ function SidebarItem({
   label,
   path,
   count = 0,
-  countLabel = 'asignaciones pendientes de respuesta',
+  countLabel = 'instancias pendientes de respuesta',
 }: SidebarItemProps) {
   return (
     <li className="sidebar__item">

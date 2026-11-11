@@ -1,6 +1,18 @@
 /**
- * HuellApp · Acciones sensibles comunes de Cursos y Salas.
- * La eliminación se ubica al final de editar y requiere confirmación explícita.
+ * HuellApp · Acciones de estado de recursos escolares.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Presentar activación, desactivación y eliminación según las capacidades recibidas.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Eliminación al final de la edición mediante confirmación explícita.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import { useConfirmation } from '../../hooks/useConfirmation'
 
@@ -28,7 +40,7 @@ export default function RecursoEstado({ nombre, activo, working, canToggle, canD
         confirmLabel: `Sí, ${action}` })) onToggle()
     }}>{activo ? 'Desactivar' : 'Reactivar'}</button>}
     {canDelete && <div className="schools-contacts-delete">
-      <p>La eliminación lógica no se puede deshacer desde esta interfaz. Si hay asignaciones futuras vigentes, debes cancelarlas o reasignarlas primero.</p>
+      <p>La eliminación lógica no se puede deshacer desde esta interfaz. Si hay instancias futuras vigentes, debes cancelarlas o reasignarlas primero.</p>
       <button type="button" className="schools-danger" disabled={working} onClick={async () => {
         if (await confirm({ title: '¿Eliminar registro?',
           message: <>Vas a eliminar <strong>{nombre}</strong>. Dejará de estar disponible. Esta acción no se puede deshacer desde la interfaz. El historial se conservará y quedará registro en auditoría.</>,

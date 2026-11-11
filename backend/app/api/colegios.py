@@ -1,4 +1,20 @@
-"""
+"""HuellApp · API de colegios.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Consultar y gestionar datos, estado y eliminación lógica de colegios.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Cambios auditados y cascada lógica conservando las relaciones históricas.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Endpoints de administración de colegios en HuellAPP.
 
 Funciones disponibles:
@@ -15,7 +31,7 @@ SECURITY:
 - No se confía en identificadores relacionados sin validarlos.
 - Las operaciones sensibles quedan registradas en auditoría.
 - La eliminación es lógica, requiere DELETE_SCHOOL y auditoría atómica.
-- Se bloquea la eliminación de colegios con asignaciones futuras activas.
+- Se bloquea la eliminación de colegios con instancias futuras activas.
 """
 
 from uuid import UUID
@@ -822,7 +838,7 @@ def desactivar_colegio(
         401: {"description": "No autenticado o sesión inválida."},
         403: {"description": "No posee el permiso DELETE_SCHOOL."},
         404: {"description": "Colegio no encontrado o ya eliminado."},
-        409: {"description": "El colegio tiene asignaciones futuras activas."},
+        409: {"description": "El colegio tiene instancias futuras activas."},
         500: {"description": "Error interno al eliminar el colegio."},
     },
 )
@@ -836,10 +852,10 @@ def eliminar_colegio(
     """Elimina colegio y recursos mediante la RPC ampliada por la migración 045.
 
     La autorización se comprueba en FastAPI y nuevamente en PostgreSQL.
-    La RPC bloquea el colegio, protege las asignaciones futuras activas y
+    La RPC bloquea el colegio, protege las instancias futuras activas y
     registra los valores anteriores/posteriores y el actor en auditoría.
     Archiva cursos, salas y contactos, con auditoría por cada entidad afectada.
-    Conserva las asignaciones y relaciones históricas sin borrado físico.
+    Conserva las instancias y relaciones históricas sin borrado físico.
 
     Returns:
         HTTP 204 sin contenido cuando la transacción se completa.
@@ -878,7 +894,7 @@ def eliminar_colegio(
                     status_code=status.HTTP_409_CONFLICT,
                     detail=(
                         "No se puede eliminar el colegio porque tiene "
-                        "asignaciones futuras vigentes. Cancélalas o reasígnalas "
+                        "instancias futuras vigentes. Cancélalas o reasígnalas "
                         "antes de eliminar el establecimiento."
                     ),
                 )

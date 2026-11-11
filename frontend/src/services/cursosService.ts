@@ -1,6 +1,18 @@
 /**
- * HuellApp · Operaciones de Cursos dentro de un colegio.
- * Reutiliza /cursos y sus RPC auditadas. PATCH nunca cambia la pertenencia.
+ * HuellApp · Cliente HTTP de cursos escolares.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar cursos y enviar cambios de datos, estado y eliminación lógica.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - El PATCH mantiene la pertenencia al colegio.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
  */
 import { recursoRequest } from './recursosService'
 import type { CursoItem, CursoPayload, NivelCursoItem } from '../types/recursos'
@@ -15,5 +27,5 @@ export const updateCurso = (id: string, changes: Partial<CursoPayload>) =>
   recursoRequest<CursoItem>(`/cursos/${encodeURIComponent(id)}`, 'PATCH', changes)
 export const setCursoActivo = (id: string, activo: boolean) =>
   recursoRequest<CursoItem>(`/cursos/${encodeURIComponent(id)}/${activo ? 'activate' : 'deactivate'}`, 'PATCH')
-/** El historial se conserva; el servidor bloquea las asignaciones futuras vigentes. */
+/** El historial se conserva; el servidor bloquea las instancias futuras vigentes. */
 export const deleteCurso = (id: string) => recursoRequest<void>(`/cursos/${encodeURIComponent(id)}`, 'DELETE')

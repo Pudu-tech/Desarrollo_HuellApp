@@ -1,3 +1,18 @@
+"""HuellApp · Pruebas de errores de validación de sesión.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar errores de validación de sesión mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from unittest.mock import Mock, patch
 from fastapi import HTTPException

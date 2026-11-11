@@ -1,14 +1,32 @@
-import { cachedFetch } from './readCache'
 /**
+ * HuellApp · Cliente HTTP de contactos escolares.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar y gestionar contactos reutilizables de cada colegio.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - La misma fuente de contactos se utiliza al preparar instancias.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp · Comunicación con el backend de contactos de colegios.
  *
  * REGLAS
  * ------------------------------------------------------------
- * - La tabla contactos_colegio es la fuente compartida con Asignaciones.
+ * - La tabla contactos_colegio es la fuente compartida con Instancias.
  * - Las operaciones se autentican usando la sesión actual de Supabase.
  * - FastAPI valida permisos y audita las operaciones de escritura.
  * - DELETE devuelve 204: no se intenta interpretar una respuesta vacía.
  */
+import { cachedFetch } from './readCache'
+
 import { supabase } from './supabase'
 import type { ContactoColegio, ContactoPayload } from '../types/contactos'
 
@@ -48,7 +66,7 @@ async function contactRequest<T>(path: string, method = 'GET', payload?: object)
 export const listContactos = (colegioId: string, incluirInactivos = false) =>
   contactRequest<ContactoColegio[]>(`/colegios/${encodeURIComponent(colegioId)}/contactos?incluir_inactivos=${incluirInactivos}`)
 
-/** Crea un contacto, que podrá seleccionarse posteriormente en Asignaciones. */
+/** Crea un contacto, que podrá seleccionarse posteriormente en Instancias. */
 export const createContacto = (colegioId: string, payload: ContactoPayload) =>
   contactRequest<ContactoColegio>(`/colegios/${encodeURIComponent(colegioId)}/contactos`, 'POST', payload)
 
@@ -60,6 +78,6 @@ export const updateContacto = (colegioId: string, contactoId: string, changes: P
 export const setContactoActivo = (colegioId: string, contactoId: string, activo: boolean) =>
   contactRequest<ContactoColegio>(`/colegios/${encodeURIComponent(colegioId)}/contactos/${encodeURIComponent(contactoId)}/${activo ? 'activar' : 'desactivar'}`, 'POST')
 
-/** Elimina lógicamente, conservando el historial y los vínculos con Asignaciones. */
+/** Elimina lógicamente, conservando el historial y los vínculos con Instancias. */
 export const deleteContacto = (colegioId: string, contactoId: string) =>
   contactRequest<void>(`/colegios/${encodeURIComponent(colegioId)}/contactos/${encodeURIComponent(contactoId)}`, 'DELETE')

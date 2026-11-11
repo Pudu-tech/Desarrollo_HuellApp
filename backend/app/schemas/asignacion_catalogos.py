@@ -1,7 +1,17 @@
-"""HuellAPP · Contratos mínimos de consulta para el formulario de Asignaciones.
+"""HuellApp · Contratos de catálogos de instancias.
 
-Las opciones proceden de tablas existentes. No reciben actor ni estado inicial.
-Las proyecciones de usuarios solo identifican participantes elegibles.
+RESPONSABILIDADES
+------------------------------------------------------------
+- Definir modelos Pydantic de entrada y salida para catálogos de instancias.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- La validación de campos se comparte entre los endpoints que utilizan estos modelos.
+
+SECURITY
+------------------------------------------------------------
+Los modelos delimitan y validan datos; la autorización corresponde a las
+dependencias y reglas de los endpoints, no a la creación de una instancia.
 """
 from uuid import UUID
 from pydantic import BaseModel
@@ -60,7 +70,7 @@ class CatalogosAsignacion(BaseModel):
 
 
 class OpcionesCreacionAsignacion(BaseModel):
-    """Solo actividades autorizadas y recursos activos para nuevas asignaciones."""
+    """Solo actividades autorizadas y recursos activos para nuevas instancias."""
     tipos_actividad: list[OpcionCodigo]
     colegios: list[OpcionNombre]
     participantes: list[ParticipanteOpcion]

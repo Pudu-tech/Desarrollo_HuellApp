@@ -1,4 +1,20 @@
-"""
+"""HuellApp · Inicio de la API FastAPI.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Crear la aplicación, configurar CORS y middleware y registrar los routers.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Metadatos y endpoint raíz; configuración dependiente del entorno.
+
+SECURITY
+------------------------------------------------------------
+CORS limita orígenes del navegador y no sustituye autenticación ni permisos.
+La aplicación no debe exponer secretos en respuestas de diagnóstico.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Punto de entrada principal del backend de HuellAPP.
 
 Este módulo:
@@ -93,7 +109,7 @@ app.include_router(profile_router)
 # Registra los endpoints relacionados con administración de colegios.
 app.include_router(colegios_router)
 
-# Contactos reutilizables por colegio; conserva el límite de Asignaciones.
+# Contactos reutilizables por colegio; conserva el límite de Instancias.
 app.include_router(contactos_router)
 
 # Catálogos activos para los selectores del formulario de colegios.
@@ -106,10 +122,10 @@ app.include_router(cursos_router)
 # Registra los endpoints del módulo de salas.
 app.include_router(salas_router)
 
-# Registra los endpoints del módulo de asignaciones.
+# Registra los endpoints del módulo de instancias.
 app.include_router(asignaciones_router)
 
-# Consultas mínimas para crear asignaciones sin ampliar permisos de Usuarios.
+# Consultas mínimas para crear instancias sin ampliar permisos de Usuarios.
 app.include_router(asignacion_catalogos_router)
 app.include_router(catalogo_academico_router)
 app.include_router(participation_notifications_router)

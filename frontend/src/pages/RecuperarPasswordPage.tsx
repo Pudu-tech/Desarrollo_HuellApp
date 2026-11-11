@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Solicitud de recuperación de contraseña.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Solicitar a Supabase Auth un enlace de recuperación para el correo indicado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Presenta el resultado del envío y las instrucciones al usuario.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La recuperación se gestiona mediante Supabase Auth. No se muestran
+ * contraseñas ni se permite elegir el rol de la cuenta.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Página para solicitar recuperación de contraseña.
  *

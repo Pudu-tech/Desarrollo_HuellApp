@@ -1,3 +1,18 @@
+"""HuellApp · Contratos de salas.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Definir modelos Pydantic de entrada y salida para salas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- La validación de campos se comparte entre los endpoints que utilizan estos modelos.
+
+SECURITY
+------------------------------------------------------------
+Los modelos delimitan y validan datos; la autorización corresponde a las
+dependencias y reglas de los endpoints, no a la creación de una instancia.
+"""
 from datetime import datetime
 from uuid import UUID
 

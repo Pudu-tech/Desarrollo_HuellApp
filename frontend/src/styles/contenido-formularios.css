@@ -1,6 +1,19 @@
-/* Identidad compartida: encuentro, claridad y acompañamiento.
- * Selectores acotados para convivir con las hojas de cada pantalla,
- * incluidas las que se cargan al navegar. No altera el comportamiento. */
+/**
+ * HuellApp · Estilos de medidas, espaciados, tablas, sombras y formularios comunes.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de medidas, espaciados, tablas, sombras y formularios comunes.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 /* Variables comunes para bordes, superficies, texto secundario y foco. */
 :root {
   --huella-border: #d9e4e5;

@@ -1,4 +1,20 @@
-"""Benchmark reproducible sin red: tres listados con 150 ms de espera por consulta.
+"""HuellApp · Medición local de concurrencia de lectura.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Medir consultas simultáneas con latencia simulada sin depender de Internet.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Benchmark reproducible de listados; no estima la latencia real del despliegue.
+
+SECURITY
+------------------------------------------------------------
+Usa colaboradores simulados y no requiere credenciales reales.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+Benchmark reproducible sin red: tres listados con 150 ms de espera por consulta.
 
 python -m tests.benchmark_read_concurrency no requiere credenciales de usuarios.
 Ejecutar como python tests/benchmark_read_concurrency.py desde backend.

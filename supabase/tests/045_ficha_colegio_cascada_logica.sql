@@ -1,3 +1,17 @@
+-- HuellApp · ficha colegio cascada logica.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de ficha colegio cascada logica con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- HuellAPP · Regresión transaccional de la cascada lógica 045.
 -- Ejecutar en DEV/QA después de 045, con SUPERADMIN, colegio, nivel y REUNION activos. Se crean fixtures aislados y se revierte todo.
 BEGIN;

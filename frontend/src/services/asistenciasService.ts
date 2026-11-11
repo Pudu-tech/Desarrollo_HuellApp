@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Cliente HTTP de asistencia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar registros propios o de gestión y enviar informes o regularizaciones.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Distingue el informe personal con ubicación de la corrección administrativa.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Utiliza la sesión del usuario; los permisos se validan en FastAPI.
+ * Las credenciales privilegiadas de Supabase permanecen en el backend.
+ */
 import { recursoRequest } from './recursosService'
 
 export interface Asistencia {

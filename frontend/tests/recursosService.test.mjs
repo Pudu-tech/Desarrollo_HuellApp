@@ -1,7 +1,17 @@
 /**
- * HuellApp · Regresión de contratos HTTP y reglas de creación de asignaciones.
- * Ejecutar: node --experimental-vm-modules --test tests/recursosService.test.mjs
- * Simula sesión y transporte; no requiere credenciales ni una base Supabase.
+ * HuellApp · Pruebas de transporte y errores del cliente HTTP.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Comprobar transporte y errores del cliente HTTP con el runner de Node.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Casos de regresión sobre los módulos TypeScript del frontend.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Las pruebas no conceden permisos ni sustituyen las comprobaciones de la API.
  */
 import assert from 'node:assert/strict'
 import fs from 'node:fs'

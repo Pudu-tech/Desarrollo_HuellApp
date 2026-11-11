@@ -1,4 +1,21 @@
 /**
+ * HuellApp · Configuración de navegación por rol.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir los enlaces disponibles para cada rol en el menú lateral.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Cursos, salas y contactos se administran dentro de la ficha del colegio.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Configuración centralizada de navegación.
  *
@@ -50,7 +67,7 @@ export const ADMIN_NAVIGATION_ITEMS:
       ],
     },
     {
-      label: 'Asignaciones',
+      label: 'Instancias',
       path: '/app/asignaciones',
       allowedRoles: [
         'SUPERADMIN',
@@ -64,7 +81,7 @@ export const ADMIN_NAVIGATION_ITEMS:
       allowedRoles: ['SUPERADMIN', 'DIRECTIVA'],
     },
     {
-      label: 'Mis asignaciones',
+      label: 'Mis instancias',
       path: '/app/mis-asignaciones',
       allowedRoles: ['DIRECTIVA', 'COORDINADOR'],
     },
@@ -113,7 +130,7 @@ export const MONITOR_NAVIGATION_ITEMS:
       ],
     },
     {
-      label: 'Mis asignaciones',
+      label: 'Mis instancias',
       path: '/app/monitor/asignaciones',
       allowedRoles: [
         'MONITOR',

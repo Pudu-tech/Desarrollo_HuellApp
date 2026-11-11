@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Indicador de carga compartido.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Mostrar el estado de espera con una presentación común.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Componente reutilizable en páginas y paneles diferidos.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import '../styles/loading-indicator.css'
 
 export default function LoadingIndicator() {

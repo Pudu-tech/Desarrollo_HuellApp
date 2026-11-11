@@ -1,4 +1,18 @@
-"""Respuesta única rechazada y proyección de participantes, sin escrituras externas."""
+"""HuellApp · Pruebas de respuesta y resumen de participantes.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar respuesta y resumen de participantes mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from app.api.asignaciones import _por_reasignar, _participante_detalle, _asignados_a
 

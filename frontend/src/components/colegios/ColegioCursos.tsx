@@ -1,10 +1,23 @@
-import LoadingIndicator from '../LoadingIndicator'
 /**
- * HuellApp · Administración de cursos de un establecimiento.
- * Lista, crea, edita y cambia estado usando los contratos existentes.
- * El colegio se obtiene de la ficha y el nombre mostrado lo genera PostgreSQL.
- * Los niveles se consultan desde el catálogo real; no se fijan listas locales.
+ * HuellApp · Cursos de un colegio.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Listar, ordenar, crear y editar cursos y gestionar su estado.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Consulta niveles reales y conserva el colegio de la ficha como contexto.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
+import SortableHeader from '../../components/common/SortableHeader'
+import { useListSort } from '../../hooks/useListSort'
+import LoadingIndicator from '../LoadingIndicator'
+
 import { useEffect, useState, type FormEvent } from 'react'
 import { createCurso, deleteCurso, getNivelesCurso, listCursos, setCursoActivo, updateCurso } from '../../services/cursosService'
 import type { CursoItem, CursoPayload, NivelCursoItem } from '../../types/recursos'
@@ -24,6 +37,7 @@ const emptyForm = (): CursoPayload => ({ nivel_curso_id: '', seccion: '', anio: 
 
 export default function ColegioCursos({ colegioId, colegioActivo, permissions, onWorkingChange }: Props) {
   const state = useRecursosColegio(colegioId, listCursos, onWorkingChange)
+  const sorting = useListSort<string>('nombre')
   const [selected, setSelected] = useState<CursoItem | null>(null)
   const [form, setForm] = useState<CursoPayload>(emptyForm)
   const [showForm, setShowForm] = useState(false)
@@ -46,6 +60,7 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
     return () => { active = false }
   }, [catalogRevision])
 
+  /** Prepara el formulario para crear o editar y limpia los mensajes de la operación anterior. */
   function open(item: CursoItem | null) {
     setSelected(item)
     setForm(item ? toForm(item) : emptyForm())
@@ -56,6 +71,7 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
   /* ============================================================
      CREACIÓN Y EDICIÓN AUDITADAS
      ============================================================ */
+  /** Valida los campos y aplica la respuesta confirmada mediante el estado compartido del colegio. */
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (state.working || (selected ? !canEdit : !canCreate)) return
@@ -86,6 +102,7 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
     )
   }
 
+  /** Comprueba la capacidad visible y sincroniza el recurso tras cambiar su estado en la API. */
   async function toggle(item: CursoItem) {
     if (item.activo ? !canDeactivate : !canActivate) return
     await state.run(() => setCursoActivo(item.id, !item.activo), 'Estado del curso actualizado.', (updated) => {
@@ -94,6 +111,7 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
     })
   }
 
+  /** Solicita la eliminación lógica y retira el recurso del listado después de la confirmación del backend. */
   async function remove(item: CursoItem) {
     if (!canDelete) return
     await state.run(() => deleteCurso(item.id), 'Curso eliminado. El historial se conservó.', () => {
@@ -111,8 +129,8 @@ export default function ColegioCursos({ colegioId, colegioActivo, permissions, o
     {state.message && <p className="schools-success" role="status">{state.message}</p>}
     {state.loadError && <button className="schools-secondary" type="button" disabled={state.loading} onClick={state.refresh}>Reintentar</button>}
     {state.loading ? <LoadingIndicator /> : !state.loadError && <div className="schools-table-scroll">
-      <table className="schools-table"><thead><tr><th scope="col">Curso</th><th scope="col">Año</th><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
-        <tbody>{state.items.map((item) => <tr key={item.id}>
+      <table className="schools-table"><thead><tr><SortableHeader label="Curso" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Año" column="anio" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Estado</th><th scope="col">Acciones</th></tr></thead>
+        <tbody>{sorting.order(state.items, { nombre: r => r.nombre_mostrado, anio: r => r.anio }).map((item) => <tr key={item.id}>
           <td>{item.nombre_mostrado}</td><td>{item.anio}</td><td><span className={`schools-status schools-status--${item.activo ? 'active' : 'inactive'}`}>{item.activo ? 'Activo' : 'Inactivo'}</span></td>
           <td><button type="button" className="schools-action" disabled={state.working} onClick={() => open(item)}>{canEdit ? 'Editar' : 'Ver'}</button></td>
         </tr>)}</tbody>

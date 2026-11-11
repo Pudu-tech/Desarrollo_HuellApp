@@ -1,8 +1,25 @@
-"""HuellAPP | Administración de personas de contacto de colegios.
+"""HuellApp · API de contactos escolares.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Gestionar contactos reutilizables de un colegio y sus cambios de estado.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Excluye eliminados del listado y conserva contactos inactivos para gestión.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+HuellAPP | Administración de personas de contacto de colegios.
 
 REGLAS
 ------------------------------------------------------------
-- Una persona pertenece a un solo colegio; puede reutilizarse en asignaciones.
+- Una persona pertenece a un solo colegio; puede reutilizarse en instancias.
 - Solo se listan contactos no eliminados; los inactivos quedan visibles para gestión.
 - Crear/editar/activar/desactivar/eliminar requieren permisos independientes.
 - La RPC 043 valida permisos de nuevo y audita cambios atómicamente.
@@ -59,7 +76,7 @@ def _gestionar(request: Request, accion: str, colegio_id: UUID,
             "SCHOOL_NOT_FOUND": (404, "Colegio no encontrado."),
             "CONTACT_NOT_FOUND": (404, "Contacto no encontrado."),
             "SCHOOL_INACTIVE": (409, "No se pueden incorporar o activar contactos en un colegio inactivo."),
-            "CONTACT_HAS_FUTURE_ASSIGNMENTS": (409, "El contacto tiene asignaciones futuras vigentes; reasigna antes de continuar."),
+            "CONTACT_HAS_FUTURE_ASSIGNMENTS": (409, "El contacto tiene instancias futuras vigentes; reasigna antes de continuar."),
             "REQUIRED_FIELDS": (422, "Nombre, correo y teléfono son obligatorios."),
             "INVALID_DATA": (422, "Datos del contacto inválidos."),
             "INVALID_ACTION": (400, "Operación no reconocida."),
@@ -125,7 +142,7 @@ def activar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
 @router.post("/{contacto_id}/desactivar", response_model=ContactoItem)
 def desactivar_contacto(request: Request, colegio_id: UUID, contacto_id: UUID,
                               actor: AuthenticatedUser = Depends(require_permission("UPDATE_SCHOOL_CONTACT"))):
-    """Desactiva solo si no existen asignaciones futuras vigentes."""
+    """Desactiva solo si no existen instancias futuras vigentes."""
     _gestionar(request, "DEACTIVATE", colegio_id, actor, contacto_id)
     return _obtener_contacto(get_supabase_client(), colegio_id, contacto_id)
 

@@ -1,4 +1,20 @@
-"""
+"""HuellApp · API de usuarios.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Gestionar cuentas, invitaciones, datos, roles y estado de usuarios.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Combina Supabase Auth con operaciones de negocio auditadas y eliminación lógica.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
 Endpoints relacionados con la administración de usuarios en HuellAPP.
 Este módulo contiene los endpoints del mantenedor de usuarios.
 SECURITY:
@@ -7,6 +23,7 @@ SECURITY:
 - No se confía en roles o permisos enviados por el frontend.
 - No se exponen contraseñas, tokens ni secretos.
 - Los usuarios eliminados lógicamente no se consideran visibles.
+- Directiva no puede consultar cuentas Superadmin, ni su detalle o fotografía.
 - Las operaciones sensibles quedan registradas en auditoría.
 - Los administradores no definen contraseñas de usuarios nuevos.
 - Los usuarios nuevos reciben una invitación para establecer
@@ -48,14 +65,15 @@ def get_user_photo(
     user_id: UUID,
     current_user: AuthenticatedUser = Depends(require_permission('VIEW_USERS')),
 ):
-    """Entrega una URL temporal de la foto al mantenedor autorizado."""
+    """Entrega la foto solo si el usuario es visible para el actor autenticado."""
     from app.api.profile import present
 
     try:
         db = get_supabase_client()
-        rows = db.table('usuarios').select('foto_perfil_path').eq(
+        query = db.table('usuarios').select('foto_perfil_path,roles!inner(codigo)').eq(
             'id', str(user_id)
-        ).is_('deleted_at', 'null').execute().data or []
+        ).is_('deleted_at', 'null')
+        rows = _visible_users_query(query, current_user).execute().data or []
         if not rows:
             raise HTTPException(404, 'Usuario no encontrado.')
         return {'foto_url': present(db, rows[0])['foto_url']}
@@ -104,6 +122,19 @@ def resend_password_invitation(request: Request, user_id: UUID,
 # ============================================================
 # FUNCIONES AUXILIARES
 # ============================================================
+
+
+def _visible_users_query(query, actor: AuthenticatedUser):
+    """Restringe lecturas del mantenedor según el rol autenticado.
+
+    La consulta debe seleccionar roles!inner: así el filtro de la relación
+    excluye la fila del usuario, en vez de devolverla con el rol vacío.
+    VIEW_USERS sigue siendo obligatorio en cada endpoint. Superadmin conserva
+    todos los roles; Directiva no obtiene cuentas Superadmin ni por UUID.
+    """
+    if actor.role_code == 'DIRECTIVA':
+        return query.neq('roles.codigo', 'SUPERADMIN')
+    return query
 
 
 def _request_rpc_context(request: Request) -> dict:
@@ -217,13 +248,14 @@ def list_users(
 ) -> list[UserListItem]:
     """
     Lista los usuarios no eliminados lógicamente del sistema.
+    Superadmin ve todos los roles; Directiva excluye cuentas Superadmin.
     Requiere:
         VIEW_USERS
     """
     supabase = get_supabase_client()
 
     try:
-        response = (
+        query = (
             supabase.table("usuarios")
             .select(
                 """
@@ -235,7 +267,7 @@ def list_users(
                 email,
                 telefono,
                 activo,
-                roles(
+                roles!inner(
                     codigo,
                     nombre
                 )
@@ -251,8 +283,8 @@ def list_users(
             .order(
                 "nombres"
             )
-            .execute()
         )
+        response = _visible_users_query(query, current_user).execute()
         return [
             UserListItem.model_validate(user)
             for user in (response.data or [])
@@ -307,13 +339,14 @@ def get_user_by_id(
 ) -> UserListItem:
     """
     Obtiene un usuario por UUID.
+    Devuelve 404 si no existe, fue eliminado o es Superadmin y consulta Directiva.
     Requiere:
         VIEW_USERS
     """
     supabase = get_supabase_client()
 
     try:
-        response = (
+        query = (
             supabase.table("usuarios")
             .select(
                 """
@@ -325,7 +358,7 @@ def get_user_by_id(
                 email,
                 telefono,
                 activo,
-                roles(
+                roles!inner(
                     codigo,
                     nombre
                 )
@@ -339,10 +372,9 @@ def get_user_by_id(
                 "deleted_at",
                 "null",
             )
-            .maybe_single()
-            .execute()
         )
-        if not response.data:
+        response = _visible_users_query(query, current_user).maybe_single().execute()
+        if response is None or not response.data:
             raise HTTPException(
                 status_code=(
                     status.HTTP_404_NOT_FOUND

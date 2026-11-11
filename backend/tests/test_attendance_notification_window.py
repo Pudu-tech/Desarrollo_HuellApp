@@ -1,3 +1,18 @@
+"""HuellApp · Pruebas de plazos de asistencia e invitaciones.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar plazos de asistencia e invitaciones mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from datetime import datetime, timezone, timedelta
 from app.services.participation_notifications import attendance_available

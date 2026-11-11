@@ -1,6 +1,21 @@
-import LoadingIndicator from './components/LoadingIndicator'
-import { lazy, Suspense, type ComponentType } from 'react'
 /**
+ * HuellApp · Rutas de la aplicación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Componer rutas públicas y protegidas y cargar las páginas de cada sección.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Enrutamiento por rol con páginas diferidas y estados de carga.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ *
+ * NOTAS DE IMPLEMENTACIÓN
+ * ------------------------------------------------------------
  * HuellApp
  * Configuración principal de rutas con separación por rol.
  *
@@ -11,7 +26,7 @@ import { lazy, Suspense, type ComponentType } from 'react'
  * - Usuarios
  * - Colegios
  * - Cursos y Salas dentro de la ficha de Colegios
- * - Asignaciones
+ * - Instancias
  * - Auditoría
  *
  * DIRECTIVA
@@ -19,15 +34,15 @@ import { lazy, Suspense, type ComponentType } from 'react'
  * - Usuarios
  * - Colegios
  * - Cursos y Salas dentro de la ficha de Colegios
- * - Asignaciones
+ * - Instancias
  *
  * COORDINADOR
  * - Inicio
- * - Asignaciones
+ * - Instancias
  *
  * MONITOR
  * - Página propia de Monitor
- * - Mis asignaciones
+ * - Mis instancias
  *
  * AUTENTICACIÓN
  * ------------------------------------------------------------
@@ -49,6 +64,9 @@ import { lazy, Suspense, type ComponentType } from 'react'
  * FastAPI continúa siendo la fuente real de autorización
  * mediante roles, permisos y reglas de negocio.
  */
+import LoadingIndicator from './components/LoadingIndicator'
+import { lazy, Suspense, type ComponentType } from 'react'
+
 
 import {
   BrowserRouter,
@@ -89,6 +107,7 @@ import ProtectedRoute from './routes/ProtectedRoute'
 import RoleRoute from './routes/RoleRoute'
 
 
+/** Envuelve la carga diferida de una página para compartir su tratamiento de carga. */
 function loadPage(load: () => Promise<{ default: ComponentType }>) {
   const Page = lazy(load)
   return function LoadedPage() {

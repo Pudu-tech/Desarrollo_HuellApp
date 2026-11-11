@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Estilos de indicador de carga.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de indicador de carga.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 .huella-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px; min-height: min(60vh, 520px); padding: 32px 16px; color: #64748b; font-size: 16px; perspective: 700px; }
 .huella-loading-scene { position: relative; width: 170px; height: 180px; perspective: 700px; }
 .huella-loading-logo { position: absolute; top: 0; left: 10px; width: 150px; height: 150px; transform-style: preserve-3d; animation: huella-loading-turn 3.6s linear infinite; }

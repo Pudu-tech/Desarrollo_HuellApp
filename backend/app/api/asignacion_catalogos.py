@@ -1,9 +1,26 @@
-"""HuellAPP · Consultas para el listado y creación de Asignaciones.
+"""HuellApp · API de catálogos de instancias.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Exponer los endpoints de catálogos de instancias y coordinar consultas, validaciones y respuestas.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Las rutas y dependencias de este módulo definen el contrato HTTP.
+
+SECURITY
+------------------------------------------------------------
+La autorización se valida en backend con la identidad autenticada.
+No se deben confiar roles, actores ni permisos enviados por el navegador.
+
+NOTAS DE IMPLEMENTACIÓN
+------------------------------------------------------------
+HuellAPP · Consultas para el listado y creación de Instancias.
 
 Reutiliza permisos y validaciones del módulo; no usa VIEW_USERS ni concede
 privilegios nuevos. Solo CREATE_ASSIGNMENT permite consultar participantes.
 Los catálogos de lectura conservan nombres de colegios eliminados para que
-las asignaciones históricas sigan siendo comprensibles.
+las instancias históricas sigan siendo comprensibles.
 """
 from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
@@ -20,7 +37,7 @@ from app.api.asignaciones import (
 )
 from app.api.catalogo_academico import proyectar_ramo
 
-router = APIRouter(prefix="/catalogos/asignaciones", tags=["Catálogos de Asignaciones"])
+router = APIRouter(prefix="/catalogos/asignaciones", tags=["Catálogos de Instancias"])
 
 
 def _datos(query) -> list[dict]:
@@ -34,7 +51,7 @@ def listar_catalogos_asignaciones(
 ) -> CatalogosAsignacion:
     """Consulta nombres para gestión; MONITOR conserva su flujo propio."""
     if actor.role_code == "MONITOR":
-        raise HTTPException(403, "Estos catálogos corresponden a la gestión de asignaciones.")
+        raise HTTPException(403, "Estos catálogos corresponden a la gestión de instancias.")
     try:
         db = get_supabase_client()
         queries = {
@@ -47,18 +64,20 @@ def listar_catalogos_asignaciones(
             data = {key: future.result() for key, future in futures.items()}
         return CatalogosAsignacion.model_validate(data)
     except Exception as exc:
-        raise HTTPException(500, "No fue posible cargar los catálogos de asignaciones.") from exc
+        raise HTTPException(500, "No fue posible cargar los catálogos de instancias.") from exc
 
 
 @router.get("/creacion", response_model=OpcionesCreacionAsignacion)
 def listar_opciones_creacion(
     actor: AuthenticatedUser = Depends(require_permission("CREATE_ASSIGNMENT")),
 ) -> OpcionesCreacionAsignacion:
+    """Entrega opciones de creación filtradas según las actividades permitidas al actor."""
     return _opciones_formulario(actor, filtrar_tipos=True)
 
 
 @router.get('/reasignacion/participantes')
 def opciones_reasignacion(_actor: AuthenticatedUser = Depends(require_permission('REASSIGN_ASSIGNMENT'))):
+    """Lista monitores activos disponibles para una reasignación autorizada."""
     rows = _datos(get_supabase_client().table('usuarios').select('id,nombres,apellido_paterno,apellido_materno,roles!inner(codigo)')
                   .eq('activo', True).is_('deleted_at', 'null').eq('roles.codigo', 'MONITOR').order('nombres'))
     return [{key: user.get(key) for key in ('id', 'nombres', 'apellido_paterno', 'apellido_materno')} for user in rows]
@@ -66,6 +85,7 @@ def opciones_reasignacion(_actor: AuthenticatedUser = Depends(require_permission
 
 @router.get('/gestion-participantes')
 def opciones_gestion_participantes(_actor: AuthenticatedUser = Depends(require_permission('REASSIGN_ASSIGNMENT'))):
+    """Proyecta personas y tipos elegibles sin habilitar acceso al mantenedor de usuarios."""
     db = get_supabase_client()
     users = _datos(db.table('usuarios').select('id,nombres,apellido_paterno,apellido_materno,roles!inner(codigo)')
                    .eq('activo', True).is_('deleted_at', 'null').in_('roles.codigo', ['DIRECTIVA', 'COORDINADOR', 'MONITOR']).order('nombres'))
@@ -106,7 +126,7 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(500, "No fue posible cargar las opciones para crear asignaciones.") from exc
+        raise HTTPException(500, "No fue posible cargar las opciones para crear instancias.") from exc
 
 
 @router.get("/edicion", response_model=OpcionesCreacionAsignacion)
@@ -117,11 +137,13 @@ def opciones_edicion(actor: AuthenticatedUser = Depends(require_permission("UPDA
 
 @router.get("/edicion/colegios/{colegio_id}", response_model=OpcionesColegioAsignacion)
 def recursos_edicion(colegio_id: UUID, actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
+    """Reutiliza recursos del colegio bajo el permiso de edición de instancias."""
     return listar_recursos_colegio_asignacion(colegio_id, actor)
 
 
 @router.get("/edicion/ramos/{ramo_id}/espacios", response_model=OpcionesEspaciosAsignacion)
 def espacios_edicion(ramo_id: UUID, actor: AuthenticatedUser = Depends(require_permission("UPDATE_ASSIGNMENT"))):
+    """Reutiliza los espacios del ramo bajo el permiso de edición de instancias."""
     return listar_espacios_asignacion(ramo_id, actor)
 
 

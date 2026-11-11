@@ -1,3 +1,17 @@
+-- HuellApp · edicion reconfirmacion asignacion.
+--
+-- RESPONSABILIDADES
+-- ------------------------------------------------------------
+-- - Verificar las reglas de edicion reconfirmacion asignacion con los casos SQL del archivo.
+--
+-- ESTADO ACTUAL
+-- ------------------------------------------------------------
+-- - Prueba de base de datos con sus fixtures y transacción de verificación.
+--
+-- SECURITY
+-- ------------------------------------------------------------
+-- Revisar los requisitos de datos antes de ejecutar en DEV/QA; no utilizar producción.
+
 -- DEV/QA después de 048. SUPERADMIN y participante activo con permisos de respuesta.
 -- Usa fixtures aislados; no manda correos. Todas las escrituras se revierten.
 BEGIN;

@@ -1,7 +1,18 @@
 /**
- * Contrato del colegio que devuelve FastAPI.
- * Los campos opcionales se representan como null; el estado se modifica
- * exclusivamente mediante endpoints de activación/desactivación.
+ * HuellApp · Contratos de colegios y catálogos de ubicación.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir las estructuras TypeScript utilizadas para colegios y catálogos de ubicación.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Tipos compartidos entre servicios, componentes y páginas.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Estos tipos no validan datos en ejecución ni conceden permisos.
+ * La API es responsable de validar los datos y autorizar las operaciones.
  */
 export interface ColegioListItem {
   id: string

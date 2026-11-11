@@ -1,3 +1,19 @@
+/**
+ * HuellApp · Panel de asistencia propia.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Consultar la participación seleccionada y mostrar el registro personal de asistencia.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reutiliza AttendanceCard sin conceder regularización administrativa.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * La interfaz orienta la navegación y las acciones visibles. FastAPI valida
+ * la identidad, los permisos y las reglas de las operaciones protegidas.
+ */
 import { useEffect, useState } from 'react'
 import AttendanceCard from './AttendanceCard'
 import LoadingIndicator from '../LoadingIndicator'
@@ -14,6 +30,7 @@ export default function OwnAttendancePanel({ assignmentId, onClose, onSaved }: {
     let active = true
     void getMiParticipacion(assignmentId).then((data) => { if (active) setInfo(data) })
       .catch((cause) => { if (active) setError(cause instanceof Error ? cause.message : 'No se pudo cargar tu asistencia.') })
+    // Descarta respuestas si se cierra el panel o cambia la instancia seleccionada.
     return () => { active = false }
   }, [assignmentId, revision])
   return <div className="assignments-panel" role="region" aria-label="Registrar mi asistencia">

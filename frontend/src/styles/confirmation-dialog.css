@@ -1,4 +1,19 @@
-/* HuellApp · Diseño compartido, idéntico al diálogo aprobado de Eliminar colegio. */
+/**
+ * HuellApp · Estilos de confirmaciones modales compartidas.
+ *
+ * RESPONSABILIDADES
+ * ------------------------------------------------------------
+ * - Definir la presentación de confirmaciones modales compartidas.
+ *
+ * ESTADO ACTUAL
+ * ------------------------------------------------------------
+ * - Reglas visuales complementarias a los estilos globales y los componentes.
+ *
+ * SECURITY
+ * ------------------------------------------------------------
+ * Los estilos solo modifican la presentación; ocultar o deshabilitar visualmente
+ * un control no autoriza ni protege operaciones del backend.
+ */
 .confirmation-dialog::backdrop { background: rgba(15,23,42,.52); }
 .confirmation-dialog { box-sizing: border-box; width: min(calc(100% - 40px), 490px); max-height: calc(100% - 40px); overflow: auto; border: 0; background: #fff; border-radius: 12px; padding: 26px; box-shadow: 0 20px 60px rgba(15,23,42,.24); }
 .confirmation-dialog h2 { margin: 0 0 12px; font-size: 21px; }

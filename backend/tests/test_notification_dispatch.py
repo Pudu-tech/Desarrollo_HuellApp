@@ -1,4 +1,18 @@
-"""Seguridad y límites del procesamiento HTTP; sin envíos ni llamadas reales."""
+"""HuellApp · Pruebas de autenticación y límites de los disparadores de correo.
+
+RESPONSABILIDADES
+------------------------------------------------------------
+- Verificar autenticación y límites de los disparadores de correo mediante casos de regresión.
+
+ESTADO ACTUAL
+------------------------------------------------------------
+- Suite local basada en unittest y colaboradores simulados.
+
+SECURITY
+------------------------------------------------------------
+Utiliza simulaciones de los servicios externos. No introducir credenciales
+reales ni ejecutar estas pruebas contra datos de producción.
+"""
 import unittest
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -54,7 +68,7 @@ class DispatchTests(unittest.TestCase):
             result = self.client.get('/internal/notifications/cron', headers=self.headers('cron_secret'))
             self.assertEqual(result.status_code, 200)
             self.assertEqual(result.headers['cache-control'], 'no-store')
-            dispatch.assert_called_once_with(self.settings, max_jobs=100)
+            dispatch.assert_called_once_with(self.settings, max_jobs=100, enqueue_reminders=True)
 
     def test_bad_provider_configuration_does_not_reserve_jobs(self):
         with patch.object(api, 'check_configuration', side_effect=RuntimeError('private')), \

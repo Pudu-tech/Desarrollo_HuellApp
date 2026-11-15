@@ -74,7 +74,22 @@ function UsuariosPage() {
     useState<UserListItem[]>([])
 
   const sorting = useListSort<string>('nombre')
-  const usuariosOrdenados = sorting.order(users, { nombre: item => [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ').trim() })
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const canFilter = user?.role_code === 'SUPERADMIN' || user?.role_code === 'DIRECTIVA'
+  const normalize = (value: string) => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('es-CL').trim()
+  const query = normalize(search)
+  const filteredUsers = canFilter ? users.filter((item) => {
+    if (roleFilter && item.roles.codigo !== roleFilter) return false
+    if (statusFilter && item.activo !== (statusFilter === 'activo')) return false
+    const text = normalize([item.nombres, item.apellido_paterno, item.apellido_materno, item.email, item.rut].filter(Boolean).join(' '))
+    const rutQuery = query.replace(/[.\s-]/g, '')
+    return text.includes(query) || (!!rutQuery && item.rut.replace(/[.\s-]/g, '').toLocaleLowerCase('es-CL').includes(rutQuery))
+  }) : users
+  const rolesFiltro = Array.from(new Map(users.map((item) => [item.roles.codigo, item.roles.nombre])).entries())
+    .sort((a, b) => a[1].localeCompare(b[1], 'es-CL'))
+  const usuariosOrdenados = sorting.order(filteredUsers, { nombre: item => [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ').trim() })
 
   const [loading, setLoading] =
     useState(true)
@@ -426,7 +441,7 @@ function UsuariosPage() {
         <div className="users-panel-heading">
           <div>
             <h2>Usuarios registrados</h2>
-            <p>{loading ? 'Cargando...' : `${users.length} usuarios`}</p>
+            <p role="status">{loading ? 'Cargando...' : `${filteredUsers.length} de ${users.length} usuarios`}</p>
           </div>
           <button
             type="button"
@@ -437,6 +452,28 @@ function UsuariosPage() {
             Actualizar
           </button>
         </div>
+
+      {canFilter && <div className="users-filters" role="search" aria-label="Filtrar usuarios">
+        <label>Buscar usuario
+          <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Nombre, RUT o correo..." />
+        </label>
+        <label>Rol
+          <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
+            <option value="">Todos los roles</option>
+            {rolesFiltro.map(([code, name]) => <option key={code} value={code}>{name}</option>)}
+          </select>
+        </label>
+        <label>Estado
+          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <option value="">Todos los estados</option>
+            <option value="activo">Activo</option>
+            <option value="inactivo">Inactivo</option>
+          </select>
+        </label>
+        <button type="button" className="users-secondary" disabled={!search && !roleFilter && !statusFilter} onClick={() => { setSearch(''); setRoleFilter(''); setStatusFilter('') }}>Limpiar filtros</button>
+      </div>}
+
+      {!loading && !error && users.length > 0 && filteredUsers.length === 0 && <p className="users-feedback">No hay usuarios que coincidan con los filtros.</p>}
 
       {loading && (
         <LoadingIndicator />

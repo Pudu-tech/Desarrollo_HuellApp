@@ -20,7 +20,7 @@ from app.core.security import get_current_user, require_permission
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.catalogo_academico import CatalogoAcademico, RecursoAcademicoDatos, RecursoAcademicoItem
-from app.api.salas import _request_rpc_context
+from app.core.request_context import request_rpc_context
 
 router = APIRouter(prefix="/catalogo-academico", tags=["Catálogo académico"])
 Entidad = Literal["asignaturas", "reflexion", "encuentro"]
@@ -54,7 +54,7 @@ def ejecutar_operacion(entidad, accion, registro_id, datos, actor, request):
     try:
         if datos and (entidad == "asignaturas") != (datos.nivel_ids is not None):
             raise HTTPException(422, "Los campos no corresponden al tipo de recurso seleccionado.")
-        context = _request_rpc_context(request)
+        context = request_rpc_context(request)
         payload = datos.model_dump(mode="json", exclude_none=True) if datos else {}
         # Null explícito permite limpiar campos opcionales durante la edición.
         if datos:

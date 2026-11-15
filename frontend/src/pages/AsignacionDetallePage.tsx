@@ -176,6 +176,8 @@ export default function AsignacionDetallePage() {
         </div>
         <dl className="assignments-detail-grid">
           <div><dt>Colegio / Lugar</dt><dd>{item.colegio_id ? colegio?.nombre ?? 'Colegio no disponible' : item.lugar ?? '—'}</dd></div>
+          {user?.role_code === 'DIRECTIVA' && <div><dt>Coordinador responsable</dt><dd>{item.coordinadores?.length ? item.coordinadores.map((person) => person.nombre).join(', ') : 'Sin coordinador asociado'}</dd></div>}
+          {item.curso_nombre && <div><dt>Curso</dt><dd>{item.curso_nombre}</dd></div>}
           <div><dt>Fecha</dt><dd>{item.fecha.split('-').reverse().join('/')}</dd></div>
           <div><dt>Horario</dt><dd>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</dd></div>
           <div><dt>Participantes registrados</dt><dd>{item.participantes.length}</dd></div>
@@ -207,7 +209,7 @@ export default function AsignacionDetallePage() {
             setNotice('Participante agregado. Recibirá una invitación para aceptar o rechazar; las respuestas anteriores se conservaron.')
           }} />}
           {!item.participantes.length ? <p>No hay participantes activos.</p> : <div className="assignments-table-scroll"><table className="assignments-table">
-            <thead><tr><SortableHeader label="Participante" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Respuesta</th><th>Asistencia</th><SortableHeader label="Fecha de respuesta" column="respuesta" sort={sorting.sort} onSort={sorting.toggle} /><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
+            <thead><tr><SortableHeader label="Monitor" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Respuesta</th><th>Asistencia</th><SortableHeader label="Fecha de respuesta" column="respuesta" sort={sorting.sort} onSort={sorting.toggle} /><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
             <tbody>{sorting.order(item.participantes, { nombre: p => p.usuario_nombre, respuesta: p => dateSortValue(p.fecha_respuesta) }).map((participante) => <tr key={participante.id}>
               <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || '—'}</td>
               <td><span className={`assignments-status assignments-status--${participante.estado_participacion_codigo?.toLowerCase() ?? 'unknown'}`}>{participante.estado_participacion_nombre || 'Estado no disponible'}</span></td>

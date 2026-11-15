@@ -31,13 +31,13 @@ export function validarAsignacion(payload: AsignacionPayload, codigo: string): s
     if (codigo === 'REUNION') {
       if (payload.ramo_id || payload.espacio_reflexion_id || payload.espacio_encuentro_id) return 'Reunión no admite ramo ni espacios académicos.'
     } else {
-      if (!payload.curso_colegio_id || !payload.sala_id || !payload.ramo_id) return 'Selecciona curso, sala y ramo para esta actividad.'
+      if (!payload.curso_colegio_id || !payload.ramo_id) return 'Selecciona curso y ramo para esta actividad.'
       if (codigo === 'ESPACIO_REFLEXION' && (!payload.espacio_reflexion_id || payload.espacio_encuentro_id)) return 'Selecciona un espacio de reflexión del ramo.'
       if (codigo === 'ESPACIO_ENCUENTRO' && (!payload.espacio_encuentro_id || payload.espacio_reflexion_id)) return 'Selecciona un espacio de encuentro del ramo.'
     }
   } else if (codigo === 'CAPACITACION' || codigo === 'EVENTO_CASA_CENTRAL') {
     if (!payload.lugar?.trim()) return 'Indica el lugar de la actividad.'
-    if (payload.colegio_id || payload.curso_colegio_id || payload.sala_id || payload.ramo_id || payload.espacio_reflexion_id || payload.espacio_encuentro_id || payload.contactos.length) return 'Esta actividad no admite contexto escolar ni contactos del colegio.'
+    if (payload.colegio_id || payload.curso_colegio_id || payload.ramo_id || payload.espacio_reflexion_id || payload.espacio_encuentro_id || payload.contactos.length) return 'Esta actividad no admite contexto escolar ni contactos del colegio.'
   } else return 'El tipo de actividad no está disponible en este formulario.'
   return null
 }

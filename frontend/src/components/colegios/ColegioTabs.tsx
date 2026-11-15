@@ -16,12 +16,12 @@
  */
 import { useRef } from 'react'
 
-export type ColegioSection = 'informacion' | 'contactos' | 'cursos' | 'salas'
+export type ColegioSection = 'informacion' | 'contactos' | 'coordinadores' | 'cursos'
 const COLEGIO_SECTIONS: Array<{ id: ColegioSection; label: string; permission?: string }> = [
   { id: 'informacion', label: 'Información general' },
   { id: 'contactos', label: 'Personas de contacto', permission: 'VIEW_SCHOOL_CONTACTS' },
+  { id: 'coordinadores', label: 'Coordinadores', permission: 'VIEW_SCHOOL_COORDINATORS' },
   { id: 'cursos', label: 'Cursos', permission: 'VIEW_COURSES' },
-  { id: 'salas', label: 'Salas', permission: 'VIEW_ROOMS' },
 ]
 
 interface Props {

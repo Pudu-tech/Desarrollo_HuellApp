@@ -854,7 +854,7 @@ def eliminar_colegio(
     La autorización se comprueba en FastAPI y nuevamente en PostgreSQL.
     La RPC bloquea el colegio, protege las instancias futuras activas y
     registra los valores anteriores/posteriores y el actor en auditoría.
-    Archiva cursos, salas y contactos, con auditoría por cada entidad afectada.
+    Archiva el colegio y sus recursos relacionados, conservando la trazabilidad histórica.
     Conserva las instancias y relaciones históricas sin borrado físico.
 
     Returns:

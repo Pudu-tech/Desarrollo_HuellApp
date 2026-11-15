@@ -7,7 +7,7 @@
  *
  * ESTADO ACTUAL
  * ------------------------------------------------------------
- * - Cursos, salas y contactos se administran dentro de la ficha del colegio.
+ * - Cursos y contactos se administran dentro de la ficha del colegio.
  *
  * SECURITY
  * ------------------------------------------------------------
@@ -23,7 +23,7 @@
  * ------------------------------------------------------------
  * Esta configuración determina qué enlaces son visibles
  * para cada rol.
- * Cursos, Salas y Contactos se administran dentro de la ficha de Colegios.
+ * Cursos y Contactos se administran dentro de la ficha de Colegios.
  *
  * No reemplaza las validaciones realizadas por RoleRoute
  * ni la autorización implementada en FastAPI.

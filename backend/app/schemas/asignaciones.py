@@ -614,8 +614,8 @@ class AsignacionCreate(BaseModel):
     tipo_actividad_id: UUID
 
     colegio_id: UUID | None = None
+    coordinador_id: UUID | None = None
     curso_colegio_id: UUID | None = None
-    sala_id: UUID | None = None
     ramo_id: UUID | None = None
 
     espacio_reflexion_id: UUID | None = None
@@ -750,8 +750,8 @@ class AsignacionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     colegio_id: UUID | None = None
+    coordinador_id: UUID | None = None
     curso_colegio_id: UUID | None = None
-    sala_id: UUID | None = None
     ramo_id: UUID | None = None
 
     espacio_reflexion_id: UUID | None = None
@@ -845,6 +845,15 @@ class AsignacionUpdate(BaseModel):
         return self
 
 
+
+
+class PersonaAsignacionReferencia(BaseModel):
+    """Referencia mínima de una persona asociada a la instancia para listados."""
+
+    id: UUID
+    nombre: str
+
+
 # ============================================================
 # LISTADO DE INSTANCIAS
 # ============================================================
@@ -859,6 +868,7 @@ class AsignacionListItem(BaseModel):
     tipo_actividad_id: UUID
 
     colegio_id: UUID | None = None
+    coordinador_id: UUID | None = None
     curso_colegio_id: UUID | None = None
     sala_id: UUID | None = None
     ramo_id: UUID | None = None
@@ -877,6 +887,9 @@ class AsignacionListItem(BaseModel):
     por_reasignar: bool = False
     asistencia_resumen: dict[str, int] = Field(default_factory=dict)
     asignados_a: list[str] = Field(default_factory=list)
+    monitores: list[PersonaAsignacionReferencia] = Field(default_factory=list)
+    coordinadores: list[PersonaAsignacionReferencia] = Field(default_factory=list)
+    curso_nombre: str | None = None
 
     activo: bool
 

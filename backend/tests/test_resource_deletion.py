@@ -21,7 +21,7 @@ from uuid import uuid4
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from app.api import cursos, salas
+from app.api import cursos
 
 
 class ResourceDeletionTests(unittest.IsolatedAsyncioTestCase):
@@ -50,12 +50,12 @@ class ResourceDeletionTests(unittest.IsolatedAsyncioTestCase):
         return response
 
     async def test_success_and_audit_context(self):
-        for module in (cursos, salas):
+        for module in (cursos,):
             with self.subTest(module=module.__name__):
                 self.assertIsNone(await self.call_delete(module, {"ok": True}))
 
     async def test_domain_errors(self):
-        for module, prefix in ((cursos, "COURSE"), (salas, "ROOM")):
+        for module, prefix in ((cursos, "COURSE"),):
             for code, expected in ((f"{prefix}_NOT_FOUND", 404),
                                    (f"{prefix}_HAS_FUTURE_ASSIGNMENTS", 409),
                                    ("FORBIDDEN", 403), ("ACTOR_NOT_FOUND", 403)):
@@ -65,7 +65,7 @@ class ResourceDeletionTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(error.exception.status_code, expected)
 
     async def test_invalid_rpc_or_database_failure(self):
-        for module in (cursos, salas):
+        for module in (cursos,):
             for result, failure in ((None, None), ([], None),
                                     ({"ok": False, "error_code": "UNKNOWN"}, None),
                                     (None, RuntimeError("audit insert failed"))):
@@ -75,7 +75,7 @@ class ResourceDeletionTests(unittest.IsolatedAsyncioTestCase):
                     self.assertEqual(error.exception.status_code, 500)
 
     def test_delete_routes_require_permission_and_return_204(self):
-        for module in (cursos, salas):
+        for module in (cursos,):
             route = next(route for route in module.router.routes if "DELETE" in route.methods)
             self.assertEqual(route.status_code, 204)
             self.assertEqual(len(route.dependant.dependencies), 1)
@@ -83,7 +83,7 @@ class ResourceDeletionTests(unittest.IsolatedAsyncioTestCase):
             captured = dict(zip(dependency.__code__.co_freevars,
                                 (cell.cell_contents for cell in dependency.__closure__)))
             self.assertEqual(captured["permission_code"],
-                             "DELETE_COURSE" if module is cursos else "DELETE_ROOM")
+                             "DELETE_COURSE")
 
 
 if __name__ == "__main__":

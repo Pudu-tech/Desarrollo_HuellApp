@@ -29,7 +29,7 @@ export default function ColegioDeleteDialog({ colegio, working, error, onCancel,
   return <ConfirmationDialog title="¿Eliminar colegio?" confirmLabel="Sí, eliminar colegio" working={working}
     workingLabel="Eliminando…" error={error} onCancel={onCancel} onConfirm={onConfirm}>
       Vas a eliminar <strong>{colegio.nombre}</strong>{colegio.rbd ? ` (RBD ${colegio.rbd})` : ''}.
-      También se eliminarán lógicamente sus cursos, salas y contactos.
+      También se eliminarán lógicamente sus cursos y contactos.
       Esta acción no se puede deshacer desde la interfaz.
       Se conservarán las instancias históricas y quedará registro en auditoría.
   </ConfirmationDialog>

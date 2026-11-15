@@ -34,6 +34,44 @@
 .assignments-personal-toolbar label { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 12px; color: #64748b; }
 .assignments-personal-toolbar select { width: auto; max-width: 100%; padding: 5px 8px; font-size: 12px; border-color: #e2e8f0; border-radius: 6px; }
 .assignments-personal-toolbar input[type="checkbox"] { width: 14px; height: 14px; margin: 0; padding: 0; }
+
+.assignments-personal-toolbar.assignments-personal-filters {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 16px;
+}
+.assignments-personal-filters label {
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+.assignments-personal-filters :is(input:not([type="checkbox"]), select) {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid var(--huella-gray-300);
+  border-radius: 10px;
+  background: var(--huella-white);
+  color: var(--huella-ink);
+  font-family: inherit;
+}
+.assignments-personal-filters .assignments-personal-pending {
+  flex-direction: row;
+  align-items: center;
+  grid-column: span 2;
+  min-height: 44px;
+}
+.assignments-filter-count { color: var(--huella-gray-600); font-size: 14px; }
+@media (max-width: 1000px) {
+  .assignments-personal-toolbar.assignments-personal-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .assignments-personal-toolbar.assignments-personal-filters { grid-template-columns: 1fr; }
+  .assignments-personal-filters .assignments-personal-pending { grid-column: auto; }
+}
 .assignments-page textarea { resize: vertical; }
 .assignments-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 .assignments-form-section { border-top: 1px solid #e2e8f0; margin-top: 24px; padding-top: 20px; }

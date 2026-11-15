@@ -25,7 +25,7 @@
  * - Inicio
  * - Usuarios
  * - Colegios
- * - Cursos y Salas dentro de la ficha de Colegios
+ * - Cursos dentro de la ficha de Colegios
  * - Instancias
  * - Auditoría
  *
@@ -33,7 +33,7 @@
  * - Inicio
  * - Usuarios
  * - Colegios
- * - Cursos y Salas dentro de la ficha de Colegios
+ * - Cursos dentro de la ficha de Colegios
  * - Instancias
  *
  * COORDINADOR
@@ -268,20 +268,6 @@ function App() {
 
             <Route
               path="cursos"
-              element={
-                <RoleRoute
-                  allowedRoles={[
-                    'SUPERADMIN',
-                    'DIRECTIVA',
-                  ]}
-                >
-                  <Navigate to="/app/colegios" replace />
-                </RoleRoute>
-              }
-            />
-
-            <Route
-              path="salas"
               element={
                 <RoleRoute
                   allowedRoles={[

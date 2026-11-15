@@ -30,7 +30,7 @@ test('Orden español respeta tildes, mayúsculas y ñ en ambos sentidos', () => 
   assert.deepEqual(names, ['Óscar', 'Ana', 'Ñora', 'Nora', 'álvaro'])
 })
 
-test('Orden natural de cursos y salas evita poner el 10 antes del 2', () => {
+test('Orden natural de recursos evita poner el 10 antes del 2', () => {
   assert.deepEqual(sortList(['Sala 10', 'Sala 2', 'Sala 1'], x => x, 'asc'), ['Sala 1', 'Sala 2', 'Sala 10'])
 })
 

@@ -100,7 +100,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
             result = api.listar_recursos_colegio_asignacion(school, SimpleNamespace())
         validate.assert_called_once_with(db, colegio_id=school)
         self.assertEqual(result.contactos, [])
-        for table in ("cursos_colegio", "salas", "contactos_colegio"):
+        for table in ("cursos_colegio", "contactos_colegio"):
             self.assertIn(("eq", "colegio_id", str(school)), db.queries[table].calls)
             self.assertIn(("eq", "activo", True), db.queries[table].calls)
             self.assertIn(("is", "deleted_at", "null"), db.queries[table].calls)

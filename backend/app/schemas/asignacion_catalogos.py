@@ -78,10 +78,15 @@ class OpcionesCreacionAsignacion(BaseModel):
     ramos: list[RamoOpcion]
 
 
+class CoordinadorOpcion(OpcionNombre):
+    """Coordinador activo asociado al colegio seleccionado."""
+    pass
+
+
 class OpcionesColegioAsignacion(BaseModel):
     cursos: list[CursoOpcion]
-    salas: list[OpcionNombre]
     contactos: list[ContactoOpcion]
+    coordinadores: list[CoordinadorOpcion]
 
 
 class OpcionesEspaciosAsignacion(BaseModel):

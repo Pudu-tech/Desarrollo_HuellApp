@@ -25,7 +25,6 @@ from starlette.requests import Request
 from app.api import catalogos, colegios
 from app.core.resource_integrity import raise_school_resource_conflict
 from app.schemas.cursos import CursoCreate
-from app.schemas.salas import SalaCreate, SalaUpdate
 
 
 class SchoolManagementTests(unittest.IsolatedAsyncioTestCase):
@@ -81,11 +80,6 @@ class SchoolManagementTests(unittest.IsolatedAsyncioTestCase):
         for section, year in (("AA", 2026), ("A", 1999), ("A", 2101)):
             with self.assertRaises(ValidationError):
                 CursoCreate(colegio_id=school, nivel_curso_id=level, seccion=section, anio=year)
-        with self.assertRaises(ValidationError):
-            SalaCreate(colegio_id=school, nombre=" ", capacidad=30)
-        with self.assertRaises(ValidationError):
-            SalaCreate(colegio_id=school, nombre="Sala", capacidad=0)
-        self.assertIsNone(SalaUpdate(capacidad=None).capacidad)
 
 
 if __name__ == "__main__":

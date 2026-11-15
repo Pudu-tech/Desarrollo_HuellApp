@@ -18,7 +18,7 @@ import { recursoRequest } from './recursosService'
 
 export interface ParticipacionPropia {
   asignacion_id: string; participante_id: string; invitacion_version: string
-  estado: string; fecha_respuesta: string | null; motivo_rechazo: string | null
+  estado: string; asignacion_estado: string; fecha_respuesta: string | null; motivo_rechazo: string | null
   asistencia_estado: string | null
   admite_asistencia: boolean
   actividad: string; fecha: string; hora_inicio: string; hora_fin: string

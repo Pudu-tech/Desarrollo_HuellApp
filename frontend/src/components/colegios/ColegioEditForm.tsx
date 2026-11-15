@@ -3,7 +3,7 @@
  *
  * RESPONSABILIDADES
  * ------------------------------------------------------------
- * - Editar información y alojar los paneles de contactos, cursos y salas.
+ * - Editar información y alojar los paneles de contactos, coordinadores y cursos.
  *
  * ESTADO ACTUAL
  * ------------------------------------------------------------
@@ -34,8 +34,8 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { getComunas } from '../../services/colegiosService'
 import ColegioFields from './ColegioFields'
 import ColegioContactos from './ColegioContactos'
+import ColegioCoordinadores from './ColegioCoordinadores'
 import ColegioCursos from './ColegioCursos'
-import ColegioSalas from './ColegioSalas'
 import ColegioTabs, { type ColegioSection } from './ColegioTabs'
 import { getPermissions } from '../../services/recursosService'
 import { useConfirmation } from '../../hooks/useConfirmation'
@@ -227,7 +227,7 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
       {onRequestDelete && permissions.includes('DELETE_SCHOOL') && (
         <section className="schools-form-section schools-delete-section">
           <h3>Eliminar colegio</h3>
-          <p>Se eliminarán lógicamente el colegio y sus cursos, salas y contactos. Se conservarán las instancias históricas y la auditoría. Primero debes cancelar o reasignar las instancias futuras vigentes.</p>
+          <p>Se eliminarán lógicamente el colegio, sus cursos y contactos relacionados. Se conservarán las instancias históricas y la auditoría. Primero debes cancelar o reasignar las instancias futuras vigentes.</p>
           <button type="button" className="schools-danger" disabled={busy} onClick={() => onRequestDelete(current)}>
             Eliminar colegio
           </button>
@@ -246,11 +246,17 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
         <ColegioContactos colegioId={current.id} colegioActivo={current.activo} permissions={permissions} onWorkingChange={setChildWorking} />
       </>}
       </div>
+      <div id="school-panel-coordinadores" role="tabpanel" aria-labelledby="school-tab-coordinadores" hidden={section !== 'coordinadores'} tabIndex={0}>
+        {visited.includes('coordinadores') && <ColegioCoordinadores
+          colegioId={current.id}
+          colegioNombre={current.nombre}
+          colegioActivo={current.activo}
+          permissions={permissions}
+          onWorkingChange={setChildWorking}
+        />}
+      </div>
       <div id="school-panel-cursos" role="tabpanel" aria-labelledby="school-tab-cursos" hidden={section !== 'cursos'} tabIndex={0}>
         {visited.includes('cursos') && <ColegioCursos colegioId={current.id} colegioActivo={current.activo} permissions={permissions} onWorkingChange={setChildWorking} />}
-      </div>
-      <div id="school-panel-salas" role="tabpanel" aria-labelledby="school-tab-salas" hidden={section !== 'salas'} tabIndex={0}>
-        {visited.includes('salas') && <ColegioSalas colegioId={current.id} colegioActivo={current.activo} permissions={permissions} onWorkingChange={setChildWorking} />}
       </div>
     </div>
   )

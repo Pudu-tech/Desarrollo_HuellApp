@@ -27,11 +27,13 @@ import { createAsignacion, getAsignacionesResumen, getOpcionesCreacion } from '.
 import type { AsignacionItem, AsignacionPayload, CatalogosAsignacion, OpcionesCreacion } from '../types/asignaciones'
 import '../styles/asignaciones.css'
 import { colegiosDisponibles } from '../utils/asignacionesListado'
+import { useAuth } from '../contexts/AuthContext'
 
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : 'No fue posible completar la operación.'
 
 export default function AsignacionesPage() {
   const [params] = useSearchParams()
+  const { user } = useAuth()
   const [items, setItems] = useState<AsignacionItem[]>([])
   const [catalogos, setCatalogos] = useState<CatalogosAsignacion | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
@@ -48,6 +50,9 @@ export default function AsignacionesPage() {
   const [tipoId, setTipoId] = useState('')
   const [estadoId, setEstadoId] = useState('')
   const [colegioId, setColegioId] = useState('')
+  const [coordinadorId, setCoordinadorId] = useState('')
+  const [monitorId, setMonitorId] = useState('')
+  const [cursoId, setCursoId] = useState('')
   const [desde, setDesde] = useState(params.get('desde') || '')
   const [upcomingOnly, setUpcomingOnly] = useState(params.get('proximas') === '1')
   const [hasta, setHasta] = useState('')
@@ -76,18 +81,38 @@ export default function AsignacionesPage() {
   const estados = useMemo(() => new Map(catalogos?.estados.map((item) => [item.id, item]) ?? []), [catalogos])
   const colegios = useMemo(() => new Map(catalogos?.colegios.map((item) => [item.id, item.nombre]) ?? []), [catalogos])
   const colegiosFiltro = useMemo(() => colegiosDisponibles(catalogos?.colegios ?? []), [catalogos])
+  const coordinadoresFiltro = useMemo(() => {
+    const map = new Map<string, string>()
+    items.flatMap((item) => item.coordinadores ?? []).forEach((person) => map.set(person.id, person.nombre))
+    return [...map.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-CL'))
+  }, [items])
+  const monitoresFiltro = useMemo(() => {
+    const map = new Map<string, string>()
+    items.flatMap((item) => item.monitores ?? []).forEach((person) => map.set(person.id, person.nombre))
+    return [...map.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-CL'))
+  }, [items])
+  const cursosFiltro = useMemo(() => {
+    const map = new Map<string, string>()
+    items.forEach((item) => { if (item.curso_colegio_id && item.curso_nombre) map.set(item.curso_colegio_id, item.curso_nombre) })
+    return [...map.entries()].map(([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre, 'es-CL'))
+  }, [items])
+  const isDirectiva = user?.role_code === 'DIRECTIVA'
+  const isCoordinador = user?.role_code === 'COORDINADOR'
   const rangoInvalido = !!desde && !!hasta && desde > hasta
   const filtered = useMemo(() => items.filter((item) => {
     if (upcomingOnly && ['REALIZADA', 'CANCELADA', 'NO_REALIZADA'].includes(estados.get(item.estado_id)?.codigo || '')) return false
     if (tipoId && item.tipo_actividad_id !== tipoId) return false
     if (estadoId === 'POR_REASIGNAR' ? !item.por_reasignar : estadoId && (item.estado_id !== estadoId || item.por_reasignar)) return false
     if (colegioId && item.colegio_id !== colegioId) return false
+    if (coordinadorId && !(item.coordinadores ?? []).some((person) => person.id === coordinadorId)) return false
+    if (monitorId && !(item.monitores ?? []).some((person) => person.id === monitorId)) return false
+    if (cursoId && item.curso_colegio_id !== cursoId) return false
     if (desde && item.fecha < desde) return false
     if (hasta && item.fecha > hasta) return false
     const text = `${tipos.get(item.tipo_actividad_id)?.nombre ?? ''} ${colegios.get(item.colegio_id ?? '') ?? ''} ${item.lugar ?? ''} ${item.observacion ?? ''}`
     return text.toLocaleLowerCase('es-CL').includes(search.trim().toLocaleLowerCase('es-CL'))
-  }), [items, tipoId, estadoId, colegioId, desde, hasta, search, tipos, colegios, upcomingOnly, estados])
-  const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, participantes: r => r.asignados_a?.join(', ') })
+  }), [items, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, search, tipos, colegios, upcomingOnly, estados])
+  const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, coordinadores: r => r.coordinadores?.map((person) => person.nombre).join(', '), monitores: r => r.monitores?.map((person) => person.nombre).join(', '), participantes: r => r.asignados_a?.join(', ') })
 
   /** Carga opciones nuevas al abrir: un recurso eliminado no queda como opción cacheada. */
   async function openCreate() {
@@ -112,7 +137,7 @@ export default function AsignacionesPage() {
       return user ? [user.nombres, user.apellido_paterno, user.apellido_materno].filter(Boolean).join(' ') : 'Participante no disponible'
     })
     setItems((previous) => [...previous, { ...created, asignados_a: asignados }])
-    setSearch(''); setTipoId(''); setEstadoId(''); setColegioId(''); setDesde(''); setHasta('')
+    setSearch(''); setTipoId(''); setEstadoId(''); setColegioId(''); setCoordinadorId(''); setMonitorId(''); setCursoId(''); setDesde(''); setHasta('')
     setCreating(false)
     setNotice('Instancia creada correctamente. Participantes, contactos y auditoría quedaron registrados.')
     return created
@@ -138,17 +163,21 @@ export default function AsignacionesPage() {
         <label>Tipo de actividad<select value={tipoId} onChange={(event) => setTipoId(event.target.value)}><option value="">Todos los tipos</option>{catalogos?.tipos_actividad.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Estado<select value={estadoId} onChange={(event) => setEstadoId(event.target.value)}><option value="">Todos los estados</option><option value="POR_REASIGNAR">Por reasignar</option>{catalogos?.estados.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Colegio<select value={colegioId} onChange={(event) => setColegioId(event.target.value)}><option value="">Todos los colegios</option>{colegiosFiltro.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
+        {isDirectiva && <label>Coordinador<select value={coordinadorId} onChange={(event) => setCoordinadorId(event.target.value)}><option value="">Todos los coordinadores</option>{coordinadoresFiltro.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>}
+        {(isDirectiva || isCoordinador) && <label>Monitor<select value={monitorId} onChange={(event) => setMonitorId(event.target.value)}><option value="">Todos los monitores</option>{monitoresFiltro.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>}
+        {(isDirectiva || isCoordinador) && <label>Curso<select value={cursoId} onChange={(event) => setCursoId(event.target.value)}><option value="">Todos los cursos</option>{cursosFiltro.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>}
         <label>Desde<input type="date" value={desde} onChange={(event) => setDesde(event.target.value)} /></label>
         <label>Hasta<input type="date" value={hasta} onChange={(event) => setHasta(event.target.value)} /></label>
       </div>
       {rangoInvalido && <p className="assignments-error" role="alert">La fecha desde debe ser anterior o igual a la fecha hasta.</p>}
       {loading ? <LoadingIndicator /> : error ? <div className="assignments-feedback" role="alert"><p>{error}</p><button type="button" className="assignments-secondary" onClick={refresh}>Reintentar</button></div>
         : !filtered.length ? <p className="assignments-feedback">{items.length ? 'No hay instancias que coincidan con los filtros.' : 'Aún no hay instancias registradas.'}</p>
-          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / Lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Asignada a" column="participantes" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
+          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / Lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} />{isDirectiva && <SortableHeader label="Coordinador" column="coordinadores" sort={sorting.sort} onSort={sorting.toggle} />}<SortableHeader label="Monitor" column="monitores" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
             <tbody>{ordered.map((item) => <tr key={item.id}>
               <td className="assignments-name">{tipos.get(item.tipo_actividad_id)?.nombre ?? 'Actividad'}</td>
               <td>{item.colegio_id ? colegios.get(item.colegio_id) ?? 'Colegio no disponible' : item.lugar || '—'}</td>
-              <td><ul className="assignments-assignees">{item.asignados_a?.length ? item.asignados_a.map((name, index) => <li key={`${index}-${name}`}>{name}</li>) : <li>Sin participantes</li>}</ul></td>
+              {isDirectiva && <td><ul className="assignments-assignees">{item.coordinadores?.length ? item.coordinadores.map((person) => <li key={person.id}>{person.nombre}</li>) : <li>Sin coordinador asociado</li>}</ul></td>}
+              <td><ul className="assignments-assignees">{item.monitores?.length ? item.monitores.map((person) => <li key={person.id}>{person.nombre}</li>) : <li>Sin monitor</li>}</ul></td>
               <td>{item.fecha.split('-').reverse().join('/')}</td><td>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</td>
               <td><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estados.get(item.estado_id)?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre ?? 'Estado no disponible'}</span></td>
               <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{Object.entries(item.asistencia_resumen ?? {}).filter(([, count]) => count > 0).map(([state, count]) => `${count} ${state === 'NO_REQUERIDA' ? 'no requerida' : state.toLowerCase()}`).join(' · ') || 'Sin registros'}</Link></td>

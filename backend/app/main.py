@@ -45,11 +45,11 @@ from app.api.auth import router as auth_router
 from app.api.profile import router as profile_router
 from app.api.colegios import router as colegios_router
 from app.api.contactos import router as contactos_router
+from app.api.coordinacion import router as coordinacion_router
 from app.api.catalogos import router as catalogos_router
 from app.api.cursos import router as cursos_router
 from app.api.health import router as health_router
 from app.api.notification_dispatch import router as notification_dispatch_router
-from app.api.salas import router as salas_router
 from app.api.users import router as users_router
 from app.core.config import get_settings
 from app.middleware.request_id import RequestIdMiddleware
@@ -112,15 +112,15 @@ app.include_router(colegios_router)
 # Contactos reutilizables por colegio; conserva el límite de Instancias.
 app.include_router(contactos_router)
 
+# Coordinadores y monitores asociados por colegio.
+app.include_router(coordinacion_router)
+
 # Catálogos activos para los selectores del formulario de colegios.
 # La API de catálogos reutiliza el mismo sistema de autenticación y permisos.
 app.include_router(catalogos_router)
 
 # Registra los endpoints del módulo de cursos.
 app.include_router(cursos_router)
-
-# Registra los endpoints del módulo de salas.
-app.include_router(salas_router)
 
 # Registra los endpoints del módulo de instancias.
 app.include_router(asignaciones_router)

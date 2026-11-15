@@ -16,12 +16,13 @@
  */
 import LoadingIndicator from '../LoadingIndicator'
 
-import { useRef, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getOpcionesColegio, getOpcionesEspacios, getColegioEdicion, getEspaciosEdicion } from '../../services/asignacionesService'
 import type { AsignacionDetail, AsignacionPayload, OpcionesCreacion } from '../../types/asignaciones'
 import { useOpcionesDependientes } from '../../hooks/useOpcionesDependientes'
 import { useConfirmation } from '../../hooks/useConfirmation'
+import { useAuth } from '../../contexts/AuthContext'
 import AsignacionParticipantes, { type ParticipanteFila } from './AsignacionParticipantes'
 import { TIPOS_ESCOLARES, validarAsignacion } from './asignacionForm'
 
@@ -30,18 +31,20 @@ interface Props {
   onCreate: (payload: AsignacionPayload) => Promise<AsignacionDetail>
   onClose: () => void
   initial?: AsignacionPayload
+  initialDate?: string
 }
 
 /** Los valores vacíos son selecciones pendientes; nunca UUID ficticios. */
 const emptyPayload = (): AsignacionPayload => ({
-  tipo_actividad_id: '', colegio_id: null, curso_colegio_id: null, sala_id: null, ramo_id: null,
+  tipo_actividad_id: '', colegio_id: null, coordinador_id: null, curso_colegio_id: null, ramo_id: null,
   espacio_reflexion_id: null, espacio_encuentro_id: null, fecha: '', hora_inicio: '08:00', hora_fin: '08:00',
   lugar: null, observacion: null, participantes: [], contactos: [],
 })
 
-export default function AsignacionCreateForm({ opciones, onCreate, onClose, initial }: Props) {
+export default function AsignacionCreateForm({ opciones, onCreate, onClose, initial, initialDate }: Props) {
   const editing = !!initial
-  const [form, setForm] = useState<AsignacionPayload>(() => initial ?? emptyPayload())
+  const { user } = useAuth()
+  const [form, setForm] = useState<AsignacionPayload>(() => initial ?? { ...emptyPayload(), fecha: initialDate ?? '' })
   const [participantes, setParticipantes] = useState<ParticipanteFila[]>(() => initial ? initial.participantes.map((item, key) => ({ ...item, key })) : [{ key: 0, usuario_id: '', tipo_participacion_id: '' }])
   const nextRow = useRef(1)
   const submitting = useRef(false)
@@ -56,6 +59,23 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
   const curso = colegio.data?.cursos.find((item) => item.id === form.curso_colegio_id)
   const ramos = opciones.ramos.filter((item) => curso && item.nivel_ids.includes(curso.nivel_curso_id))
   const espacioOptions = tipo?.codigo === 'ESPACIO_REFLEXION' ? espacios.data?.reflexion : espacios.data?.encuentro
+
+  /** Mantiene el coordinador responsable sincronizado con el colegio elegido. */
+  useEffect(() => {
+    if (!escolar || !form.colegio_id || !colegio.data) return
+    const options = colegio.data.coordinadores
+    if (user?.role_code === 'COORDINADOR') {
+      if (form.coordinador_id !== user.id) setForm((previous) => ({ ...previous, coordinador_id: user.id }))
+      return
+    }
+    if (options.length === 1) {
+      if (form.coordinador_id !== options[0].id) setForm((previous) => ({ ...previous, coordinador_id: options[0].id }))
+      return
+    }
+    if (form.coordinador_id && !options.some((item) => item.id === form.coordinador_id)) {
+      setForm((previous) => ({ ...previous, coordinador_id: null }))
+    }
+  }, [colegio.data, escolar, form.colegio_id, form.coordinador_id, user?.id, user?.role_code])
 
   /** Actualiza un campo y limpia el error de validación de la edición anterior. */
   function change<K extends keyof AsignacionPayload>(key: K, value: AsignacionPayload[K]) {
@@ -81,8 +101,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
       || !opciones.tipos_participacion.some((role) => role.id === item.tipo_participacion_id))) { setError('Uno de los participantes o tipos no está disponible.'); return }
     if (escolar && (!opciones.colegios.some((item) => item.id === payload.colegio_id)
       || payload.contactos.some((item) => !colegio.data?.contactos.some((contacto) => contacto.id === item.contacto_colegio_id))
-      || (payload.curso_colegio_id && !curso)
-      || (payload.sala_id && !colegio.data?.salas.some((item) => item.id === payload.sala_id)))) { setError('Revisa los recursos y contactos del colegio seleccionado.'); return }
+      || (payload.curso_colegio_id && !curso))) { setError('Revisa los recursos y contactos del colegio seleccionado.'); return }
     if (academica && (!ramos.some((item) => item.id === payload.ramo_id)
       || !espacioOptions?.some((item) => item.id === (payload.espacio_reflexion_id ?? payload.espacio_encuentro_id)))) { setError('El ramo y el espacio deben corresponder al curso seleccionado.'); return }
     submitting.current = true
@@ -108,7 +127,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
         <section className="assignments-form-section"><h3>Actividad y horario</h3>
           <div className="assignments-form-grid">
             <label>Tipo de actividad<select required disabled={editing} value={form.tipo_actividad_id} onChange={(event) => {
-              setForm((previous) => ({ ...previous, tipo_actividad_id: event.target.value, colegio_id: null, curso_colegio_id: null, sala_id: null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null, contactos: [], lugar: null }))
+              setForm((previous) => ({ ...previous, tipo_actividad_id: event.target.value, colegio_id: null, coordinador_id: null, curso_colegio_id: null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null, contactos: [], lugar: null }))
               setError('')
             }}><option value="">Seleccionar actividad</option>{opciones.tipos_actividad.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
             <label>Fecha<input type="date" required value={form.fecha} onChange={(event) => change('fecha', event.target.value)} /></label>
@@ -120,19 +139,18 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
           {!opciones.colegios.length && <p className="assignments-warning">No hay colegios activos disponibles. Registra o reactiva un colegio antes de crear esta actividad.</p>}
           <div className="assignments-form-grid">
             <label>Colegio<select required value={form.colegio_id ?? ''} onChange={(event) => {
-              setForm((previous) => ({ ...previous, colegio_id: event.target.value || null, curso_colegio_id: null, sala_id: null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null, contactos: [] }))
+              setForm((previous) => ({ ...previous, colegio_id: event.target.value || null, coordinador_id: null, curso_colegio_id: null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null, contactos: [] }))
               setError('')
             }}><option value="">Seleccionar colegio</option>{opciones.colegios.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
+            {user?.role_code !== 'COORDINADOR' && colegio.data?.coordinadores.length ? <label>Coordinador responsable<select required value={form.coordinador_id ?? ''} disabled={colegio.data.coordinadores.length === 1} onChange={(event) => change('coordinador_id', event.target.value || null)}><option value="">Seleccionar coordinador</option>{colegio.data.coordinadores.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label> : null}
             <label>Curso{!academica && ' (opcional)'}<select required={academica} disabled={!form.colegio_id || colegio.loading || !!colegio.error} value={form.curso_colegio_id ?? ''} onChange={(event) => {
               setForm((previous) => ({ ...previous, curso_colegio_id: event.target.value || null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null }))
               setError('')
             }}><option value="">Seleccionar curso</option>{colegio.data?.cursos.map((item) => <option key={item.id} value={item.id}>{item.nombre_mostrado} · {item.anio}</option>)}</select></label>
-            <label>Sala{!academica && ' (opcional)'}<select required={academica} disabled={!form.colegio_id || colegio.loading || !!colegio.error} value={form.sala_id ?? ''} onChange={(event) => change('sala_id', event.target.value || null)}>
-              <option value="">Seleccionar sala</option>{colegio.data?.salas.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}
-            </select></label>
           </div>
           {colegio.loading && <LoadingIndicator />}
-          {academica && colegio.data && (!colegio.data.cursos.length || !colegio.data.salas.length) && <p className="assignments-warning">Esta actividad requiere cursos y salas activos. Completa los recursos que faltan desde la ficha del colegio.</p>}
+          {colegio.data && !colegio.data.coordinadores.length && user?.role_code !== 'COORDINADOR' && <p className="assignments-warning">Este colegio no tiene un coordinador activo asignado. La instancia se guardará sin coordinador responsable.</p>}
+          {academica && colegio.data && !colegio.data.cursos.length && <p className="assignments-warning">Esta actividad requiere cursos activos. Completa los cursos que faltan desde la ficha del colegio.</p>}
           {colegio.error && <div role="alert"><p className="assignments-error">{colegio.error}</p><button className="assignments-secondary" type="button" onClick={colegio.retry}>Reintentar recursos</button></div>}
           {colegio.data && <><p>Selecciona las personas de contacto que correspondan.</p><div className="assignments-contacts">
             {colegio.data.contactos.map((item) => {

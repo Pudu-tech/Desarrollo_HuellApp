@@ -3,8 +3,9 @@
  *
  * RESPONSABILIDADES
  * ------------------------------------------------------------
- * - Presentar métricas personales comunes a todos los roles.
- * - Mostrar agenda personal a Directiva, Coordinador y Monitor.
+ * - Presentar métricas de las instancias visibles a Directiva y Coordinador.
+ * - Mantener las métricas personales de los demás roles.
+ * - Mostrar agenda de instancias visibles a Directiva y Coordinador, y personal a Monitor.
  * - Mantener el resumen administrativo de Superadmin.
  *
  * SECURITY
@@ -59,6 +60,8 @@ export default function InicioPage() {
   const photoUrl = useProfilePhoto(user?.id, '/mi-perfil')
   const isMonitor = user?.role_code === 'MONITOR'
   const isDirectiva = user?.role_code === 'DIRECTIVA'
+  const isCoordinador = user?.role_code === 'COORDINADOR'
+  const hasManagementStats = isDirectiva || isCoordinador
   const isSuperadmin = user?.role_code === 'SUPERADMIN'
   const hasPersonalCalendar = !isSuperadmin
   const canCreateFromCalendar = user?.role_code === 'DIRECTIVA' || user?.role_code === 'COORDINADOR'
@@ -129,11 +132,11 @@ export default function InicioPage() {
   const monthKey = key(month).slice(0, 7)
   const visiblePersonal = ownActivities.filter((r) => r.fecha.startsWith(monthKey))
   const visibleTeam = (items || []).filter((r) => r.fecha.startsWith(monthKey))
-  const calendarItems = isDirectiva ? visibleTeam : visiblePersonal
+  const calendarItems = hasManagementStats ? visibleTeam : visiblePersonal
   const dayItems = sortActivities(calendarItems.filter((r) => r.fecha === selected))
 
   /** Agrupa la carga mensual en bloques de siete días para una lectura rápida. */
-  const weeklyActivitySource = (isDirectiva ? visibleTeam : visiblePersonal)
+  const weeklyActivitySource = calendarItems
     .filter((r) => r.estado !== 'CANCELADA')
   const weeklyActivity = Array.from({ length: 5 }, (_, index) => ({
     label: `Sem ${index + 1}`,
@@ -172,14 +175,20 @@ export default function InicioPage() {
     <SortButton label="Colegio / lugar" column="lugar" sort={sorting.sort} onSort={sorting.toggle} />
   </div>
 
+  // La API ya limita las instancias al ámbito autorizado del coordinador.
+  const statsItems = items || []
+  const statsUpcoming = statsItems.filter((r) => r.fecha >= today() && ['PENDIENTE', 'CONFIRMADA'].includes(r.estado))
+  const managementLinks = ['/app/asignaciones', '/app/asignaciones?proximas=1', '/app/asignaciones?estado=REALIZADA', '/app/asignaciones?estado=PENDIENTE']
   const statsLinks = isMonitor
     ? ['/app/monitor/asignaciones', '/app/monitor/asignaciones?orden=proximas', '/app/monitor/asignaciones', '/app/monitor/asignaciones?pendientes=1']
-    : ['/app/mis-asignaciones', '/app/mis-asignaciones', '/app/mis-asignaciones', '/app/mis-asignaciones']
+    : hasManagementStats
+      ? managementLinks
+      : ['/app/mis-asignaciones', '/app/mis-asignaciones', '/app/mis-asignaciones', '/app/mis-asignaciones']
   const stats: Array<[string, number]> = [
-    ['Mis instancias Huella', ownItems.length],
-    ['Próximas actividades', ownUpcoming.length],
-    ['Actividades Realizadas', ownCompleted.length],
-    ['Actividades por confirmar', ownPending.length],
+    ['Mis instancias Huella', hasManagementStats ? statsItems.length : ownItems.length],
+    ['Próximas actividades', hasManagementStats ? statsUpcoming.length : ownUpcoming.length],
+    ['Actividades Realizadas', hasManagementStats ? statsItems.filter((r) => r.estado === 'REALIZADA').length : ownCompleted.length],
+    ['Actividades por confirmar', hasManagementStats ? statsItems.filter((r) => r.estado === 'PENDIENTE').length : ownPending.length],
   ]
 
   /**
@@ -288,10 +297,10 @@ export default function InicioPage() {
 
         <article className="home-card home-agenda-card"><h3>Lo que viene</h3><p className="home-muted">{isDirectiva ? 'Próximas actividades visibles del equipo.' : 'Tus próximas actividades. Usa las flechas para cambiar el orden.'}</p>
           {orderControls}
-          {(isDirectiva ? globalUpcoming : ownUpcoming).length
-            ? (isDirectiva ? globalUpcoming : ownUpcoming).slice(0, 5).map(activity)
+          {(hasManagementStats ? globalUpcoming : ownUpcoming).length
+            ? (hasManagementStats ? globalUpcoming : ownUpcoming).slice(0, 5).map(activity)
             : <p className="home-muted">{isDirectiva ? 'No hay próximas actividades programadas para el equipo.' : 'Tu agenda está despejada. Aquí aparecerán tus próximas instancias.'}</p>}
-          <Link className="home-more" to={isDirectiva ? '/app/asignaciones' : isMonitor ? '/app/monitor/asignaciones' : '/app/mis-asignaciones'}>{isDirectiva ? 'Ver instancias del equipo' : 'Ver mis instancias'} →</Link>
+          <Link className="home-more" to={hasManagementStats ? '/app/asignaciones' : isMonitor ? '/app/monitor/asignaciones' : '/app/mis-asignaciones'}>{isDirectiva ? 'Ver instancias del equipo' : 'Ver mis instancias'} →</Link>
 
           <section className="home-monthly-summary" aria-labelledby="home-monthly-title">
             <div className="home-monthly-heading">

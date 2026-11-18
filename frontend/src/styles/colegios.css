@@ -634,3 +634,217 @@
 .schools-resource-editor > p { color: #64748b; font-size: 14px; }
 .schools-editor [hidden] { display: none; }
 @media (max-width: 650px) { .schools-tabs button { flex: 1 1 45%; padding: 10px 8px; } .schools-resource-editor { padding: 14px; } }
+
+/* ============================================================
+   Coordinación por colegio
+   ============================================================ */
+.schools-coordination {
+  display: grid;
+  gap: 18px;
+}
+
+.schools-coordination-heading,
+.schools-coordinator-summary,
+.schools-coordinator-monitors-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.schools-coordination-heading h3,
+.schools-coordinator-monitors-heading h4 {
+  margin: 0 0 5px;
+  color: var(--huella-navy);
+}
+
+.schools-coordination-heading p,
+.schools-coordinator-monitors-heading p,
+.schools-coordinator-empty {
+  margin: 0;
+  color: var(--huella-gray-600);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.schools-coordination-count,
+.schools-coordinator-monitors-heading > span {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--huella-gray-100);
+  color: var(--huella-gray-600);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.schools-coordination-assign,
+.schools-monitor-assign {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.schools-coordination-assign label {
+  display: grid;
+  gap: 7px;
+  color: var(--huella-navy);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.schools-coordination-assign select,
+.schools-monitor-assign select {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--huella-gray-300);
+  border-radius: 10px;
+  background: var(--huella-white);
+  color: var(--huella-ink);
+  font: inherit;
+}
+
+.schools-coordination-warning {
+  padding: 16px;
+  border: 1px solid #e7b46f;
+  border-radius: 14px;
+  background: var(--huella-warning-soft);
+  color: var(--huella-warning-text);
+}
+
+.schools-coordination-warning p {
+  margin: 7px 0;
+  line-height: 1.5;
+}
+
+.schools-coordination-warning ul {
+  margin: 8px 0 10px;
+  padding-left: 20px;
+}
+
+.schools-coordination-warning-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.schools-coordination-list {
+  display: grid;
+  gap: 12px;
+}
+
+.schools-coordinator-card {
+  overflow: hidden;
+  border: 1px solid var(--huella-gray-200);
+  border-radius: 14px;
+  background: var(--huella-white);
+}
+
+.schools-coordinator-summary {
+  padding: 16px;
+}
+
+.schools-coordinator-summary > div:first-child,
+.schools-monitor-row > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.schools-coordinator-summary strong,
+.schools-monitor-row strong {
+  color: var(--huella-navy);
+}
+
+.schools-coordinator-summary span,
+.schools-monitor-row span {
+  color: var(--huella-gray-600);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.schools-coordinator-summary small {
+  margin-top: 4px;
+  color: var(--huella-warning-text);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.schools-coordinator-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.schools-danger-link {
+  border: 0;
+  background: transparent;
+  color: var(--huella-danger-text, #a23b3b);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.schools-danger-link:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.schools-coordinator-monitors {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border-top: 1px solid var(--huella-gray-200);
+  background: var(--huella-gray-050);
+}
+
+.schools-monitor-list {
+  display: grid;
+  gap: 8px;
+}
+
+.schools-monitor-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 11px 12px;
+  border: 1px solid var(--huella-gray-200);
+  border-radius: 10px;
+  background: var(--huella-white);
+}
+
+@media (max-width: 760px) {
+  .schools-coordination-heading,
+  .schools-coordinator-summary,
+  .schools-coordinator-monitors-heading {
+    flex-direction: column;
+  }
+
+  .schools-coordinator-actions {
+    justify-content: flex-start;
+  }
+
+  .schools-coordination-assign,
+  .schools-monitor-assign {
+    grid-template-columns: 1fr;
+  }
+
+  .schools-coordination-warning-actions {
+    flex-direction: column-reverse;
+  }
+
+  .schools-coordination-warning-actions > *,
+  .schools-coordination-assign > button,
+  .schools-monitor-assign > button {
+    width: 100%;
+  }
+}

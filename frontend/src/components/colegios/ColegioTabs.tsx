@@ -16,12 +16,13 @@
  */
 import { useRef } from 'react'
 
-export type ColegioSection = 'informacion' | 'contactos' | 'cursos' | 'salas'
+export type ColegioSection = 'informacion' | 'contactos' | 'coordinadores' | 'monitores' | 'cursos'
 const COLEGIO_SECTIONS: Array<{ id: ColegioSection; label: string; permission?: string }> = [
   { id: 'informacion', label: 'Información general' },
   { id: 'contactos', label: 'Personas de contacto', permission: 'VIEW_SCHOOL_CONTACTS' },
+  { id: 'coordinadores', label: 'Coordinadores', permission: 'VIEW_SCHOOL_COORDINATORS' },
+  { id: 'monitores', label: 'Monitores', permission: 'VIEW_COORDINATOR_MONITORS' },
   { id: 'cursos', label: 'Cursos', permission: 'VIEW_COURSES' },
-  { id: 'salas', label: 'Salas', permission: 'VIEW_ROOMS' },
 ]
 
 interface Props {
@@ -34,7 +35,9 @@ interface Props {
 /** La autorización visual nunca sustituye los permisos validados en backend. */
 export default function ColegioTabs({ value, permissions, disabled, onChange }: Props) {
   const refs = useRef<Array<HTMLButtonElement | null>>([])
-  const sections = COLEGIO_SECTIONS.filter((section) => !section.permission || permissions.includes(section.permission))
+  const sections = COLEGIO_SECTIONS.filter((section) =>
+    (!section.permission || permissions.includes(section.permission))
+    && (section.id !== 'monitores' || permissions.includes('VIEW_SCHOOL_COORDINATORS')))
   return <div role="tablist" aria-label="Secciones del colegio" className="schools-tabs">
     {sections.map((section, index) => <button key={section.id} type="button" role="tab"
       id={`school-tab-${section.id}`} aria-controls={`school-panel-${section.id}`}

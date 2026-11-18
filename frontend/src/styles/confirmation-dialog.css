@@ -23,6 +23,9 @@
 .confirmation-dialog-cancel { color: #334155; background: #fff; border: 1px solid #cbd5e1; }
 .confirmation-dialog-confirm { background: #b91c1c; color: white; border: 1px solid #b91c1c; }
 .confirmation-dialog-confirm:hover { background: #991b1b; }
+.confirmation-dialog[data-variant="success"] h2 { color: #166534; }
+.confirmation-dialog[data-variant="success"] .confirmation-dialog-confirm { background: #166534; border-color: #166534; }
+.confirmation-dialog[data-variant="success"] .confirmation-dialog-confirm:hover { background: #14532d; }
 .confirmation-dialog button:disabled { opacity: .6; cursor: not-allowed; }
 .confirmation-dialog button:focus-visible { outline: 2px solid #2563eb; outline-offset: 3px; }
 .confirmation-dialog .confirmation-dialog-error { color: #b91c1c; }

@@ -9,7 +9,7 @@
  *
  * ESTADO ACTUAL
  * ------------------------------------------------------------
- * - Ficha con Información, Contactos, Cursos y Salas del colegio seleccionado.
+ * - Ficha con Información, Contactos, Coordinadores y Cursos del colegio seleccionado.
  * - Eliminación lógica en cascada confirmada disponible solo para SUPERADMIN.
  *
  * SECURITY
@@ -177,7 +177,7 @@ function ColegiosPage() {
     setEstado('todos')
     setCreating(false)
     setEditing(null)
-    setNotice('Colegio creado correctamente. Puedes abrir Editar para agregar sus contactos, cursos y salas.')
+    setNotice('Colegio creado correctamente. Puedes abrir Editar para agregar sus contactos y cursos.')
     return created
   }
 

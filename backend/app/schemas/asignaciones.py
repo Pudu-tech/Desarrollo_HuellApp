@@ -614,8 +614,8 @@ class AsignacionCreate(BaseModel):
     tipo_actividad_id: UUID
 
     colegio_id: UUID | None = None
+    coordinador_id: UUID | None = None
     curso_colegio_id: UUID | None = None
-    sala_id: UUID | None = None
     ramo_id: UUID | None = None
 
     espacio_reflexion_id: UUID | None = None
@@ -750,8 +750,8 @@ class AsignacionUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     colegio_id: UUID | None = None
+    coordinador_id: UUID | None = None
     curso_colegio_id: UUID | None = None
-    sala_id: UUID | None = None
     ramo_id: UUID | None = None
 
     espacio_reflexion_id: UUID | None = None
@@ -769,6 +769,11 @@ class AsignacionUpdate(BaseModel):
     observacion: str | None = Field(
         default=None,
         max_length=2000,
+    )
+
+    participantes: list[ParticipanteCreate] | None = Field(
+        default=None,
+        min_length=1,
     )
 
     contactos: list[ContactoAsignacionCreate] | None = Field(
@@ -818,6 +823,23 @@ class AsignacionUpdate(BaseModel):
         return self
 
     @model_validator(mode="after")
+    def validar_participantes_duplicados(
+        self,
+    ) -> "AsignacionUpdate":
+        """Evita repetir una persona cuando la edición reemplaza participantes."""
+
+        if self.participantes is None:
+            return self
+
+        usuarios = [participante.usuario_id for participante in self.participantes]
+        if len(usuarios) != len(set(usuarios)):
+            raise ValueError(
+                "No se permite repetir un participante dentro de la misma instancia."
+            )
+
+        return self
+
+    @model_validator(mode="after")
     def validar_contactos_duplicados(
         self,
     ) -> "AsignacionUpdate":
@@ -845,6 +867,15 @@ class AsignacionUpdate(BaseModel):
         return self
 
 
+
+
+class PersonaAsignacionReferencia(BaseModel):
+    """Referencia mínima de una persona asociada a la instancia para listados."""
+
+    id: UUID
+    nombre: str
+
+
 # ============================================================
 # LISTADO DE INSTANCIAS
 # ============================================================
@@ -859,6 +890,7 @@ class AsignacionListItem(BaseModel):
     tipo_actividad_id: UUID
 
     colegio_id: UUID | None = None
+    coordinador_id: UUID | None = None
     curso_colegio_id: UUID | None = None
     sala_id: UUID | None = None
     ramo_id: UUID | None = None
@@ -877,6 +909,9 @@ class AsignacionListItem(BaseModel):
     por_reasignar: bool = False
     asistencia_resumen: dict[str, int] = Field(default_factory=dict)
     asignados_a: list[str] = Field(default_factory=list)
+    monitores: list[PersonaAsignacionReferencia] = Field(default_factory=list)
+    coordinadores: list[PersonaAsignacionReferencia] = Field(default_factory=list)
+    curso_nombre: str | None = None
 
     activo: bool
 

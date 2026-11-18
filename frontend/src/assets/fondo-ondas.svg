@@ -22,7 +22,8 @@
   <path fill="#FFFFFF" d="M0 0h1252v330H0z"/>
   <path fill="url(#onda-superior)" d="M0 213C145 205 290 190 389 172C572 139 751 65 875 56C998 47 1106 97 1252 112V330H0Z"/>
   <path fill="url(#onda-central)" d="M0 278C157 281 272 257 378 219C495 176 565 140 635 141C744 137 831 190 968 210C1071 226 1178 217 1252 198V330H0Z"/>
-  <path fill="url(#onda-diagonal)" d="M1092 0H1252V330H393C576 327 731 263 876 158C958 102 1029 48 1092 0Z"/>
-  <path fill="url(#onda-derecha)" d="M1183 0H1252V330H826C960 261 1070 185 1134 79Z"/>
+  <!-- Las ondas se curvan bajo el borde superior para evitar un remate cortado. -->
+  <path fill="url(#onda-diagonal)" d="M393 330C576 327 731 263 876 158C958 102 1029 48 1092 30C1148 14 1203 22 1252 38V330Z"/>
+  <path fill="url(#onda-derecha)" d="M826 330C960 261 1070 185 1134 101C1166 59 1208 52 1252 70V330Z"/>
   <path fill="#FBE4D8" fill-opacity=".38" d="M0 256C77 292 166 320 260 330H0Z"/>
 </svg>

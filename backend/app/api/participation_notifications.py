@@ -20,7 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.core.security import get_current_user, require_permission
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
-from app.api.salas import _request_rpc_context
+from app.core.request_context import request_rpc_context
 from app.services.participation_notifications import personal_summary, personal_summaries, verify_invitation
 
 router = APIRouter(tags=["Invitaciones y participación propia"])
@@ -49,7 +49,7 @@ class InvitationResponse(ParticipationResponse, InvitationRequest):
 
 def respond(db, request, assignment_id, participant_id, actor_id, datos, canal, version=None):
     """Registra una respuesta multicanal mediante RPC y traduce conflictos a errores HTTP."""
-    context = _request_rpc_context(request)
+    context = request_rpc_context(request)
     result = db.rpc("responder_participacion_canal_atomica", {
         "p_asignacion_id": str(assignment_id), "p_participante_id": str(participant_id),
         "p_actor_user_id": str(actor_id), "p_accion": datos.accion, "p_canal": canal,
@@ -125,7 +125,7 @@ class DeliveryRetry(BaseModel):
 def retry_delivery(envio_id: UUID, datos: DeliveryRetry, request: Request,
                          actor: AuthenticatedUser = Depends(require_permission("RETRY_NOTIFICATION_DELIVERY"))):
     """Solicita un reintento autorizado; una entrega incierta exige verificación previa."""
-    context = _request_rpc_context(request)
+    context = request_rpc_context(request)
     result = get_supabase_client().rpc("reintentar_envio_participacion", {
         "p_id": str(envio_id), "p_actor": str(actor.id), "p_verificado": datos.entrega_verificada,
         **{f"p_{key}": value for key, value in context.items()},

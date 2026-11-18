@@ -33,7 +33,10 @@ from app.schemas.asignacion_catalogos import (
     OpcionesColegioAsignacion, OpcionesEspaciosAsignacion,
 )
 from app.api.asignaciones import (
-    _obtener_colegio_activo, _validar_ramo_activo, _validar_permiso_tipo_actividad,
+    _obtener_colegio_activo,
+    _validar_colegio_coordinador,
+    _validar_ramo_activo,
+    _validar_permiso_tipo_actividad,
 )
 from app.api.catalogo_academico import proyectar_ramo
 
@@ -54,10 +57,24 @@ def listar_catalogos_asignaciones(
         raise HTTPException(403, "Estos catálogos corresponden a la gestión de instancias.")
     try:
         db = get_supabase_client()
+        colegios_query = db.table("colegios").select("id,nombre,activo,deleted_at").order("nombre")
+        if actor.role_code == "COORDINADOR":
+            relaciones = _datos(
+                db.table("usuario_colegio")
+                .select("colegio_id")
+                .eq("usuario_id", str(actor.id))
+                .eq("activo", True)
+            )
+            colegio_ids = [str(item["colegio_id"]) for item in relaciones]
+            if not colegio_ids:
+                colegios_query = colegios_query.in_("id", ["00000000-0000-0000-0000-000000000000"])
+            else:
+                colegios_query = colegios_query.in_("id", colegio_ids)
+
         queries = {
             "tipos_actividad": db.table("tipos_actividad").select("id,codigo,nombre").order("nombre"),
             "estados": db.table("estados_asignacion").select("id,codigo,nombre").order("orden"),
-            "colegios": db.table("colegios").select("id,nombre,activo,deleted_at").order("nombre"),
+            "colegios": colegios_query,
         }
         with ThreadPoolExecutor(max_workers=3) as executor:
             futures = {key: executor.submit(_datos, query) for key, query in queries.items()}
@@ -112,12 +129,54 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
                     continue
                 raise
             allowed.append(item)
-        users = _datos(db.table("usuarios").select("id,nombres,apellido_paterno,apellido_materno,email,roles!inner(codigo)")
-                       .eq("activo", True).is_("deleted_at", "null")
-                       .in_("roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"]).order("nombres")) if filtrar_tipos else []
+        users_query = (
+            db.table("usuarios")
+            .select("id,nombres,apellido_paterno,apellido_materno,email,roles!inner(codigo)")
+            .eq("activo", True)
+            .is_("deleted_at", "null")
+            .in_("roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"])
+            .order("nombres")
+        )
+        users = _datos(users_query)
+
+        # En creación solo se ofrecen monitores. La edición permite además al
+        # propio coordinador para conservar participaciones existentes.
+        if actor.role_code == "COORDINADOR":
+            relaciones = _datos(
+                db.table("coordinador_monitor_colegio")
+                .select("monitor_id")
+                .eq("coordinador_id", str(actor.id))
+                .eq("activo", True)
+            )
+            monitor_ids = {str(item["monitor_id"]) for item in relaciones}
+            users = [
+                user for user in users
+                if (user["roles"]["codigo"] == "MONITOR" and str(user["id"]) in monitor_ids)
+                or (not filtrar_tipos and str(user["id"]) == str(actor.id))
+            ]
+        colegios_query = (
+            db.table("colegios")
+            .select("id,nombre")
+            .eq("activo", True)
+            .is_("deleted_at", "null")
+            .order("nombre")
+        )
+        if actor.role_code == "COORDINADOR":
+            relaciones = _datos(
+                db.table("usuario_colegio")
+                .select("colegio_id")
+                .eq("usuario_id", str(actor.id))
+                .eq("activo", True)
+            )
+            colegio_ids = [str(item["colegio_id"]) for item in relaciones]
+            if colegio_ids:
+                colegios_query = colegios_query.in_("id", colegio_ids)
+            else:
+                colegios_query = colegios_query.in_("id", ["00000000-0000-0000-0000-000000000000"])
+
         return OpcionesCreacionAsignacion.model_validate({
             "tipos_actividad": allowed,
-            "colegios": _datos(db.table("colegios").select("id,nombre").eq("activo", True).is_("deleted_at", "null").order("nombre")),
+            "colegios": _datos(colegios_query),
             "participantes": [{**{key: user.get(key) for key in ("id", "nombres", "apellido_paterno", "apellido_materno", "email")},
                                 "role_code": user["roles"]["codigo"]} for user in users],
             "tipos_participacion": _datos(db.table("tipos_participacion").select("id,codigo,nombre").eq("activo", True).order("nombre")),
@@ -152,17 +211,56 @@ def listar_recursos_colegio_asignacion(
     colegio_id: UUID,
     _actor: AuthenticatedUser = Depends(require_permission("CREATE_ASSIGNMENT")),
 ) -> OpcionesColegioAsignacion:
-    """Filtra cursos, salas y contactos por colegio activo; evita mezclar establecimientos."""
+    """Filtra cursos y contactos por colegio activo; evita mezclar establecimientos."""
     try:
         db = get_supabase_client()
         _obtener_colegio_activo(db, colegio_id=colegio_id)
+        if _actor.role_code == "COORDINADOR":
+            _validar_colegio_coordinador(
+                db,
+                coordinador_id=_actor.id,
+                colegio_id=colegio_id,
+            )
         def recursos(table: str, columns: str, order: str):
             return _datos(db.table(table).select(columns).eq("colegio_id", str(colegio_id))
                           .eq("activo", True).is_("deleted_at", "null").order(order))
+        coordinadores_rows = _datos(
+            db.table("usuario_colegio")
+            .select("usuario_id,usuario:usuarios!usuario_id(id,nombres,apellido_paterno,apellido_materno,activo,deleted_at,roles(codigo))")
+            .eq("colegio_id", str(colegio_id))
+            .eq("activo", True)
+        )
+        coordinadores = []
+        for row in coordinadores_rows:
+            user = row.get("usuario") or {}
+            role = user.get("roles") or {}
+            if user.get("activo") is not True or user.get("deleted_at") is not None or role.get("codigo") != "COORDINADOR":
+                continue
+            nombre = " ".join(filter(None, [user.get("nombres"), user.get("apellido_paterno"), user.get("apellido_materno")])).strip()
+            coordinadores.append({"id": user.get("id"), "nombre": nombre or "Coordinador"})
+        coordinadores.sort(key=lambda item: item["nombre"].casefold())
+        coordinadores_visibles = [
+            item for item in coordinadores
+            if _actor.role_code == "DIRECTIVA"
+            or (_actor.role_code == "COORDINADOR" and str(item["id"]) == str(_actor.id))
+        ]
+        if coordinadores_visibles:
+            monitores_por_coordinador = {str(item["id"]): [] for item in coordinadores_visibles}
+            relaciones = _datos(
+                db.table("coordinador_monitor_colegio")
+                .select("coordinador_id,monitor_id")
+                .eq("colegio_id", str(colegio_id))
+                .eq("activo", True)
+                .in_("coordinador_id", list(monitores_por_coordinador))
+            )
+            for relacion in relaciones:
+                monitores_por_coordinador[str(relacion["coordinador_id"])].append(relacion["monitor_id"])
+            for coordinador in coordinadores_visibles:
+                coordinador["monitor_ids"] = monitores_por_coordinador[str(coordinador["id"])]
         return OpcionesColegioAsignacion.model_validate({
             "cursos": recursos("cursos_colegio", "id,nombre_mostrado,nivel_curso_id,anio", "nombre_mostrado"),
-            "salas": recursos("salas", "id,nombre", "nombre"),
             "contactos": recursos("contactos_colegio", "id,nombre,apellido_paterno,apellido_materno,cargo", "nombre"),
+            "coordinadores": coordinadores,
         })
     except HTTPException:
         raise

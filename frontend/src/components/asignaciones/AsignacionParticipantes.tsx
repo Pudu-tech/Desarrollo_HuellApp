@@ -23,16 +23,17 @@ interface Props {
   tipos: OpcionCodigo[]
   onChange: (rows: ParticipanteFila[]) => void
   onAdd: () => void
+  soloMonitores?: boolean
 }
 
-export default function AsignacionParticipantes({ rows, usuarios, tipos, onChange, onAdd }: Props) {
+export default function AsignacionParticipantes({ rows, usuarios, tipos, onChange, onAdd, soloMonitores = false }: Props) {
   return <section className="assignments-form-section">
     <h3>Participantes</h3>
     <p>Agrega al menos una persona e indica su participación en la actividad.</p>
-    {!usuarios.length && <p className="assignments-warning">No hay participantes activos disponibles. Deben existir usuarios DIRECTIVA, COORDINADOR o MONITOR.</p>}
+    {!soloMonitores && !usuarios.length && <p className="assignments-warning">No hay participantes activos disponibles. Deben existir usuarios DIRECTIVA, COORDINADOR o MONITOR.</p>}
     {rows.map((row, index) => <div className="assignments-participant-row" key={row.key}>
-      <label>Participante {index + 1}<select required value={row.usuario_id} onChange={(event) => onChange(rows.map((item) => item.key === row.key ? { ...item, usuario_id: event.target.value } : item))}>
-        <option value="">Seleccionar persona</option>
+      <label>{soloMonitores ? 'Monitor' : 'Participante'} {index + 1}<select required value={row.usuario_id} onChange={(event) => onChange(rows.map((item) => item.key === row.key ? { ...item, usuario_id: event.target.value } : item))}>
+        <option value="">{soloMonitores ? 'Seleccionar monitor' : 'Seleccionar persona'}</option>
         {usuarios.map((user) => <option key={user.id} value={user.id} disabled={rows.some((item) => item.key !== row.key && item.usuario_id === user.id)}>
           {[user.nombres, user.apellido_paterno, user.apellido_materno].filter(Boolean).join(' ')} · {user.role_code}{user.email ? ` · ${user.email}` : ''}
         </option>)}

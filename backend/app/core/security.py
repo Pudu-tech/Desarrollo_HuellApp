@@ -31,6 +31,7 @@ SECURITY:
   común para evitar duplicar lógica de autenticación.
 """
 
+import logging
 from collections.abc import Callable
 
 from fastapi import Depends, HTTPException, status
@@ -39,6 +40,8 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
 from supabase_auth.errors import AuthApiError
+
+logger = logging.getLogger(__name__)
 
 
 # Extrae credenciales enviadas mediante:
@@ -79,6 +82,7 @@ def get_current_user(
         )
 
     access_token = credentials.credentials
+    phase = "auth"
 
     try:
         supabase = get_supabase_client()
@@ -106,6 +110,7 @@ def get_current_user(
         # SECURITY:
         # Perfil, nombre y rol se consultan desde
         # public.usuarios.
+        phase = "profile"
         profile_response = (
             supabase.table("usuarios")
             .select(
@@ -179,9 +184,10 @@ def get_current_user(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
         # SECURITY:
         # No devolvemos detalles internos del error.
+        logger.warning("Falló la consulta de sesión (%s): %s", phase, type(exc).__name__)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=(

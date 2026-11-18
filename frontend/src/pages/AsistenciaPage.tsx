@@ -111,9 +111,9 @@ export default function AsistenciaPage() {
   }
   return <section className="assignments-page"><header className="assignments-heading"><div><h1>Asistencia</h1><p>Asistencia efectiva de los participantes, independiente de su respuesta a la invitación.</p></div><div className="query-table-actions"><button className="assignments-secondary assignments-export-refresh" disabled={locked || (!rows && !error)} onClick={() => void refresh()}>Actualizar</button><ExportButton disabled={!rows || locked || !!error || invalidRange || !filtered.length} prepare={prepareExport} onBusyChange={setExportBusy} /></div></header>
     {error && <p className="assignments-error" role="alert">{error}</p>}{notice && <p className="assignments-success" role="status">{notice}</p>}
-    {canSwitchView && <div className="assignments-editor-actions" role="group" aria-label="Vista de asistencia">
-      <button type="button" className={personal ? 'assignments-secondary' : 'assignments-primary'} aria-pressed={!personal} disabled={locked} onClick={() => selectView(false)}>Todas las asistencias</button>
-      <button type="button" className={personal ? 'assignments-primary' : 'assignments-secondary'} aria-pressed={personal} disabled={locked} onClick={() => selectView(true)}>Mis asistencias</button>
+    {canSwitchView && <div className="assignments-editor-actions attendance-view-actions" role="group" aria-label="Vista de asistencia">
+      <button type="button" className={personal ? 'assignments-secondary' : 'assignments-primary'} aria-pressed={!personal} disabled={busy || !!editing || !!ownEditing} onClick={() => selectView(false)}>Todas las asistencias</button>
+      <button type="button" className={personal ? 'assignments-primary' : 'assignments-secondary'} aria-pressed={personal} disabled={busy || !!editing || !!ownEditing} onClick={() => selectView(true)}>Mis asistencias</button>
     </div>}
     {personal && <p className="assignments-feedback">Estás consultando únicamente tus registros de asistencia.</p>}
     {ownEditing && <div ref={ownAttendancePanel} tabIndex={-1} role="region" aria-label="Mi registro de asistencia" className="attendance-edit-panel"><OwnAttendancePanel key={ownEditing.id} assignmentId={ownEditing.asignacion_id} onClose={() => setOwnEditing(null)} onSaved={() => { void refresh() }} /></div>}

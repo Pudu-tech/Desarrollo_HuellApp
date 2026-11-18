@@ -1,9 +1,9 @@
 /**
- * HuellApp · Contratos de cursos y salas.
+ * HuellApp · Contratos de cursos.
  *
  * RESPONSABILIDADES
  * ------------------------------------------------------------
- * - Definir las estructuras TypeScript utilizadas para cursos y salas.
+ * - Definir las estructuras TypeScript utilizadas para cursos.
  *
  * ESTADO ACTUAL
  * ------------------------------------------------------------
@@ -39,21 +39,3 @@ export interface NivelCursoItem {
   orden: number
 }
 
-export interface SalaItem {
-  id: string
-  colegio_id: string
-  nombre: string
-  descripcion: string | null
-  capacidad: number | null
-  ubicacion: string | null
-  activo: boolean
-  created_at: string
-  updated_at: string
-}
-
-export interface SalaPayload {
-  nombre: string
-  descripcion: string | null
-  capacidad: number | null
-  ubicacion: string | null
-}

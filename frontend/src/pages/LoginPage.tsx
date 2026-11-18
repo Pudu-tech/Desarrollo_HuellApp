@@ -15,6 +15,7 @@
  * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import LoadingIndicator from '../components/LoadingIndicator'
+import LoginCarousel from '../components/LoginCarousel'
 import {
   type ChangeEvent,
   type FormEvent,
@@ -212,52 +213,8 @@ function LoginPage() {
 
   return (
     <main className="huella-login-page">
-      <section
-        className="huella-login-story"
-        aria-labelledby="huella-story-title"
-      >
-        <div className="huella-login-story__content">
-          <p className="huella-login-story__eyebrow">
-            HuellApp
-          </p>
-
-          <h1 id="huella-story-title">
-            Organizar hoy.
-            <span>Transformar mañana.</span>
-          </h1>
-
-          <div
-            className="huella-login-story__rule"
-            aria-hidden="true"
-          />
-
-          <p className="huella-login-story__description">
-            Una plataforma para coordinar experiencias
-            educativas, acompañar a cada comunidad y
-            fortalecer el impacto de Fundación Huella.
-          </p>
-        </div>
-
-        <div
-          className="huella-login-art"
-          aria-hidden="true"
-        >
-          <span className="huella-login-art__circle" />
-
-          <span className="huella-login-art__path huella-login-art__path--one" />
-
-          <span className="huella-login-art__path huella-login-art__path--two" />
-
-          <span className="huella-login-art__path huella-login-art__path--three" />
-        </div>
-
-        <p className="huella-login-story__footer">
-          Educación <span>•</span>
-          Personas <span>•</span>
-          Comunidad <span>•</span>
-          Impacto
-        </p>
-      </section>
+      {/* El carrusel administra fotos y navegación sin modificar el formulario. */}
+      <LoginCarousel />
 
       <section
         className="huella-login-access"

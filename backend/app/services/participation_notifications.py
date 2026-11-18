@@ -124,6 +124,7 @@ def project_personal_summary(part: dict, assignment: dict, assignment_id: str) -
     if isinstance(attendance, list):
         attendance = attendance[0] if attendance else {}
     return {"asignacion_id": assignment_id, "participante_id": part["id"], "invitacion_version": part["invitacion_version"], "estado": part["estados_participacion"]["codigo"],
+            "asignacion_estado": assignment["estados_asignacion"]["codigo"],
             "recibida_at": received, "actualizada_at": updated, "ultima_invitacion_at": latest,
             "asistencia_estado": effective_attendance_state(attendance.get('estado'), part['estados_participacion']['codigo']),
             "admite_asistencia": attendance_available(part, assignment, attendance.get('estado')),

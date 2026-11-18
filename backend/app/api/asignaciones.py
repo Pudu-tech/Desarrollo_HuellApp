@@ -112,6 +112,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from postgrest.exceptions import APIError
 from pydantic import ValidationError
 
 from app.core.security import require_permission
@@ -179,6 +180,7 @@ ASIGNACION_SELECT = """
 id,
 tipo_actividad_id,
 colegio_id,
+coordinador_id,
 curso_colegio_id,
 sala_id,
 ramo_id,
@@ -214,7 +216,7 @@ contacto_colegio_id
 """
 
 PARTICIPANTE_DETALLE_SELECT = PARTICIPANTE_SELECT + """,
-usuario:usuarios!usuario_id(nombres,apellido_paterno,apellido_materno),
+usuario:usuarios!usuario_id(id,nombres,apellido_paterno,apellido_materno,roles(codigo)),
 tipo:tipos_participacion!tipo_participacion_id(nombre),
 estado:estados_participacion!estado_participacion_id(codigo,nombre),
 asistencia:asistencias_asignacion(estado)
@@ -244,6 +246,72 @@ def _asignados_a(participants: list[dict]) -> list[str]:
                         if (value := user.get(key)) and value.strip())
         names.append(name or 'Participante no disponible')
     return sorted(names, key=str.casefold)
+
+
+def _nombre_usuario(user: dict) -> str:
+    """Construye un nombre legible desde la proyección mínima de usuario."""
+    return " ".join(
+        value.strip()
+        for key in ("nombres", "apellido_paterno", "apellido_materno")
+        if (value := user.get(key)) and value.strip()
+    ) or "Usuario no disponible"
+
+
+def _monitores_referencia(participants: list[dict]) -> list[dict]:
+    """Proyecta los participantes activos que la UI presenta en la columna Monitor.
+
+    La participación en una instancia es la fuente de verdad para este listado.
+    No se filtra por el rol actual de la cuenta del usuario, porque existen
+    participaciones históricas (por ejemplo, RELATOR) que deben seguir
+    apareciendo en el resumen aunque su clasificación haya cambiado.
+    """
+    result: dict[str, dict] = {}
+    for part in participants:
+        if not part.get("activo") or part.get("deleted_at"):
+            continue
+        user = part.get("usuario") or {}
+        if not user.get("id"):
+            continue
+        result[str(user["id"])] = {"id": user["id"], "nombre": _nombre_usuario(user)}
+    return sorted(result.values(), key=lambda item: item["nombre"].casefold())
+
+
+def _coordinadores_por_instancias(supabase, items: list[dict]) -> dict[str, list[dict]]:
+    """Resuelve el coordinador responsable persistido en cada instancia."""
+    coordinator_ids = sorted({str(item["coordinador_id"]) for item in items if item.get("coordinador_id")})
+    if not coordinator_ids:
+        return {str(item["id"]): [] for item in items}
+
+    users = (
+        supabase.table("usuarios")
+        .select("id,nombres,apellido_paterno,apellido_materno")
+        .in_("id", coordinator_ids)
+        .execute()
+        .data or []
+    )
+    names = {str(user["id"]): _nombre_usuario(user) for user in users}
+    result: dict[str, list[dict]] = {}
+    for item in items:
+        coordinator_id = str(item["coordinador_id"]) if item.get("coordinador_id") else None
+        result[str(item["id"])] = (
+            [{"id": coordinator_id, "nombre": names.get(coordinator_id, "Coordinador no disponible")}]
+            if coordinator_id else []
+        )
+    return result
+
+
+def _enriquecer_item_listado(item: dict, coordinadores: list[dict]) -> dict:
+    """Añade proyecciones de coordinación, monitores y curso para la UI administrativa."""
+    participants = item.get("participaciones") or []
+    return {
+        **item,
+        "por_reasignar": _por_reasignar(item, participants),
+        "asistencia_resumen": _attendance_counts(participants),
+        "asignados_a": _asignados_a(participants),
+        "monitores": _monitores_referencia(participants),
+        "coordinadores": coordinadores,
+        "curso_nombre": (item.get("curso") or {}).get("nombre_mostrado"),
+    }
 
 
 def _attendance_state(part: dict):
@@ -358,6 +426,14 @@ def _normalizar_asistencia_db(
 # ============================================================
 # PERMISOS
 # ============================================================
+
+
+def _validar_error_solapamiento(exc: Exception) -> None:
+    if isinstance(exc, APIError) and exc.message == "ASSIGNMENT_SCHEDULE_CONFLICT":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Uno de los participantes ya tiene otra instancia asignada en ese horario.",
+        ) from exc
 
 
 def _usuario_tiene_permiso(
@@ -591,49 +667,6 @@ def _validar_curso_colegio(
         )
 
 
-def _validar_sala_colegio(
-    supabase,
-    *,
-    sala_id: UUID,
-    colegio_id: UUID,
-) -> None:
-    """
-    Valida que la sala exista, esté activa
-    y pertenezca al colegio.
-    """
-
-    response = (
-        supabase.table("salas")
-        .select("id,colegio_id,activo,deleted_at")
-        .eq("id", str(sala_id))
-        .limit(1)
-        .execute()
-    )
-
-    if not response.data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La sala seleccionada no existe.",
-        )
-
-    sala = response.data[0]
-
-    if (
-        sala.get("deleted_at") is not None
-        or sala.get("activo") is not True
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La sala seleccionada no está disponible.",
-        )
-
-    if sala["colegio_id"] != str(colegio_id):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="La sala no pertenece al colegio seleccionado.",
-        )
-
-
 def _validar_ramo_activo(
     supabase,
     *,
@@ -768,6 +801,7 @@ def _validar_participantes(
     supabase,
     *,
     payload: AsignacionCreate,
+    coordinador_responsable: UUID | None = None,
 ) -> None:
     """
     Valida participantes de una instancia nueva.
@@ -825,6 +859,19 @@ def _validar_participantes(
                     "Uno de los usuarios seleccionados "
                     "no puede ser participante."
                 ),
+            )
+
+        if coordinador_responsable is not None and payload.colegio_id is not None:
+            if rol != "MONITOR":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Selecciona un monitor asignado al coordinador responsable de este colegio.",
+                )
+            _validar_monitor_coordinador(
+                supabase,
+                coordinador_id=coordinador_responsable,
+                colegio_id=payload.colegio_id,
+                monitor_id=participante.usuario_id,
             )
 
         tipo_response = (
@@ -991,7 +1038,6 @@ def _validar_campos_tipo_actividad(
         if (
             payload.colegio_id is None
             or payload.curso_colegio_id is None
-            or payload.sala_id is None
             or payload.ramo_id is None
             or payload.espacio_reflexion_id is None
         ):
@@ -999,7 +1045,7 @@ def _validar_campos_tipo_actividad(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
                     "ESPACIO_REFLEXION requiere colegio, curso, "
-                    "sala, ramo y espacio de reflexión."
+                    "ramo y espacio de reflexión."
                 ),
             )
 
@@ -1026,11 +1072,6 @@ def _validar_campos_tipo_actividad(
             colegio_id=payload.colegio_id,
         )
 
-        _validar_sala_colegio(
-            supabase,
-            sala_id=payload.sala_id,
-            colegio_id=payload.colegio_id,
-        )
 
         _validar_ramo_activo(
             supabase,
@@ -1047,7 +1088,6 @@ def _validar_campos_tipo_actividad(
         if (
             payload.colegio_id is None
             or payload.curso_colegio_id is None
-            or payload.sala_id is None
             or payload.ramo_id is None
             or payload.espacio_encuentro_id is None
         ):
@@ -1055,7 +1095,7 @@ def _validar_campos_tipo_actividad(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=(
                     "ESPACIO_ENCUENTRO requiere colegio, curso, "
-                    "sala, ramo y espacio de encuentro."
+                    "ramo y espacio de encuentro."
                 ),
             )
 
@@ -1082,11 +1122,6 @@ def _validar_campos_tipo_actividad(
             colegio_id=payload.colegio_id,
         )
 
-        _validar_sala_colegio(
-            supabase,
-            sala_id=payload.sala_id,
-            colegio_id=payload.colegio_id,
-        )
 
         _validar_ramo_activo(
             supabase,
@@ -1132,12 +1167,6 @@ def _validar_campos_tipo_actividad(
                 colegio_id=payload.colegio_id,
             )
 
-        if payload.sala_id is not None:
-            _validar_sala_colegio(
-                supabase,
-                sala_id=payload.sala_id,
-                colegio_id=payload.colegio_id,
-            )
 
     elif tipo_codigo in {
         "CAPACITACION",
@@ -1154,7 +1183,6 @@ def _validar_campos_tipo_actividad(
             for value in (
                 payload.colegio_id,
                 payload.curso_colegio_id,
-                payload.sala_id,
                 payload.ramo_id,
                 payload.espacio_reflexion_id,
                 payload.espacio_encuentro_id,
@@ -1191,7 +1219,7 @@ def _obtener_detalle_asignacion(
 
     response = (
         supabase.table("asignaciones")
-        .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo)")
+        .select(ASIGNACION_SELECT + ",curso:cursos_colegio!curso_colegio_id(nombre_mostrado),estado:estados_asignacion!estado_id(codigo)")
         .eq("id", str(asignacion_id))
         .is_("deleted_at", "null")
         .limit(1)
@@ -1220,10 +1248,18 @@ def _obtener_detalle_asignacion(
         .execute()
     )
 
+    base = response.data[0]
+    participants = participantes_response.data or []
+    coordination_seed = [{**base, "participaciones": participants}]
+    coordinadores = _coordinadores_por_instancias(supabase, coordination_seed).get(str(asignacion_id), [])
+
     return AsignacionDetail.model_validate(
         {
-            **response.data[0],
-            "por_reasignar": _por_reasignar(response.data[0], participantes_response.data or []),
+            **base,
+            "por_reasignar": _por_reasignar(base, participants),
+            "monitores": _monitores_referencia(participants),
+            "coordinadores": coordinadores,
+            "curso_nombre": (base.get("curso") or {}).get("nombre_mostrado"),
             "participantes": [
                 ParticipanteSummary.model_validate(_participante_detalle(item))
                 for item in (participantes_response.data or [])
@@ -1290,6 +1326,265 @@ def _validar_acceso_monitor_asignacion(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="No posee acceso a esta instancia.",
+        )
+
+
+# ============================================================
+# SCOPE COORDINADOR
+# ============================================================
+
+
+def _scope_coordinador(supabase, *, coordinador_id: UUID) -> dict[str, set[str]]:
+    """Devuelve los monitores visibles del coordinador agrupados por colegio."""
+
+    colegios_response = (
+        supabase.table("usuario_colegio")
+        .select("colegio_id")
+        .eq("usuario_id", str(coordinador_id))
+        .eq("activo", True)
+        .execute()
+    )
+    colegios_relacionados = {str(item["colegio_id"]) for item in (colegios_response.data or [])}
+    if not colegios_relacionados:
+        return {}
+
+    colegios_response = (
+        supabase.table("colegios")
+        .select("id")
+        .in_("id", sorted(colegios_relacionados))
+        .eq("activo", True)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    colegios = {str(item["id"]) for item in (colegios_response.data or [])}
+    if not colegios:
+        return {}
+
+    relaciones = (
+        supabase.table("coordinador_monitor_colegio")
+        .select("colegio_id,monitor_id")
+        .eq("coordinador_id", str(coordinador_id))
+        .eq("activo", True)
+        .in_("colegio_id", sorted(colegios))
+        .execute()
+    )
+
+    monitor_ids = sorted({str(item["monitor_id"]) for item in (relaciones.data or [])})
+    if not monitor_ids:
+        return {}
+
+    monitores_response = (
+        supabase.table("usuarios")
+        .select("id,roles(codigo)")
+        .in_("id", monitor_ids)
+        .eq("activo", True)
+        .is_("deleted_at", "null")
+        .execute()
+    )
+    monitores_activos = {
+        str(item["id"])
+        for item in (monitores_response.data or [])
+        if (item.get("roles") or {}).get("codigo") == "MONITOR"
+    }
+
+    scope: dict[str, set[str]] = {}
+    for item in relaciones.data or []:
+        monitor_id = str(item["monitor_id"])
+        if monitor_id not in monitores_activos:
+            continue
+        colegio_id = str(item["colegio_id"])
+        scope.setdefault(colegio_id, set()).add(monitor_id)
+    return scope
+
+
+def _obtener_asignaciones_coordinador(
+    supabase,
+    *,
+    coordinador_id: UUID,
+) -> list[str]:
+    """Lista instancias cuyo responsable es el coordinador; conserva fallback histórico."""
+    directas = (
+        supabase.table("asignaciones")
+        .select("id")
+        .eq("coordinador_id", str(coordinador_id))
+        .is_("deleted_at", "null")
+        .execute()
+        .data or []
+    )
+    visibles = {str(item["id"]) for item in directas}
+
+    # Compatibilidad histórica: instancias previas a 061 pueden no tener
+    # coordinador_id. Solo esas se resuelven por colegio + monitor.
+    scope = _scope_coordinador(supabase, coordinador_id=coordinador_id)
+    if not scope:
+        return sorted(visibles)
+
+    asignaciones = (
+        supabase.table("asignaciones")
+        .select("id,colegio_id")
+        .is_("coordinador_id", "null")
+        .in_("colegio_id", sorted(scope))
+        .is_("deleted_at", "null")
+        .execute()
+        .data or []
+    )
+    asignacion_colegio = {
+        str(item["id"]): str(item["colegio_id"])
+        for item in asignaciones
+        if item.get("colegio_id") is not None
+    }
+    if not asignacion_colegio:
+        return sorted(visibles)
+
+    monitores = sorted({monitor for ids in scope.values() for monitor in ids})
+    if not monitores:
+        return sorted(visibles)
+
+    participantes = (
+        supabase.table("asignacion_participantes")
+        .select("asignacion_id,usuario_id")
+        .in_("asignacion_id", sorted(asignacion_colegio))
+        .in_("usuario_id", monitores)
+        .eq("activo", True)
+        .is_("deleted_at", "null")
+        .execute()
+        .data or []
+    )
+    for item in participantes:
+        asignacion_id = str(item["asignacion_id"])
+        colegio_id = asignacion_colegio.get(asignacion_id)
+        if colegio_id and str(item["usuario_id"]) in scope.get(colegio_id, set()):
+            visibles.add(asignacion_id)
+    return sorted(visibles)
+
+
+def _validar_acceso_coordinador_asignacion(
+    supabase,
+    *,
+    asignacion_id: UUID,
+    coordinador_id: UUID,
+) -> None:
+    """Impide que un coordinador consulte o administre instancias fuera de su alcance."""
+
+    if str(asignacion_id) not in set(
+        _obtener_asignaciones_coordinador(supabase, coordinador_id=coordinador_id)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No posee acceso a esta instancia según sus colegios y monitores asignados.",
+        )
+
+
+def _validar_colegio_coordinador(
+    supabase,
+    *,
+    coordinador_id: UUID,
+    colegio_id: UUID,
+) -> None:
+    """Valida que el coordinador esté asignado activamente al colegio."""
+
+    response = (
+        supabase.table("usuario_colegio")
+        .select("id")
+        .eq("usuario_id", str(coordinador_id))
+        .eq("colegio_id", str(colegio_id))
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+    colegio_response = (
+        supabase.table("colegios")
+        .select("id")
+        .eq("id", str(colegio_id))
+        .eq("activo", True)
+        .is_("deleted_at", "null")
+        .limit(1)
+        .execute()
+    )
+    if not response.data or not colegio_response.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No puede operar sobre un colegio al que no está asignado.",
+        )
+
+
+def _validar_monitor_coordinador(
+    supabase,
+    *,
+    coordinador_id: UUID,
+    colegio_id: UUID,
+    monitor_id: UUID,
+) -> None:
+    """Valida que el monitor pertenezca al coordinador en ese colegio."""
+
+    response = (
+        supabase.table("coordinador_monitor_colegio")
+        .select("id")
+        .eq("coordinador_id", str(coordinador_id))
+        .eq("colegio_id", str(colegio_id))
+        .eq("monitor_id", str(monitor_id))
+        .eq("activo", True)
+        .limit(1)
+        .execute()
+    )
+    if not response.data:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El monitor seleccionado no está asignado a este coordinador en el colegio.",
+        )
+
+
+def _validar_participantes_edicion_coordinador(
+    supabase,
+    *,
+    coordinador_id: UUID,
+    colegio_id: UUID | None,
+    participantes: list,
+) -> None:
+    """
+    Restringe la edición de participantes de un Coordinador a su propio
+    alcance operativo. Puede mantenerse a sí mismo como participante y solo
+    puede seleccionar monitores asociados a él dentro del colegio de la
+    instancia.
+    """
+
+    if colegio_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El coordinador solo puede editar participantes en instancias asociadas a uno de sus colegios.",
+        )
+
+    _validar_colegio_coordinador(
+        supabase,
+        coordinador_id=coordinador_id,
+        colegio_id=colegio_id,
+    )
+
+    for participante in participantes:
+        if str(participante.usuario_id) == str(coordinador_id):
+            continue
+
+        usuario = (
+            supabase.table("usuarios")
+            .select("id,roles!inner(codigo)")
+            .eq("id", str(participante.usuario_id))
+            .eq("activo", True)
+            .is_("deleted_at", "null")
+            .limit(1)
+            .execute()
+        )
+        role_code = (usuario.data[0].get("roles") or {}).get("codigo") if usuario.data else None
+        if role_code != "MONITOR":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Un coordinador solo puede asignarse a sí mismo o a monitores bajo su coordinación.",
+            )
+
+        _validar_monitor_coordinador(
+            supabase,
+            coordinador_id=coordinador_id,
+            colegio_id=colegio_id,
+            monitor_id=participante.usuario_id,
         )
 
 
@@ -1429,17 +1724,17 @@ def _validar_reglas_edicion_asignacion(
         estado_id=asignacion_actual.estado_id,
     )
 
-    if estado_codigo in {
-        "CANCELADA",
-        "NO_REALIZADA",
-    }:
+    if estado_codigo == "CANCELADA":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Una instancia {estado_codigo} no puede modificarse "
+                "Una instancia CANCELADA no puede modificarse "
                 "mediante el flujo normal."
             ),
         )
+
+    # NO_REALIZADA admite correcciones administrativas. La RPC completa
+    # conserva ese estado y evita generar nuevas invitaciones.
 
     if not payload.model_fields_set:
         raise HTTPException(
@@ -1453,7 +1748,6 @@ def _validar_reglas_edicion_asignacion(
         if nuevo_colegio != asignacion_actual.colegio_id:
             campos_requeridos = {
                 "curso_colegio_id",
-                "sala_id",
                 "contactos",
             }
 
@@ -1466,7 +1760,7 @@ def _validar_reglas_edicion_asignacion(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=(
                         "Al cambiar el colegio debe volver a informar "
-                        "curso_colegio_id, sala_id y contactos. Faltan: "
+                        "curso_colegio_id y contactos. Faltan: "
                         + ", ".join(sorted(faltantes))
                         + "."
                     ),
@@ -1604,7 +1898,7 @@ def listar_asignaciones(
     try:
         query = (
             supabase.table("asignaciones")
-            .select(ASIGNACION_SELECT + ",estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,usuario:usuarios!usuario_id(nombres,apellido_paterno,apellido_materno),asistencia:asistencias_asignacion(estado),estado:estados_participacion!estado_participacion_id(codigo))")
+            .select(ASIGNACION_SELECT + ",curso:cursos_colegio!curso_colegio_id(nombre_mostrado),estado:estados_asignacion!estado_id(codigo),participaciones:asignacion_participantes(activo,deleted_at,usuario_id,usuario:usuarios!usuario_id(id,nombres,apellido_paterno,apellido_materno,roles(codigo)),asistencia:asistencias_asignacion(estado),estado:estados_participacion!estado_participacion_id(codigo))")
             .is_("deleted_at", "null")
         )
 
@@ -1612,6 +1906,17 @@ def listar_asignaciones(
             ids = _obtener_asignaciones_monitor(
                 supabase,
                 usuario_id=current_user.id,
+            )
+
+            if not ids:
+                return []
+
+            query = query.in_("id", ids)
+
+        elif current_user.role_code == "COORDINADOR":
+            ids = _obtener_asignaciones_coordinador(
+                supabase,
+                coordinador_id=current_user.id,
             )
 
             if not ids:
@@ -1662,9 +1967,13 @@ def listar_asignaciones(
             .execute()
         )
 
+        rows = response.data or []
+        coordinadores = _coordinadores_por_instancias(supabase, rows)
         return [
-            AsignacionListItem.model_validate({**item, "por_reasignar": _por_reasignar(item, item.get("participaciones") or []), "asistencia_resumen": _attendance_counts(item.get('participaciones') or []), "asignados_a": _asignados_a(item.get('participaciones') or [])})
-            for item in (response.data or [])
+            AsignacionListItem.model_validate(
+                _enriquecer_item_listado(item, coordinadores.get(str(item["id"]), []))
+            )
+            for item in rows
         ]
 
     except HTTPException:
@@ -1736,6 +2045,12 @@ def obtener_asignacion(
                 asignacion_id=asignacion_id,
                 usuario_id=current_user.id,
             )
+        elif current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
 
         return _obtener_detalle_asignacion(
             supabase,
@@ -1790,6 +2105,34 @@ def actualizar_asignacion(
             asignacion_id=asignacion_id,
         )
 
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+            if (
+                "colegio_id" in payload.model_fields_set
+                and payload.colegio_id is not None
+                and str(payload.colegio_id) != str(asignacion_actual.colegio_id)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Un coordinador no puede mover una instancia entre colegios.",
+                )
+
+        target_colegio = payload.colegio_id if "colegio_id" in payload.model_fields_set else asignacion_actual.colegio_id
+        requested_coordinator = payload.coordinador_id if "coordinador_id" in payload.model_fields_set else asignacion_actual.coordinador_id
+        coordinador_responsable = _resolver_coordinador_responsable(
+            supabase,
+            colegio_id=target_colegio,
+            coordinador_id=requested_coordinator,
+            actor=current_user,
+        )
+        if coordinador_responsable != asignacion_actual.coordinador_id or "coordinador_id" in payload.model_fields_set:
+            payload.coordinador_id = coordinador_responsable
+            payload.model_fields_set.add("coordinador_id")
+
         _validar_reglas_edicion_asignacion(
             supabase,
             asignacion_actual=asignacion_actual,
@@ -1805,6 +2148,18 @@ def actualizar_asignacion(
             supabase,
             estado_resultante=estado_resultante,
         )
+        _validar_participantes(
+            supabase,
+            payload=payload_validado,
+        )
+
+        if current_user.role_code == "COORDINADOR" and "participantes" in payload.model_fields_set:
+            _validar_participantes_edicion_coordinador(
+                supabase,
+                coordinador_id=current_user.id,
+                colegio_id=target_colegio,
+                participantes=payload_validado.participantes,
+            )
 
         request_id_raw = getattr(
             request.state,
@@ -1825,15 +2180,15 @@ def actualizar_asignacion(
 
         campos_uuid = {
             "colegio_id",
+            "coordinador_id",
             "curso_colegio_id",
-            "sala_id",
             "ramo_id",
             "espacio_reflexion_id",
             "espacio_encuentro_id",
         }
 
         for campo in payload.model_fields_set:
-            if campo == "contactos":
+            if campo in {"contactos", "participantes"}:
                 continue
 
             valor = getattr(payload, campo)
@@ -1876,17 +2231,34 @@ def actualizar_asignacion(
             else []
         )
 
+        reemplazar_participantes = (
+            "participantes" in payload.model_fields_set
+        )
+        participantes = (
+            [
+                {
+                    "usuario_id": str(participante.usuario_id),
+                    "tipo_participacion_id": str(participante.tipo_participacion_id),
+                }
+                for participante in payload_validado.participantes
+            ]
+            if reemplazar_participantes
+            else []
+        )
+
         campos_modificados = sorted(
             payload.model_fields_set
         )
 
         response = supabase.rpc(
-            "actualizar_asignacion_atomica",
+            "actualizar_asignacion_completa_atomica",
             {
                 "p_asignacion_id": str(asignacion_id),
                 "p_cambios": cambios,
                 "p_reemplazar_contactos": reemplazar_contactos,
                 "p_contactos": contactos,
+                "p_reemplazar_participantes": reemplazar_participantes,
+                "p_participantes": participantes,
                 "p_expected_updated_at": (
                     asignacion_actual.updated_at.isoformat()
                 ),
@@ -1936,6 +2308,18 @@ def actualizar_asignacion(
                     ),
                 )
 
+            if error_code == "INVALID_PARTICIPANTS":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La selección de participantes no es válida.",
+                )
+
+            if error_code == "PARTICIPANT_UPDATE_FAILED":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="No fue posible aplicar todos los cambios de participantes. Vuelva a cargar la instancia.",
+                )
+
             if error_code == "ASSIGNMENT_CHANGED":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -1943,6 +2327,18 @@ def actualizar_asignacion(
                         "La instancia cambió antes de completar "
                         "la actualización. Vuelva a cargarla."
                     ),
+                )
+
+            if error_code == "COORDINATOR_REQUIRED":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Este colegio tiene más de un coordinador. Selecciona el coordinador responsable de la instancia.",
+                )
+
+            if error_code == "INVALID_COORDINATOR":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El coordinador seleccionado no está asignado activamente al colegio.",
                 )
 
             if error_code in {
@@ -1969,6 +2365,12 @@ def actualizar_asignacion(
         raise
 
     except Exception as exc:
+        _validar_error_solapamiento(exc)
+        if isinstance(exc, APIError) and exc.code == "PGRST202" and "actualizar_asignacion_completa_atomica" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="La función de edición no está disponible en la base de datos. Aplica la migración 063 en Supabase.",
+            ) from exc
         if "ASSIGNMENT_RECONFIRMATION_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "Solo se pueden cambiar las condiciones de actividades futuras y abiertas, sin asistencia informada.") from exc
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
@@ -1976,7 +2378,7 @@ def actualizar_asignacion(
         if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="El colegio, curso, sala o contacto no está disponible o no pertenece al contexto escolar.",
+                detail="El colegio, curso o contacto no está disponible o no pertenece al contexto escolar.",
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2021,6 +2423,13 @@ def cancelar_asignacion(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+
         request_id_raw = getattr(
             request.state,
             "request_id",
@@ -2262,12 +2671,13 @@ def reabrir_asignacion(
         raise
 
     except Exception as exc:
+        _validar_error_solapamiento(exc)
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
         if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="El colegio, curso, sala o contacto no está disponible o no pertenece al contexto escolar.",
+                detail="El colegio, curso o contacto no está disponible o no pertenece al contexto escolar.",
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -2312,6 +2722,36 @@ def agregar_participante(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+            asignacion_scope = (
+                supabase.table("asignaciones")
+                .select("colegio_id")
+                .eq("id", str(asignacion_id))
+                .single()
+                .execute()
+                .data
+            )
+            usuario_scope = (
+                supabase.table("usuarios")
+                .select("roles(codigo)")
+                .eq("id", str(payload.usuario_id))
+                .single()
+                .execute()
+                .data
+            )
+            if (usuario_scope.get("roles") or {}).get("codigo") == "MONITOR":
+                _validar_monitor_coordinador(
+                    supabase,
+                    coordinador_id=current_user.id,
+                    colegio_id=UUID(asignacion_scope["colegio_id"]),
+                    monitor_id=payload.usuario_id,
+                )
+
         request_id_raw = getattr(
             request.state,
             "request_id",
@@ -2468,7 +2908,8 @@ def agregar_participante(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        _validar_error_solapamiento(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible agregar el participante.",
@@ -2508,6 +2949,13 @@ def quitar_participante(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+
         request_id_raw = getattr(
             request.state,
             "request_id",
@@ -2664,6 +3112,13 @@ def cambiar_tipo_participacion(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+
         request_id_raw = getattr(
             request.state,
             "request_id",
@@ -2861,6 +3316,36 @@ def reasignar_participante(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+            asignacion_scope = (
+                supabase.table("asignaciones")
+                .select("colegio_id")
+                .eq("id", str(asignacion_id))
+                .single()
+                .execute()
+                .data
+            )
+            usuario_scope = (
+                supabase.table("usuarios")
+                .select("roles(codigo)")
+                .eq("id", str(payload.nuevo_usuario_id))
+                .single()
+                .execute()
+                .data
+            )
+            if (usuario_scope.get("roles") or {}).get("codigo") == "MONITOR":
+                _validar_monitor_coordinador(
+                    supabase,
+                    coordinador_id=current_user.id,
+                    colegio_id=UUID(asignacion_scope["colegio_id"]),
+                    monitor_id=payload.nuevo_usuario_id,
+                )
+
         request_id_raw = getattr(
             request.state,
             "request_id",
@@ -3018,12 +3503,58 @@ def reasignar_participante(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        _validar_error_solapamiento(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible reasignar el participante.",
         )
 
+
+
+def _resolver_coordinador_responsable(
+    supabase,
+    *,
+    colegio_id: UUID | None,
+    coordinador_id: UUID | None,
+    actor: AuthenticatedUser,
+) -> UUID | None:
+    """Resuelve y valida el coordinador responsable de una instancia escolar."""
+    if colegio_id is None:
+        return None
+
+    rows = (
+        supabase.table("usuario_colegio")
+        .select("usuario_id,usuario:usuarios!usuario_id(id,activo,deleted_at,roles(codigo))")
+        .eq("colegio_id", str(colegio_id))
+        .eq("activo", True)
+        .execute()
+        .data or []
+    )
+    active_ids: list[UUID] = []
+    for row in rows:
+        user = row.get("usuario") or {}
+        role = user.get("roles") or {}
+        if user.get("activo") is True and user.get("deleted_at") is None and role.get("codigo") == "COORDINADOR":
+            active_ids.append(UUID(str(row["usuario_id"])))
+
+    if actor.role_code == "COORDINADOR":
+        if actor.id not in active_ids:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No estás asignado como coordinador de este colegio.")
+        if coordinador_id is not None and coordinador_id != actor.id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Un coordinador no puede asignar la instancia a otro coordinador.")
+        return actor.id
+
+    if coordinador_id is not None:
+        if coordinador_id not in active_ids:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="El coordinador seleccionado no está asignado activamente a este colegio.")
+        return coordinador_id
+
+    if len(active_ids) == 1:
+        return active_ids[0]
+    if len(active_ids) > 1:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Este colegio tiene más de un coordinador. Selecciona el coordinador responsable de la instancia.")
+    return None
 
 # ============================================================
 # POST - CREAR INSTANCIA
@@ -3060,6 +3591,19 @@ def crear_asignacion(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR" and payload.colegio_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El coordinador solo puede crear instancias asociadas a uno de sus colegios.",
+            )
+
+        coordinador_responsable = _resolver_coordinador_responsable(
+            supabase,
+            colegio_id=payload.colegio_id,
+            coordinador_id=payload.coordinador_id,
+            actor=current_user,
+        )
+
         tipo = _obtener_tipo_actividad(
             supabase,
             tipo_actividad_id=payload.tipo_actividad_id,
@@ -3085,6 +3629,7 @@ def crear_asignacion(
         _validar_participantes(
             supabase,
             payload=payload,
+            coordinador_responsable=coordinador_responsable if current_user.role_code in {"DIRECTIVA", "COORDINADOR"} else None,
         )
 
         _validar_contactos(
@@ -3135,16 +3680,13 @@ def crear_asignacion(
                     if payload.colegio_id
                     else None
                 ),
+                "p_coordinador_id": (str(coordinador_responsable) if coordinador_responsable else None),
                 "p_curso_colegio_id": (
                     str(payload.curso_colegio_id)
                     if payload.curso_colegio_id
                     else None
                 ),
-                "p_sala_id": (
-                    str(payload.sala_id)
-                    if payload.sala_id
-                    else None
-                ),
+                "p_sala_id": None,
                 "p_ramo_id": (
                     str(payload.ramo_id)
                     if payload.ramo_id
@@ -3220,6 +3762,18 @@ def crear_asignacion(
                     ),
                 )
 
+            if error_code == "COORDINATOR_REQUIRED":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Este colegio tiene más de un coordinador. Selecciona el coordinador responsable de la instancia.",
+                )
+
+            if error_code == "INVALID_COORDINATOR":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="El coordinador seleccionado no está asignado activamente al colegio.",
+                )
+
             if error_code == "INVALID_PARTICIPANTS":
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -3249,12 +3803,13 @@ def crear_asignacion(
         raise
 
     except Exception as exc:
+        _validar_error_solapamiento(exc)
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
         if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="El colegio, curso, sala o contacto no está disponible o no pertenece al contexto escolar.",
+                detail="El colegio, curso o contacto no está disponible o no pertenece al contexto escolar.",
             )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -3640,6 +4195,13 @@ def reabrir_participacion(
     supabase = get_supabase_client()
 
     try:
+        if current_user.role_code == "COORDINADOR":
+            _validar_acceso_coordinador_asignacion(
+                supabase,
+                asignacion_id=asignacion_id,
+                coordinador_id=current_user.id,
+            )
+
         request_id_raw = getattr(
             request.state,
             "request_id",

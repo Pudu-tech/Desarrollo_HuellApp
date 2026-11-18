@@ -137,8 +137,17 @@ export default function AsignacionDetallePage() {
     if (!Object.keys(changes).length) { setOpciones(null); setNotice('No hay cambios para guardar.'); return item }
     const saved = await updateAsignacion(item.id, changes)
     setResult({ id: item.id, item: saved, catalogos: current.catalogos }); setOpciones(null)
-    setNotice(Object.keys(changes).some((key) => key !== 'observacion' && key !== 'contactos')
-      ? 'Cambios guardados. Se solicitará reconfirmación con una nueva invitación por correo.' : 'Cambios guardados. Se conservaron las respuestas de los participantes.')
+    await confirm({
+      title: 'Cambios guardados',
+      message: estado?.codigo === 'NO_REALIZADA'
+        ? 'La instancia continúa No realizada. La edición se guardó como corrección administrativa.'
+        : Object.keys(changes).some((key) => key !== 'observacion' && key !== 'contactos')
+          ? 'La instancia se actualizó. Se solicitará reconfirmación cuando corresponda.'
+          : 'La instancia se actualizó y se conservaron las respuestas de los participantes.',
+      confirmLabel: 'Entendido',
+      acknowledgeOnly: true,
+      variant: 'success',
+    })
     return saved
   }
   return <section className="assignments-page assignments-page--detail">
@@ -167,15 +176,12 @@ export default function AsignacionDetallePage() {
             <span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estado?.codigo.toLowerCase() ?? 'unknown'}`}>
               {item.por_reasignar ? 'Por reasignar' : estado?.nombre ?? 'Estado no disponible'}
             </span>
-            {permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE','CONFIRMADA'].includes(estado?.codigo ?? '') && (
-              <button className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>
-                {opening ? 'Cargando…' : 'Editar instancia'}
-              </button>
-            )}
           </div>
         </div>
         <dl className="assignments-detail-grid">
           <div><dt>Colegio / Lugar</dt><dd>{item.colegio_id ? colegio?.nombre ?? 'Colegio no disponible' : item.lugar ?? '—'}</dd></div>
+          {user?.role_code === 'DIRECTIVA' && <div><dt>Coordinador responsable</dt><dd>{item.coordinadores?.length ? item.coordinadores.map((person) => person.nombre).join(', ') : 'Sin coordinador asociado'}</dd></div>}
+          {item.curso_nombre && <div><dt>Curso</dt><dd>{item.curso_nombre}</dd></div>}
           <div><dt>Fecha</dt><dd>{item.fecha.split('-').reverse().join('/')}</dd></div>
           <div><dt>Horario</dt><dd>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</dd></div>
           <div><dt>Participantes registrados</dt><dd>{item.participantes.length}</dd></div>
@@ -207,16 +213,23 @@ export default function AsignacionDetallePage() {
             setNotice('Participante agregado. Recibirá una invitación para aceptar o rechazar; las respuestas anteriores se conservaron.')
           }} />}
           {!item.participantes.length ? <p>No hay participantes activos.</p> : <div className="assignments-table-scroll"><table className="assignments-table">
-            <thead><tr><SortableHeader label="Participante" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Respuesta</th><th>Asistencia</th><SortableHeader label="Fecha de respuesta" column="respuesta" sort={sorting.sort} onSort={sorting.toggle} /><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
-            <tbody>{sorting.order(item.participantes, { nombre: p => p.usuario_nombre, respuesta: p => dateSortValue(p.fecha_respuesta) }).map((participante) => <tr key={participante.id}>
+            <thead><tr><SortableHeader label="Monitor" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Respuesta</th><th>Asistencia</th><SortableHeader label="Fecha de respuesta" column="respuesta" sort={sorting.sort} onSort={sorting.toggle} /><th>Motivo del rechazo</th><th>Acciones</th></tr></thead>
+            <tbody>{sorting.order(item.participantes, { nombre: p => p.usuario_nombre, respuesta: p => dateSortValue(p.fecha_respuesta) }).map((participante, index) => <tr key={participante.id}>
               <td>{participante.usuario_nombre || 'Nombre no disponible'}</td><td>{participante.tipo_participacion_nombre || '—'}</td>
               <td><span className={`assignments-status assignments-status--${participante.estado_participacion_codigo?.toLowerCase() ?? 'unknown'}`}>{participante.estado_participacion_nombre || 'Estado no disponible'}</span></td>
               <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{participante.asistencia_estado === 'NO_REQUERIDA' ? 'No requerida' : participante.asistencia_estado ?? 'Sin registro'}</Link></td>
               <td>{participante.fecha_respuesta ? new Date(participante.fecha_respuesta).toLocaleString('es-CL', { timeZone: 'America/Santiago' }) : 'Sin respuesta'}</td>
               <td className="assignments-response-reason">{participante.motivo_rechazo || '—'}</td>
-              <td>{permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') &&
-                <><button type="button" className="assignments-secondary" disabled={reassigning || deleting} onClick={() => void openReassignment(participante.id)}>Cambiar participante</button>
-                  <button type="button" className="assignments-delete" disabled={reassigning || deleting} onClick={() => void removePerson(participante.id, participante.usuario_nombre || 'esta persona')}>Quitar participante</button></>}</td>
+              <td>
+                {index === 0 && permissions.includes('UPDATE_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA', 'NO_REALIZADA'].includes(estado?.codigo ?? '') && (
+                  <button type="button" className="assignments-secondary" disabled={opening || deleting} onClick={() => void openEdit()}>
+                    {opening ? 'Cargando…' : 'Editar instancia'}
+                  </button>
+                )}
+                {permissions.includes('REASSIGN_ASSIGNMENT') && ['PENDIENTE', 'CONFIRMADA'].includes(estado?.codigo ?? '') &&
+                  <><button type="button" className="assignments-secondary" disabled={reassigning || deleting} onClick={() => void openReassignment(participante.id)}>Cambiar participante</button>
+                    <button type="button" className="assignments-delete" disabled={reassigning || deleting} onClick={() => void removePerson(participante.id, participante.usuario_nombre || 'esta persona')}>Quitar participante</button></>}
+              </td>
             </tr>)}</tbody>
           </table></div>}
           {reassignment && <div className="assignments-form-section"><h3>Seleccionar reemplazo</h3>

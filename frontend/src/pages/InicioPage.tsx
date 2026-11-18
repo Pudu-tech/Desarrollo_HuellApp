@@ -204,9 +204,8 @@ export default function InicioPage() {
   }
 
   /** Abre el formulario existente de creación con la fecha elegida precargada. */
-  function createInstanceForSelectedDate() {
-    if (!createDate) return
-    navigate(`/app/asignaciones?crear=1&fecha=${encodeURIComponent(createDate)}`)
+  function createInstanceForDate(date: string) {
+    navigate(`/app/asignaciones?crear=1&fecha=${encodeURIComponent(date)}`)
   }
 
   return <section className="home-dashboard">
@@ -237,7 +236,9 @@ export default function InicioPage() {
             {Array.from({ length: (month.getDay() + 6) % 7 }, (_, i) => <span key={`empty${i}`} />)}
             {Array.from({ length: new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate() }, (_, i) => {
               const date = key(new Date(month.getFullYear(), month.getMonth(), i + 1, 12))
-              const events = calendarItems.filter((r) => r.fecha === date)
+              const events = calendarItems
+                .filter((r) => r.fecha === date)
+                .sort((a, b) => `${a.hora}-${a.id}`.localeCompare(`${b.hora}-${b.id}`, 'es-CL'))
               return <div key={date} className={`home-day ${date === today() ? 'is-today' : ''} ${date === selected ? 'is-selected' : ''} ${(createDate === date || detailEvent?.fecha === date) ? 'has-popover' : ''}`}>
                 <button
                   type="button"
@@ -247,10 +248,10 @@ export default function InicioPage() {
                   disabled={!canCreateFromCalendar}
                 ><strong>{i + 1}</strong></button>
                 <div className="home-day-events">
-                  {events.slice(0, 2).map((event) => <button
+                  {events.map((event, eventIndex) => <button
                     key={event.id}
                     type="button"
-                    className="home-calendar-event"
+                    className={`home-calendar-event home-calendar-event--tone-${(eventIndex % 8) + 1}`}
                     title={`${event.hora} · ${event.nombre}`}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -259,7 +260,6 @@ export default function InicioPage() {
                       setDetailEvent(event)
                     }}
                   >{event.hora} · {event.nombre}</button>)}
-                  {events.length > 2 && <button type="button" className="home-more-events" onClick={() => { setSelected(date); setCreateDate(null); setDetailEvent(null) }}>+{events.length - 2} más</button>}
                 </div>
 
                 {createDate === date && canCreateFromCalendar && <div className={`home-calendar-popover ${new Date(`${date}T12:00:00`).getDay() === 0 || new Date(`${date}T12:00:00`).getDay() === 6 ? 'is-left' : ''}`} role="dialog" aria-label={`Crear instancia para ${formatCalendarDate(date)}`}>
@@ -268,7 +268,7 @@ export default function InicioPage() {
                   <strong className="home-calendar-popover-title">{formatCalendarDate(date)}</strong>
                   <p>¿Qué deseas hacer este día?</p>
                   <div className="home-calendar-popover-actions">
-                    <button type="button" className="home-calendar-popover-primary" onClick={(event) => { event.stopPropagation(); createInstanceForSelectedDate() }}>+ Crear instancia</button>
+                    <button type="button" className="home-calendar-popover-primary" onClick={(event) => { event.stopPropagation(); createInstanceForDate(date) }}>+ Crear instancia</button>
                     <button type="button" className="home-calendar-popover-secondary" onClick={(event) => { event.stopPropagation(); setCreateDate(null) }}>Cancelar</button>
                   </div>
                 </div>}
@@ -283,12 +283,15 @@ export default function InicioPage() {
                     <div><dt>Lugar</dt><dd>{detailEvent.lugar}</dd></div>
                     <div><dt>Estado</dt><dd>{labels[detailEvent.estado] || detailEvent.estado}</dd></div>
                   </dl>
-                  <button type="button" className="home-calendar-popover-primary" onClick={(event) => { event.stopPropagation(); navigate(detailPath(detailEvent.id)) }}>Consultar instancia</button>
+                  <div className="home-calendar-popover-actions">
+                    <button type="button" className="home-calendar-popover-primary" onClick={(event) => { event.stopPropagation(); navigate(detailPath(detailEvent.id)) }}>Consultar instancia</button>
+                    {canCreateFromCalendar && <button type="button" className="home-calendar-popover-secondary" onClick={(event) => { event.stopPropagation(); createInstanceForDate(detailEvent.fecha) }}>+ Crear otra instancia</button>}
+                  </div>
                 </div>}
               </div>
             })}
           </div>
-          <p className="home-muted">{isDirectiva ? 'El calendario muestra todas las instancias del equipo. Selecciona una fecha para crear una instancia o una actividad existente para consultar su detalle.' : canCreateFromCalendar ? 'Selecciona una fecha y confirma si deseas crear una instancia. Si ya existe una actividad, selecciónala para ver su detalle.' : 'Selecciona una instancia del calendario para consultar su detalle.'}</p>
+          <p className="home-muted">{isDirectiva ? 'El calendario muestra todas las instancias del equipo. Puedes crear varias instancias el mismo día; selecciona una actividad para consultar su detalle o crear otra en esa fecha.' : canCreateFromCalendar ? 'Selecciona una fecha para crear una instancia. Si ya existe una actividad, puedes consultarla o crear otra en la misma fecha.' : 'Selecciona una instancia del calendario para consultar su detalle.'}</p>
 
           <h3>{new Intl.DateTimeFormat('es-CL', { day: 'numeric', month: 'long' }).format(new Date(`${selected}T12:00:00`))}</h3>
           {orderControls}

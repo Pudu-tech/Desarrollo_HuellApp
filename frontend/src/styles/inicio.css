@@ -154,7 +154,7 @@
   z-index: 50;
 }
 .home-dashboard .home-day-events {
-  overflow: hidden;
+  overflow: visible;
 }
 .home-dashboard .home-day-action {
   display: flex;
@@ -473,3 +473,24 @@
   .home-weekly-row { grid-template-columns: 44px minmax(0, 1fr) 20px; }
   .home-team-load-row { grid-template-columns: minmax(82px, 1fr) minmax(60px, .8fr) 20px; }
 }
+
+
+/* Colores diferenciados para múltiples instancias de una misma fecha. */
+.home-dashboard .home-calendar-event--tone-1 { background: #fde7dc; color: #7a4332; }
+.home-dashboard .home-calendar-event--tone-2 { background: #dff1ee; color: #255f58; }
+.home-dashboard .home-calendar-event--tone-3 { background: #e5ecfb; color: #365785; }
+.home-dashboard .home-calendar-event--tone-4 { background: #f2e8fb; color: #66477e; }
+.home-dashboard .home-calendar-event--tone-5 { background: #fff1c9; color: #735d21; }
+.home-dashboard .home-calendar-event--tone-6 { background: #dff0f7; color: #2f6576; }
+.home-dashboard .home-calendar-event--tone-7 { background: #e9f3df; color: #496831; }
+.home-dashboard .home-calendar-event--tone-8 { background: #f7e4ed; color: #7a4960; }
+
+/* Al seleccionar el día se conserva la diferenciación visual de cada instancia. */
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-1 { background: #fde7dc; color: #7a4332; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-2 { background: #dff1ee; color: #255f58; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-3 { background: #e5ecfb; color: #365785; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-4 { background: #f2e8fb; color: #66477e; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-5 { background: #fff1c9; color: #735d21; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-6 { background: #dff0f7; color: #2f6576; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-7 { background: #e9f3df; color: #496831; }
+.home-dashboard .home-day.is-selected .home-calendar-event--tone-8 { background: #f7e4ed; color: #7a4960; }

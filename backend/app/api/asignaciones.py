@@ -1534,56 +1534,6 @@ def _validar_monitor_coordinador(
         )
 
 
-def _validar_scope_creacion_coordinador(
-    supabase,
-    *,
-    coordinador_id: UUID,
-    payload: AsignacionCreate,
-) -> None:
-    """Restringe la creación de un coordinador a sus colegios y monitores."""
-
-    if payload.colegio_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="El coordinador solo puede crear instancias asociadas a uno de sus colegios.",
-        )
-
-    _validar_colegio_coordinador(
-        supabase,
-        coordinador_id=coordinador_id,
-        colegio_id=payload.colegio_id,
-    )
-
-    ids = [str(item.usuario_id) for item in payload.participantes]
-    if not ids:
-        raise HTTPException(status_code=422, detail="La instancia requiere participantes.")
-
-    usuarios = (
-        supabase.table("usuarios")
-        .select("id,roles(codigo)")
-        .in_("id", ids)
-        .execute()
-    )
-    roles = {
-        str(item["id"]): (item.get("roles") or {}).get("codigo")
-        for item in (usuarios.data or [])
-    }
-    monitores = [UUID(user_id) for user_id, rol in roles.items() if rol == "MONITOR"]
-    if not monitores:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="La instancia creada por un coordinador debe incluir al menos uno de sus monitores.",
-        )
-
-    for monitor_id in monitores:
-        _validar_monitor_coordinador(
-            supabase,
-            coordinador_id=coordinador_id,
-            colegio_id=payload.colegio_id,
-            monitor_id=monitor_id,
-        )
-
-
 def _validar_participantes_edicion_coordinador(
     supabase,
     *,
@@ -3641,11 +3591,10 @@ def crear_asignacion(
     supabase = get_supabase_client()
 
     try:
-        if current_user.role_code == "COORDINADOR":
-            _validar_scope_creacion_coordinador(
-                supabase,
-                coordinador_id=current_user.id,
-                payload=payload,
+        if current_user.role_code == "COORDINADOR" and payload.colegio_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="El coordinador solo puede crear instancias asociadas a uno de sus colegios.",
             )
 
         coordinador_responsable = _resolver_coordinador_responsable(
@@ -3680,7 +3629,7 @@ def crear_asignacion(
         _validar_participantes(
             supabase,
             payload=payload,
-            coordinador_responsable=coordinador_responsable if current_user.role_code == "DIRECTIVA" else None,
+            coordinador_responsable=coordinador_responsable if current_user.role_code in {"DIRECTIVA", "COORDINADOR"} else None,
         )
 
         _validar_contactos(

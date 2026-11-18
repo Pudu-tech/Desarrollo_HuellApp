@@ -139,9 +139,8 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
         )
         users = _datos(users_query)
 
-        # Un coordinador no recibe el padrón completo de personas: solo él y
-        # los monitores que administra en alguno de sus colegios vigentes.
-        # La pertenencia al colegio concreto vuelve a validarse al guardar.
+        # En creación solo se ofrecen monitores. La edición permite además al
+        # propio coordinador para conservar participaciones existentes.
         if actor.role_code == "COORDINADOR":
             relaciones = _datos(
                 db.table("coordinador_monitor_colegio")
@@ -149,8 +148,12 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
                 .eq("coordinador_id", str(actor.id))
                 .eq("activo", True)
             )
-            permitidos = {str(actor.id), *(str(item["monitor_id"]) for item in relaciones)}
-            users = [user for user in users if str(user.get("id")) in permitidos]
+            monitor_ids = {str(item["monitor_id"]) for item in relaciones}
+            users = [
+                user for user in users
+                if (user["roles"]["codigo"] == "MONITOR" and str(user["id"]) in monitor_ids)
+                or (not filtrar_tipos and str(user["id"]) == str(actor.id))
+            ]
         colegios_query = (
             db.table("colegios")
             .select("id,nombre")

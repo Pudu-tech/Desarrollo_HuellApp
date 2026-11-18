@@ -206,9 +206,9 @@ export default function ColegioCoordinadores({
 
   const unassignMonitor = async (coordinatorId: string, monitor: MonitorCoordinadorItem) => {
     if (!await confirm({
-      title: '¿Desasignar monitor?',
+      title: '¿Quitar monitor?',
       message: <><strong>{fullName(monitor)}</strong> dejará de pertenecer a este coordinador dentro de <strong>{colegioNombre}</strong>.</>,
-      confirmLabel: 'Sí, desasignar',
+      confirmLabel: 'Sí, quitar monitor',
     })) return
 
     setWorking(true)
@@ -220,9 +220,9 @@ export default function ColegioCoordinadores({
         ...previous,
         [coordinatorId]: (previous[coordinatorId] ?? []).filter((item) => item.monitor_id !== monitor.monitor_id),
       }))
-      setSuccess('Monitor desasignado correctamente.')
+      setSuccess('Monitor retirado de la lista del coordinador.')
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No fue posible desasignar el monitor.')
+      setError(cause instanceof Error ? cause.message : 'No fue posible quitar el monitor.')
     } finally {
       setWorking(false)
     }
@@ -327,7 +327,7 @@ export default function ColegioCoordinadores({
               {!assignedMonitors.length ? <p className="schools-coordinator-empty">Este coordinador todavía no tiene monitores asignados en este colegio.</p> :
                 <div className="schools-monitor-list">{assignedMonitors.map((monitor) => <div className="schools-monitor-row" key={monitor.monitor_id}>
                   <div><strong>{fullName(monitor)}</strong><span>{monitor.email}</span></div>
-                  {canManageMonitors && <button className="schools-danger-link" type="button" disabled={working} onClick={() => { void unassignMonitor(coordinator.coordinador_id, monitor) }}>Desasignar</button>}
+                  {canManageMonitors && <button className="schools-danger-link" type="button" disabled={working} onClick={() => { void unassignMonitor(coordinator.coordinador_id, monitor) }}>Quitar monitor</button>}
                 </div>)}</div>}
             </div>}
           </article>

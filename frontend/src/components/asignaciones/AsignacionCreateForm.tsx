@@ -74,10 +74,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
   )
   const monitorIds = new Set(coordinador?.monitor_ids)
   const usuarios = limitarMonitores
-    ? opciones.participantes.filter((item) => (
-      (item.role_code === 'MONITOR' && monitorIds.has(item.id))
-      || (user?.role_code === 'COORDINADOR' && item.id === user.id)
-    ))
+    ? opciones.participantes.filter((item) => item.role_code === 'MONITOR' && monitorIds.has(item.id))
     : opciones.participantes
   const filas = limitarMonitores ? participantes.map((item) => (
     item.usuario_id && !usuarios.some((user) => user.id === item.usuario_id)
@@ -194,7 +191,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
         {limitarMonitores && user?.role_code === 'DIRECTIVA' && coordinadores.length > 1 && !coordinador && <p>Selecciona un coordinador para ver sus monitores.</p>}
         {limitarMonitores && coordinador && !usuarios.some((item) => item.role_code === 'MONITOR') && <p className="assignments-warning">Este coordinador no tiene monitores activos asignados en el colegio.</p>}
         <AsignacionParticipantes rows={filas} usuarios={usuarios} tipos={opciones.tipos_participacion} onChange={setParticipantes}
-          soloMonitores={limitarMonitores && user?.role_code === 'DIRECTIVA'}
+          soloMonitores={limitarMonitores}
           onAdd={() => setParticipantes((previous) => [...previous, { key: nextRow.current++, usuario_id: '', tipo_participacion_id: '' }])} />
         {editing && <p className="assignments-warning">Los cambios de participantes conservan el historial anterior. En instancias pendientes o confirmadas puede solicitarse una nueva respuesta; en una instancia No realizada la edición es administrativa y no envía nuevas invitaciones.</p>}
         <section className="assignments-form-section"><h3>Observaciones</h3><label>Observación (opcional)<textarea maxLength={2000} rows={3} value={form.observacion ?? ''} onChange={(event) => change('observacion', event.target.value)} /></label></section>

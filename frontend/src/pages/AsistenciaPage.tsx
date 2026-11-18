@@ -15,6 +15,9 @@
  * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import SortableHeader from '../components/common/SortableHeader'
+import ExportButton from '../components/common/ExportButton'
+import { attendanceOf as attendance, attendancePerson as person, attendanceState, attendanceView, attendanceExportTable, mergeAttendanceSnapshot } from '../utils/attendanceExport'
+import { recursoRequest } from '../services/recursosService'
 import { useListSort } from '../hooks/useListSort'
 import { useEffect, useRef, useState } from 'react'
 import LoadingIndicator from '../components/LoadingIndicator'
@@ -55,11 +58,11 @@ export default function AsistenciaPage() {
   const [motivo, setMotivo] = useState('')
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [exportBusy, setExportBusy] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [notice, setNotice] = useState('')
   const load = personal ? listMisAsistencias : listAsistencias
   const canEdit = !personal && ['SUPERADMIN', 'DIRECTIVA'].includes(user?.role_code ?? '')
-  const attendance = (row: AsistenciaFila) => Array.isArray(row.asistencia) ? row.asistencia[0] : row.asistencia
-  const person = (row: AsistenciaFila) => [row.usuario?.nombres, row.usuario?.apellido_paterno, row.usuario?.apellido_materno].filter(Boolean).join(' ')
   useEffect(() => {
     let active = true
     void load().then((data) => { if (active) { setRows(data); setError('') } }).catch((cause: Error) => { if (active) setError(cause.message) })
@@ -67,17 +70,19 @@ export default function AsistenciaPage() {
   }, [load])
   /** Cambia entre vista propia y de gestión solo cuando no hay un formulario pendiente. */
   function selectView(own: boolean) {
-    if (busy || editing || ownEditing || own === ownOnly) return
+    if (busy || exportBusy || refreshing || editing || ownEditing || own === ownOnly) return
     setOwnOnly(own); setRows(null); setError(''); setNotice('')
     setSearch(''); setStatus(''); setFrom(''); setUntil('')
   }
   useVisibleRefresh(async (isActive) => {
     try { const data = await load(); if (isActive()) { setRows(data); setError('') } }
     catch { /* Conserva el listado durante fallos temporales. */ }
-  }, !editing && !ownEditing && !busy, 30000)
+  }, !!rows && !editing && !ownEditing && !busy && !exportBusy && !refreshing, 30000)
   /** Recarga los registros de la vista seleccionada y actualiza los mensajes de consulta. */
   async function refresh() {
+    setRefreshing(true)
     try { setRows(await load()); setError('') } catch (cause) { setError(cause instanceof Error ? cause.message : 'No se pudo actualizar.') }
+    finally { setRefreshing(false) }
   }
   /** Confirma y envía una regularización administrativa con el motivo exigido. */
   async function save() {
@@ -90,10 +95,21 @@ export default function AsistenciaPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'No fue posible regularizar.') }
     finally { setBusy(false) }
   }
-  const filtered = (rows ?? []).filter((row) => (!assignmentFilter || row.asignacion_id === assignmentFilter) && (!status || attendance(row)?.estado === status)
-    && (!from || row.asignacion.fecha >= from) && (!until || row.asignacion.fecha <= until)
-    && `${person(row)} ${row.asignacion.colegio?.nombre ?? row.asignacion.lugar ?? ''} ${row.asignacion.actividad?.nombre ?? ''}`.toLocaleLowerCase('es-CL').includes(search.toLocaleLowerCase('es-CL')))
-  return <section className="assignments-page"><header className="assignments-heading"><div><h1>Asistencia</h1><p>Asistencia efectiva de los participantes, independiente de su respuesta a la invitación.</p></div><button className="assignments-secondary" disabled={busy || !!editing || !!ownEditing} onClick={() => void refresh()}>Actualizar</button></header>
+  const filters = { assignment: assignmentFilter, search, status, from, until }
+  const { filtered, ordered } = attendanceView(rows ?? [], filters, sorting.sort)
+  const invalidRange = !!from && !!until && from > until
+  const locked = busy || exportBusy || refreshing || !!editing || !!ownEditing
+  async function prepareExport() {
+    const query = new URLSearchParams()
+    if (assignmentFilter) query.set('asignacion_id', assignmentFilter)
+    if (from) query.set('fecha_desde', from)
+    if (until) query.set('fecha_hasta', until)
+    const snapshot = await recursoRequest<{ items: AsistenciaFila[]; total: number; generated_at: string }>(`${personal ? '/asistencias/mias' : '/asistencias'}/exportacion?${query}`, 'GET', undefined, true)
+    if (snapshot.total !== snapshot.items.length) throw new Error('La consulta no está completa. Vuelve a intentarlo.')
+    setRows(previous => mergeAttendanceSnapshot(previous ?? [], snapshot.items, filters))
+    return attendanceExportTable(snapshot.items, filters, sorting.sort, snapshot.generated_at, personal)
+  }
+  return <section className="assignments-page"><header className="assignments-heading"><div><h1>Asistencia</h1><p>Asistencia efectiva de los participantes, independiente de su respuesta a la invitación.</p></div><div className="query-table-actions"><button className="assignments-secondary assignments-export-refresh" disabled={locked || (!rows && !error)} onClick={() => void refresh()}>Actualizar</button><ExportButton disabled={!rows || locked || !!error || invalidRange || !filtered.length} prepare={prepareExport} onBusyChange={setExportBusy} /></div></header>
     {error && <p className="assignments-error" role="alert">{error}</p>}{notice && <p className="assignments-success" role="status">{notice}</p>}
     {canSwitchView && <div className="assignments-editor-actions attendance-view-actions" role="group" aria-label="Vista de asistencia">
       <button type="button" className={personal ? 'assignments-secondary' : 'assignments-primary'} aria-pressed={!personal} disabled={busy || !!editing || !!ownEditing} onClick={() => selectView(false)}>Todas las asistencias</button>
@@ -101,12 +117,13 @@ export default function AsistenciaPage() {
     </div>}
     {personal && <p className="assignments-feedback">Estás consultando únicamente tus registros de asistencia.</p>}
     {ownEditing && <div ref={ownAttendancePanel} tabIndex={-1} role="region" aria-label="Mi registro de asistencia" className="attendance-edit-panel"><OwnAttendancePanel key={ownEditing.id} assignmentId={ownEditing.asignacion_id} onClose={() => setOwnEditing(null)} onSaved={() => { void refresh() }} /></div>}
-    {assignmentFilter && <p>Mostrando asistencia de la instancia seleccionada. <Link to="/app/asistencia">Ver todas</Link></p>}
-    <div className="assignments-panel"><div className="assignments-form-grid"><label>Participante, colegio o actividad<input value={search} onChange={(e) => setSearch(e.target.value)} /></label><label>Estado<select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Todos</option>{['PENDIENTE','PRESENTE','AUSENTE','JUSTIFICADA','NO_REQUERIDA'].map((value) => <option key={value} value={value}>{value === 'NO_REQUERIDA' ? 'No requerida' : value}</option>)}</select></label><label>Desde<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>Hasta<input type="date" value={until} onChange={(e) => setUntil(e.target.value)} /></label></div></div>
+    {assignmentFilter && <p inert={exportBusy}>Mostrando asistencia de la instancia seleccionada. <Link to="/app/asistencia">Ver todas</Link></p>}
+    <div className="assignments-panel"><div className="assignments-form-grid" inert={exportBusy}><label>Participante, colegio o actividad<input value={search} onChange={(e) => setSearch(e.target.value)} /></label><label>Estado<select value={status} onChange={(e) => setStatus(e.target.value)}><option value="">Todos</option>{['PENDIENTE','PRESENTE','AUSENTE','JUSTIFICADA','NO_REQUERIDA'].map((value) => <option key={value} value={value}>{value === 'NO_REQUERIDA' ? 'No requerida' : value}</option>)}</select></label><label>Desde<input type="date" value={from} onChange={(e) => setFrom(e.target.value)} /></label><label>Hasta<input type="date" value={until} onChange={(e) => setUntil(e.target.value)} /></label></div></div>
+    {invalidRange && <p className="assignments-error" role="alert">La fecha desde debe ser anterior o igual a la fecha hasta.</p>}
     {editing && <div ref={regularizationPanel} tabIndex={-1} role="region" aria-label="Regularizar asistencia" className="assignments-panel attendance-edit-panel"><h2>Regularizar: {person(editing)}</h2><div className="assignments-form-grid"><label>Estado<select disabled={busy} value={estado} onChange={(e) => setEstado(e.target.value)}>{['PRESENTE','AUSENTE','JUSTIFICADA'].map((value) => <option key={value} value={value}>{value === 'NO_REQUERIDA' ? 'No requerida' : value}</option>)}</select></label>{estado !== 'PRESENTE' && <label>Motivo de ausencia<textarea maxLength={1000} disabled={busy} value={motivo} onChange={(e) => setMotivo(e.target.value)} /></label>}<label>Motivo de regularización (obligatorio)<textarea maxLength={1000} disabled={busy} value={reason} onChange={(e) => setReason(e.target.value)} /></label></div><div className="assignments-editor-actions"><button className="assignments-primary" disabled={busy || reason.trim().length < 3 || (estado !== 'PRESENTE' && !motivo.trim())} onClick={() => void save()}>Guardar regularización</button><button className="assignments-secondary" disabled={busy} onClick={() => setEditing(null)}>Cerrar</button></div></div>}
-    <div className="assignments-panel">{!rows ? error ? <p>No se pudo cargar la asistencia. Pulsa Actualizar para reintentar.</p> : <LoadingIndicator /> : !filtered.length ? <p>No hay asistencias para estos filtros.</p> : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Participante" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Asistencia</th><th>Ubicación / motivo</th><th>Acciones</th></tr></thead><tbody>{sorting.order(filtered, { fecha: r => `${r.asignacion.fecha} ${r.asignacion.hora_inicio}`, actividad: r => r.asignacion.actividad?.nombre, colegio: r => r.asignacion.colegio?.nombre ?? r.asignacion.lugar, nombre: person }).map((row) => {
+    <div className="assignments-panel">{!rows ? error ? <p>No se pudo cargar la asistencia. Pulsa Actualizar para reintentar.</p> : <LoadingIndicator /> : !filtered.length ? <p>No hay asistencias para estos filtros.</p> : <div className="assignments-table-scroll" inert={exportBusy}><table className="assignments-table"><thead><tr><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Participante" column="nombre" sort={sorting.sort} onSort={sorting.toggle} /><th>Participación</th><th>Asistencia</th><th>Ubicación / motivo</th><th>Acciones</th></tr></thead><tbody>{ordered.map((row) => {
       const item = attendance(row)
-      return <tr key={row.id}><td>{row.asignacion.fecha.split('-').reverse().join('/')}</td><td>{row.asignacion.actividad?.nombre}</td><td>{row.asignacion.colegio?.nombre ?? row.asignacion.lugar}</td><td>{person(row)}</td><td>{row.estado.codigo}</td><td>{item?.estado === 'NO_REQUERIDA' ? 'No requerida' : item?.estado ?? 'Sin registro'}</td><td>{item?.direccion_detectada}{item?.latitud != null && item.longitud != null && <><br /><a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${item.latitud},${item.longitud}`}>Ver ubicación</a><br />Precisión: {item.precision_gps == null ? 'No informada' : `±${Math.round(item.precision_gps)} m`}</>}{item?.motivo && <p>{item.motivo}</p>}{item?.motivo_regularizacion && <p>Regularización: {item.motivo_regularizacion}</p>}</td><td>{row.usuario_id === user?.id && row.estado.codigo === 'ACEPTADA' && <button type="button" className="assignments-secondary" disabled={busy} onClick={() => { setEditing(null); setOwnEditing(row); setError('') }}>{item?.estado === 'PENDIENTE' ? 'Registrar asistencia' : 'Ver mi asistencia'}</button>}{canEdit && item && row.estado.codigo === 'ACEPTADA' && <button className="assignments-secondary" disabled={busy} onClick={() => { setOwnEditing(null); setEditing(row); setEstado(item.estado === 'PENDIENTE' ? 'PRESENTE' : item.estado); setMotivo(item.motivo ?? ''); setReason(''); setError('') }}>Regularizar</button>}</td></tr>
+      return <tr key={row.id}><td>{row.asignacion.fecha.split('-').reverse().join('/')}</td><td>{row.asignacion.actividad?.nombre}</td><td>{row.asignacion.colegio?.nombre ?? row.asignacion.lugar}</td><td>{person(row)}</td><td>{row.estado.codigo}</td><td>{attendanceState(row)}</td><td>{item?.direccion_detectada}{item?.latitud != null && item.longitud != null && <><br /><a target="_blank" rel="noreferrer" href={`https://www.google.com/maps?q=${item.latitud},${item.longitud}`}>Ver ubicación</a><br />Precisión: {item.precision_gps == null ? 'No informada' : `±${Math.round(item.precision_gps)} m`}</>}{item?.motivo && <p>{item.motivo}</p>}{item?.motivo_regularizacion && <p>Regularización: {item.motivo_regularizacion}</p>}</td><td>{row.usuario_id === user?.id && row.estado.codigo === 'ACEPTADA' && <button type="button" className="assignments-secondary" disabled={busy} onClick={() => { setEditing(null); setOwnEditing(row); setError('') }}>{item?.estado === 'PENDIENTE' ? 'Registrar asistencia' : 'Ver mi asistencia'}</button>}{canEdit && item && row.estado.codigo === 'ACEPTADA' && <button className="assignments-secondary" disabled={busy} onClick={() => { setOwnEditing(null); setEditing(row); setEstado(item.estado === 'PENDIENTE' ? 'PRESENTE' : item.estado); setMotivo(item.motivo ?? ''); setReason(''); setError('') }}>Regularizar</button>}</td></tr>
     })}</tbody></table></div>}</div>{confirmationDialog}
   </section>
 }

@@ -34,6 +34,17 @@ async function harness() {
 }
 const headers = { Authorization: 'Bearer user-a' }
 
+test('Cada exportación solicita un corte nuevo y no reutiliza respuestas en caché', async () => {
+  const { cachedFetch, calls } = await harness()
+  for (const url of ['/exports/users', '/exports/assignments', '/asistencias/exportacion?fecha_desde=2026-11-01', '/asistencias/mias/exportacion']) {
+    await cachedFetch(url, { headers })
+    await cachedFetch(url, { headers })
+    const results = await Promise.all([cachedFetch(url, { headers }), cachedFetch(url, { headers })])
+    assert.notDeepEqual(await results[0].json(), await results[1].json())
+  }
+  assert.equal(calls.length, 16)
+})
+
 test('La actualización de fondo renueva solo la lectura solicitada y conserva otros catálogos', async () => {
   const { cachedFetch, calls } = await harness()
   await cachedFetch('/catalogos', { headers })

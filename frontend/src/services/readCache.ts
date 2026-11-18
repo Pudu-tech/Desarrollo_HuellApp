@@ -31,7 +31,7 @@ export async function cachedFetch(url: string, init: RequestInit = {}): Promise<
   const authorization = new Headers(init.headers).get('Authorization') ?? ''
   if (scope !== authorization) { clearReadCache(); scope = authorization }
   const method = (init.method ?? 'GET').toUpperCase()
-  const cacheable = method === 'GET' && !!authorization && !/\/auth\/me|\/creacion|\/edicion|\/reasignacion|\/gestion-participantes|\/mi-participacion(?:\/|$)/.test(url)
+  const cacheable = method === 'GET' && !!authorization && !/\/exports\/|\/asistencias\/(?:mias\/)?exportacion(?:\?|\/|$)|\/auth\/me|\/creacion|\/edicion|\/reasignacion|\/gestion-participantes|\/mi-participacion(?:\/|$)/.test(url)
   if (!cacheable) {
     if (method !== 'GET') clearReadCache()
     const response = await fetch(url, init)

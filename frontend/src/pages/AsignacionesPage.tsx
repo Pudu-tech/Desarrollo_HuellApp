@@ -15,6 +15,9 @@
  * la identidad, los permisos y las reglas de las operaciones protegidas.
  */
 import SortableHeader from '../components/common/SortableHeader'
+import ExportButton from '../components/common/ExportButton'
+import { recursoRequest } from '../services/recursosService'
+import { assignmentView, assignmentsExportTable, assignmentAttendanceText, mergeAssignmentCatalogs, mergeAssignmentSnapshot } from '../utils/assignmentsExport'
 import { useListSort } from '../hooks/useListSort'
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
@@ -43,6 +46,7 @@ export default function AsignacionesPage() {
   const [catalogos, setCatalogos] = useState<CatalogosAsignacion | null>(null)
   const [permissions, setPermissions] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+  const [exportBusy, setExportBusy] = useState(false)
   const [revision, setRevision] = useState(0)
   const [error, setError] = useState('')
   const [creationError, setCreationError] = useState('')
@@ -147,6 +151,22 @@ export default function AsignacionesPage() {
     return palabras.every((palabra) => texto.includes(palabra))
   }), [items, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, palabras, tipos, colegios, upcomingOnly, estados])
   const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, coordinadores: r => r.coordinadores?.map((person) => person.nombre).join(', '), monitores: r => r.monitores?.map((person) => person.nombre).join(', '), participantes: r => r.asignados_a?.join(', ') })
+  const filters = { search, tipoId, estadoId, colegioId, desde, hasta, upcomingOnly }
+  const { filtered, ordered } = assignmentView(items, catalogos, filters, sorting.sort)
+
+  async function prepareExport() {
+    const query = new URLSearchParams()
+    if (tipoId) query.set('tipo_actividad_id', tipoId)
+    if (colegioId) query.set('colegio_id', colegioId)
+    if (estadoId && estadoId !== 'POR_REASIGNAR') query.set('estado_id', estadoId)
+    if (desde) query.set('fecha_desde', desde)
+    if (hasta) query.set('fecha_hasta', hasta)
+    const snapshot = await recursoRequest<{ items: AsignacionItem[]; catalogos: CatalogosAsignacion; total: number; generated_at: string }>(`/exports/assignments?${query}`, 'GET', undefined, true)
+    if (snapshot.total !== snapshot.items.length) throw new Error('La consulta no está completa. Vuelve a intentarlo.')
+    const freshCatalogs = mergeAssignmentCatalogs(catalogos, snapshot.catalogos)
+    setItems(previous => mergeAssignmentSnapshot(previous, snapshot.items, filters)); setCatalogos(freshCatalogs)
+    return assignmentsExportTable(snapshot.items, freshCatalogs, filters, sorting.sort, snapshot.generated_at)
+  }
 
   /** Carga opciones nuevas al abrir: un recurso eliminado no queda como opción cacheada. */
   async function openCreate() {
@@ -204,15 +224,18 @@ export default function AsignacionesPage() {
   return <section className="assignments-page">
     {confirmationDialog}
     <header className="assignments-heading"><div><h1>Instancias</h1><p>Organiza actividades, establecimientos y participantes.</p></div>
-      {canCreate && !creating && <button type="button" className="assignments-primary" disabled={loading || loadingOptions || !!error} onClick={() => void openCreate()}>{loadingOptions ? 'Cargando opciones…' : '+ Crear instancia'}</button>}
+      {canCreate && !creating && <button type="button" className="assignments-primary" disabled={loading || loadingOptions || exportBusy || !!error} onClick={() => void openCreate()}>{loadingOptions ? 'Cargando opciones…' : '+ Crear instancia'}</button>}
     </header>
     {creationError && <p className="assignments-error" role="alert">{creationError}</p>}
     {creating && opciones ? <AsignacionCreateForm opciones={opciones} onCreate={save} onClose={() => setCreating(false)} /> : <div className="assignments-panel">
       <div className="assignments-panel-heading"><div><h2>Actividades registradas</h2><p>{loading ? 'Cargando…' : `${filtered.length} de ${items.length} instancias`}</p></div>
-        <button type="button" className="assignments-secondary" disabled={loading || loadingOptions} onClick={refresh}>Actualizar</button>
+        <div className="query-table-actions">
+          <button type="button" className="assignments-secondary assignments-export-refresh" disabled={loading || loadingOptions || exportBusy} onClick={refresh}>Actualizar</button>
+          <ExportButton disabled={loading || loadingOptions || !!error || rangoInvalido || !filtered.length} prepare={prepareExport} onBusyChange={setExportBusy} />
+        </div>
       </div>
       {catalogError && <p className="assignments-warning" role="alert">{catalogError}</p>}
-      <div className="assignments-filters">
+      <div className="assignments-filters" inert={exportBusy}>
         {upcomingOnly && <label><input type="checkbox" checked={upcomingOnly} onChange={e => setUpcomingOnly(e.target.checked)} /> Solo próximas actividades</label>}
         <label>Buscar<input type="search" placeholder="Actividad, persona, colegio o curso…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <label>Tipo de actividad<select value={tipoId} onChange={(event) => setTipoId(event.target.value)}><option value="">Todos los tipos</option>{catalogos?.tipos_actividad.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
@@ -227,7 +250,7 @@ export default function AsignacionesPage() {
       {rangoInvalido && <p className="assignments-error" role="alert">La fecha desde debe ser anterior o igual a la fecha hasta.</p>}
       {loading ? <LoadingIndicator /> : error ? <div className="assignments-feedback" role="alert"><p>{error}</p><button type="button" className="assignments-secondary" onClick={refresh}>Reintentar</button></div>
         : !filtered.length ? <p className="assignments-feedback">{items.length ? 'No hay instancias que coincidan con los filtros.' : 'Aún no hay instancias registradas.'}</p>
-          : <div className="assignments-table-scroll"><table className="assignments-table"><thead><tr><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / Lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} />{isDirectiva && <SortableHeader label="Coordinador" column="coordinadores" sort={sorting.sort} onSort={sorting.toggle} />}<SortableHeader label="Monitor" column="monitores" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
+          : <div className="assignments-table-scroll" inert={exportBusy}><table className="assignments-table"><thead><tr><SortableHeader label="Actividad" column="actividad" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Colegio / Lugar" column="colegio" sort={sorting.sort} onSort={sorting.toggle} />{isDirectiva && <SortableHeader label="Coordinador" column="coordinadores" sort={sorting.sort} onSort={sorting.toggle} />}<SortableHeader label="Monitor" column="monitores" sort={sorting.sort} onSort={sorting.toggle} /><SortableHeader label="Fecha" column="fecha" sort={sorting.sort} onSort={sorting.toggle} /><th scope="col">Horario</th><th scope="col">Estado</th><th scope="col">Asistencia</th><th scope="col">Acciones</th></tr></thead>
             <tbody>{ordered.map((item) => <tr key={item.id}>
               <td className="assignments-name">{tipos.get(item.tipo_actividad_id)?.nombre ?? 'Actividad'}</td>
               <td>{item.colegio_id ? colegios.get(item.colegio_id) ?? 'Colegio no disponible' : item.lugar || '—'}</td>
@@ -235,7 +258,7 @@ export default function AsignacionesPage() {
               <td><ul className="assignments-assignees">{item.monitores?.length ? item.monitores.map((person) => <li key={person.id}>{person.nombre}</li>) : <li>Sin monitor</li>}</ul></td>
               <td>{item.fecha.split('-').reverse().join('/')}</td><td>{item.hora_inicio.slice(0, 5)} – {item.hora_fin.slice(0, 5)}</td>
               <td><span className={`assignments-status assignments-status--${item.por_reasignar ? 'por_reasignar' : estados.get(item.estado_id)?.codigo.toLowerCase() ?? 'unknown'}`}>{item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre ?? 'Estado no disponible'}</span></td>
-              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{Object.entries(item.asistencia_resumen ?? {}).filter(([, count]) => count > 0).map(([state, count]) => `${count} ${state === 'NO_REQUERIDA' ? 'no requerida' : state.toLowerCase()}`).join(' · ') || 'Sin registros'}</Link></td>
+              <td><Link className="assignments-action" to={`/app/asistencia?asignacion=${item.id}`}>{assignmentAttendanceText(item)}</Link></td>
               <td><Link className="assignments-action assignments-detail-button" to={`/app/asignaciones/${item.id}`}>Ver detalle</Link></td>
             </tr>)}</tbody></table></div>}
     </div>}

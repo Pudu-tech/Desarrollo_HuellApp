@@ -40,6 +40,9 @@ import {
 } from 'react'
 
 import UserCreateForm from '../components/users/UserCreateForm'
+import ExportButton from '../components/common/ExportButton'
+import { usersExportTable, userFullName } from '../utils/usersExport'
+import { recursoRequest } from '../services/recursosService'
 import UserEditForm from '../components/users/UserEditForm'
 import '../styles/usuarios.css'
 
@@ -72,6 +75,7 @@ function UsuariosPage() {
 
   const [users, setUsers] =
     useState<UserListItem[]>([])
+  const [exportBusy, setExportBusy] = useState(false)
 
   const sorting = useListSort<string>('nombre')
   const [search, setSearch] = useState('')
@@ -89,7 +93,15 @@ function UsuariosPage() {
   }) : users
   const rolesFiltro = Array.from(new Map(users.map((item) => [item.roles.codigo, item.roles.nombre])).entries())
     .sort((a, b) => a[1].localeCompare(b[1], 'es-CL'))
-  const usuariosOrdenados = sorting.order(filteredUsers, { nombre: item => [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ').trim() })
+  const usuariosOrdenados = sorting.order(filteredUsers, { nombre: userFullName })
+
+  async function prepareExport() {
+    const direction = sorting.sort.direction
+    const snapshot = await recursoRequest<{ items: UserListItem[]; total: number; generated_at: string }>('/exports/users', 'GET', undefined, true)
+    if (snapshot.total !== snapshot.items.length) throw new Error('La consulta no está completa. Vuelve a intentarlo.')
+    setUsers(snapshot.items)
+    return usersExportTable(snapshot.items, snapshot.generated_at, direction)
+  }
 
   const [loading, setLoading] =
     useState(true)
@@ -379,6 +391,7 @@ function UsuariosPage() {
           <button
             className="users-primary"
             type="button"
+            disabled={exportBusy}
             onClick={handleOpenCreateForm}
           >
             + Crear nuevo usuario
@@ -443,14 +456,17 @@ function UsuariosPage() {
             <h2>Usuarios registrados</h2>
             <p role="status">{loading ? 'Cargando...' : `${filteredUsers.length} de ${users.length} usuarios`}</p>
           </div>
+          <div className="query-table-actions">
           <button
             type="button"
             className="users-secondary"
             onClick={() => { clearReadCache(); void loadUsers() }}
-            disabled={loading}
+            disabled={loading || exportBusy}
           >
             Actualizar
           </button>
+          <ExportButton disabled={loading || !!error || users.length === 0 || showCreateForm || !!editingUser} prepare={prepareExport} onBusyChange={setExportBusy} />
+          </div>
         </div>
 
       {canFilter && <div className="users-filters" role="search" aria-label="Filtrar usuarios">
@@ -511,7 +527,7 @@ function UsuariosPage() {
       {!loading
         && !error
         && users.length > 0 && (
-          <div className="users-table-scroll">
+          <div className="users-table-scroll" inert={exportBusy}>
           <table className="users-table">
             <thead>
               <tr>

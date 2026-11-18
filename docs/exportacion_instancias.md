@@ -1,5 +1,11 @@
 # INC-02 — Exportación de Instancias
 
+## Actualización del 17-11-2026
+
+Después de integrar develop, Instancias agregó coordinador, monitor, curso y búsqueda por palabras sin tildes. La exportación se adapta a ese listado mediante la corrección documentada en [correccion_exportacion_instancias_filtros.md](correccion_exportacion_instancias_filtros.md): selector compartido, campos nuevos, columnas según perfil y alcance de Coordinación reutilizado del backend vigente. Esta actualización sustituye la selección, columnas y descripción de visibilidad general de la versión inicial que se conserva a continuación como registro histórico. No acredita cierre de #61.
+
+## Registro inicial de INC-02
+
 ## Encargo y fuentes
 
 Matías solicita extender a Instancias la exportación de Usuarios. Se mantienen las decisiones de INC-01: PDF/XLSX, columnas del listado, menú debajo de Exportar junto a Actualizar, sin modal y una consulta de datos completa o rechazo sin descarga parcial. Relacionado con #63 (https://github.com/Pudu-tech/Desarrollo_HuellApp/issues/63).

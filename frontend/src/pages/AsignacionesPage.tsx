@@ -17,7 +17,7 @@
 import SortableHeader from '../components/common/SortableHeader'
 import ExportButton from '../components/common/ExportButton'
 import { recursoRequest } from '../services/recursosService'
-import { assignmentsExportTable, assignmentAttendanceText, mergeAssignmentCatalogs, mergeAssignmentSnapshot } from '../utils/assignmentsExport'
+import { assignmentView, assignmentsExportTable, assignmentAttendanceText, mergeAssignmentCatalogs, mergeAssignmentSnapshot } from '../utils/assignmentsExport'
 import { useListSort } from '../hooks/useListSort'
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
@@ -34,7 +34,6 @@ import { colegiosDisponibles } from '../utils/asignacionesListado'
 import { useAuth } from '../contexts/AuthContext'
 
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : 'No fue posible completar la operación.'
-const normalizarBusqueda = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-CL').trim()
 
 export default function AsignacionesPage() {
   const [params] = useSearchParams()
@@ -74,7 +73,7 @@ export default function AsignacionesPage() {
       setItems(data.items); setCatalogos(data.catalogos); setPermissions(data.permissions); setColegioId(previous => colegiosDisponibles(data.catalogos.colegios).some(school => school.id === previous) ? previous : '')
       setError('')
     } catch { /* Una falla temporal conserva el listado; el siguiente ciclo reintenta. */ }
-  }, !loading && !creating && !loadingOptions)
+  }, !loading && !creating && !loadingOptions && !exportBusy)
   useEffect(() => {
     if (!directCreate) return
     let active = true
@@ -126,37 +125,16 @@ export default function AsignacionesPage() {
   const isDirectiva = user?.role_code === 'DIRECTIVA'
   const isCoordinador = user?.role_code === 'COORDINADOR'
   const rangoInvalido = !!desde && !!hasta && desde > hasta
-  const palabras = useMemo(() => normalizarBusqueda(search).split(/\s+/).filter(Boolean), [search])
-  const filtered = useMemo(() => items.filter((item) => {
-    if (upcomingOnly && ['REALIZADA', 'CANCELADA', 'NO_REALIZADA'].includes(estados.get(item.estado_id)?.codigo || '')) return false
-    if (tipoId && item.tipo_actividad_id !== tipoId) return false
-    if (estadoId === 'POR_REASIGNAR' ? !item.por_reasignar : estadoId && (item.estado_id !== estadoId || item.por_reasignar)) return false
-    if (colegioId && item.colegio_id !== colegioId) return false
-    if (coordinadorId && !(item.coordinadores ?? []).some((person) => person.id === coordinadorId)) return false
-    if (monitorId && !(item.monitores ?? []).some((person) => person.id === monitorId)) return false
-    if (cursoId && item.curso_colegio_id !== cursoId) return false
-    if (desde && item.fecha < desde) return false
-    if (hasta && item.fecha > hasta) return false
-    if (!palabras.length) return true
-    const texto = normalizarBusqueda([
-      tipos.get(item.tipo_actividad_id)?.nombre, colegios.get(item.colegio_id ?? ''),
-      item.lugar, item.observacion, item.curso_nombre,
-      item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre,
-      item.fecha, item.fecha.split('-').reverse().join('/'),
-      item.hora_inicio.slice(0, 5), item.hora_fin.slice(0, 5),
-      ...(item.monitores ?? []).map((person) => person.nombre),
-      ...(item.coordinadores ?? []).map((person) => person.nombre),
-      ...(item.asignados_a ?? []),
-    ].join(' '))
-    return palabras.every((palabra) => texto.includes(palabra))
-  }), [items, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, palabras, tipos, colegios, upcomingOnly, estados])
-  const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, coordinadores: r => r.coordinadores?.map((person) => person.nombre).join(', '), monitores: r => r.monitores?.map((person) => person.nombre).join(', '), participantes: r => r.asignados_a?.join(', ') })
-  const filters = { search, tipoId, estadoId, colegioId, desde, hasta, upcomingOnly }
+  const filters = { search, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, upcomingOnly }
+  const { filtered, ordered } = assignmentView(items, catalogos, filters, sorting.sort)
 
   async function prepareExport() {
     const query = new URLSearchParams()
     if (tipoId) query.set('tipo_actividad_id', tipoId)
     if (colegioId) query.set('colegio_id', colegioId)
+    if (coordinadorId) query.set('coordinador_id', coordinadorId)
+    if (monitorId) query.set('monitor_id', monitorId)
+    if (cursoId) query.set('curso_colegio_id', cursoId)
     if (estadoId && estadoId !== 'POR_REASIGNAR') query.set('estado_id', estadoId)
     if (desde) query.set('fecha_desde', desde)
     if (hasta) query.set('fecha_hasta', hasta)
@@ -164,7 +142,7 @@ export default function AsignacionesPage() {
     if (snapshot.total !== snapshot.items.length) throw new Error('La consulta no está completa. Vuelve a intentarlo.')
     const freshCatalogs = mergeAssignmentCatalogs(catalogos, snapshot.catalogos)
     setItems(previous => mergeAssignmentSnapshot(previous, snapshot.items, filters)); setCatalogos(freshCatalogs)
-    return assignmentsExportTable(snapshot.items, freshCatalogs, filters, sorting.sort, snapshot.generated_at)
+    return assignmentsExportTable(snapshot.items, freshCatalogs, filters, sorting.sort, snapshot.generated_at, isDirectiva)
   }
 
   /** Carga opciones nuevas al abrir: un recurso eliminado no queda como opción cacheada. */

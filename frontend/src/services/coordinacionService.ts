@@ -47,7 +47,7 @@ async function accessToken(): Promise<string> {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await accessToken()
-  const response = await fetch(`${apiUrl}${path}`, {
+  const send = () => fetch(`${apiUrl}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -56,6 +56,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   })
+  let response = await send()
+  if (response.status === 503 && (options.method ?? 'GET') === 'GET') {
+    await new Promise<void>((resolve) => setTimeout(resolve, 400))
+    response = await send()
+  }
 
   if (!response.ok) {
     let body: unknown = null

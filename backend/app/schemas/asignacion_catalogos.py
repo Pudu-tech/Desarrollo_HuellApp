@@ -14,7 +14,7 @@ Los modelos delimitan y validan datos; la autorización corresponde a las
 dependencias y reglas de los endpoints, no a la creación de una instancia.
 """
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class OpcionNombre(BaseModel):
@@ -80,7 +80,7 @@ class OpcionesCreacionAsignacion(BaseModel):
 
 class CoordinadorOpcion(OpcionNombre):
     """Coordinador activo asociado al colegio seleccionado."""
-    pass
+    monitor_ids: list[UUID] = Field(default_factory=list)
 
 
 class OpcionesColegioAsignacion(BaseModel):

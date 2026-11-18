@@ -771,6 +771,11 @@ class AsignacionUpdate(BaseModel):
         max_length=2000,
     )
 
+    participantes: list[ParticipanteCreate] | None = Field(
+        default=None,
+        min_length=1,
+    )
+
     contactos: list[ContactoAsignacionCreate] | None = Field(
         default=None,
     )
@@ -813,6 +818,23 @@ class AsignacionUpdate(BaseModel):
         ):
             raise ValueError(
                 "hora_fin debe ser posterior a hora_inicio."
+            )
+
+        return self
+
+    @model_validator(mode="after")
+    def validar_participantes_duplicados(
+        self,
+    ) -> "AsignacionUpdate":
+        """Evita repetir una persona cuando la edición reemplaza participantes."""
+
+        if self.participantes is None:
+            return self
+
+        usuarios = [participante.usuario_id for participante in self.participantes]
+        if len(usuarios) != len(set(usuarios)):
+            raise ValueError(
+                "No se permite repetir un participante dentro de la misma instancia."
             )
 
         return self

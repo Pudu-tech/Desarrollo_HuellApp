@@ -21,8 +21,9 @@ import { clearReadCache } from '../services/readCache'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AsignacionCreateForm from '../components/asignaciones/DeferredAsignacionForm'
+import { useConfirmation } from '../hooks/useConfirmation'
 import { createAsignacion, getAsignacionesResumen, getOpcionesCreacion } from '../services/asignacionesService'
 import type { AsignacionItem, AsignacionPayload, CatalogosAsignacion, OpcionesCreacion } from '../types/asignaciones'
 import '../styles/asignaciones.css'
@@ -30,9 +31,13 @@ import { colegiosDisponibles } from '../utils/asignacionesListado'
 import { useAuth } from '../contexts/AuthContext'
 
 const messageOf = (cause: unknown) => cause instanceof Error ? cause.message : 'No fue posible completar la operación.'
+const normalizarBusqueda = (texto: string) => texto.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLocaleLowerCase('es-CL').trim()
 
 export default function AsignacionesPage() {
   const [params] = useSearchParams()
+  const navigate = useNavigate()
+  const directCreate = params.get('crear') === '1'
+  const initialDate = params.get('fecha') || ''
   const { user } = useAuth()
   const [items, setItems] = useState<AsignacionItem[]>([])
   const [catalogos, setCatalogos] = useState<CatalogosAsignacion | null>(null)
@@ -42,9 +47,9 @@ export default function AsignacionesPage() {
   const [error, setError] = useState('')
   const [creationError, setCreationError] = useState('')
   const [catalogError, setCatalogError] = useState('')
-  const [notice, setNotice] = useState('')
-  const [creating, setCreating] = useState(false)
-  const [loadingOptions, setLoadingOptions] = useState(false)
+  const { confirm, confirmationDialog } = useConfirmation()
+  const [creating, setCreating] = useState(directCreate)
+  const [loadingOptions, setLoadingOptions] = useState(directCreate)
   const [opciones, setOpciones] = useState<OpcionesCreacion | null>(null)
   const [search, setSearch] = useState('')
   const [tipoId, setTipoId] = useState('')
@@ -66,6 +71,24 @@ export default function AsignacionesPage() {
       setError('')
     } catch { /* Una falla temporal conserva el listado; el siguiente ciclo reintenta. */ }
   }, !loading && !creating && !loadingOptions)
+  useEffect(() => {
+    if (!directCreate) return
+    let active = true
+    setCreating(true)
+    setLoadingOptions(true)
+    setCreationError('')
+    void getOpcionesCreacion().then((data) => {
+      if (!active) return
+      if (!data.tipos_actividad.length) throw new Error('No hay tipos de actividad disponibles para tus permisos.')
+      setOpciones(data)
+    }).catch((cause: unknown) => {
+      if (active) setCreationError(messageOf(cause))
+    }).finally(() => {
+      if (active) setLoadingOptions(false)
+    })
+    return () => { active = false }
+  }, [directCreate])
+
   useEffect(() => {
     let active = true
     void getAsignacionesResumen().then((data) => {
@@ -99,6 +122,7 @@ export default function AsignacionesPage() {
   const isDirectiva = user?.role_code === 'DIRECTIVA'
   const isCoordinador = user?.role_code === 'COORDINADOR'
   const rangoInvalido = !!desde && !!hasta && desde > hasta
+  const palabras = useMemo(() => normalizarBusqueda(search).split(/\s+/).filter(Boolean), [search])
   const filtered = useMemo(() => items.filter((item) => {
     if (upcomingOnly && ['REALIZADA', 'CANCELADA', 'NO_REALIZADA'].includes(estados.get(item.estado_id)?.codigo || '')) return false
     if (tipoId && item.tipo_actividad_id !== tipoId) return false
@@ -109,9 +133,19 @@ export default function AsignacionesPage() {
     if (cursoId && item.curso_colegio_id !== cursoId) return false
     if (desde && item.fecha < desde) return false
     if (hasta && item.fecha > hasta) return false
-    const text = `${tipos.get(item.tipo_actividad_id)?.nombre ?? ''} ${colegios.get(item.colegio_id ?? '') ?? ''} ${item.lugar ?? ''} ${item.observacion ?? ''}`
-    return text.toLocaleLowerCase('es-CL').includes(search.trim().toLocaleLowerCase('es-CL'))
-  }), [items, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, search, tipos, colegios, upcomingOnly, estados])
+    if (!palabras.length) return true
+    const texto = normalizarBusqueda([
+      tipos.get(item.tipo_actividad_id)?.nombre, colegios.get(item.colegio_id ?? ''),
+      item.lugar, item.observacion, item.curso_nombre,
+      item.por_reasignar ? 'Por reasignar' : estados.get(item.estado_id)?.nombre,
+      item.fecha, item.fecha.split('-').reverse().join('/'),
+      item.hora_inicio.slice(0, 5), item.hora_fin.slice(0, 5),
+      ...(item.monitores ?? []).map((person) => person.nombre),
+      ...(item.coordinadores ?? []).map((person) => person.nombre),
+      ...(item.asignados_a ?? []),
+    ].join(' '))
+    return palabras.every((palabra) => texto.includes(palabra))
+  }), [items, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, palabras, tipos, colegios, upcomingOnly, estados])
   const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, coordinadores: r => r.coordinadores?.map((person) => person.nombre).join(', '), monitores: r => r.monitores?.map((person) => person.nombre).join(', '), participantes: r => r.asignados_a?.join(', ') })
 
   /** Carga opciones nuevas al abrir: un recurso eliminado no queda como opción cacheada. */
@@ -119,7 +153,6 @@ export default function AsignacionesPage() {
     if (!canCreate || loadingOptions) return
     setLoadingOptions(true)
     setCreationError('')
-    setNotice('')
     try {
       const data = await getOpcionesCreacion()
       if (!data.tipos_actividad.length) throw new Error('No hay tipos de actividad disponibles para tus permisos.')
@@ -139,18 +172,40 @@ export default function AsignacionesPage() {
     setItems((previous) => [...previous, { ...created, asignados_a: asignados }])
     setSearch(''); setTipoId(''); setEstadoId(''); setColegioId(''); setCoordinadorId(''); setMonitorId(''); setCursoId(''); setDesde(''); setHasta('')
     setCreating(false)
-    setNotice('Instancia creada correctamente. Participantes, contactos y auditoría quedaron registrados.')
+    await confirm({
+      title: 'Instancia creada',
+      message: 'La instancia y sus participantes quedaron registrados.',
+      confirmLabel: 'Entendido',
+      acknowledgeOnly: true,
+      variant: 'success',
+    })
+    if (directCreate) navigate('/app/asignaciones', { replace: true })
     return created
   }
 
   /** Invalida lecturas previas y vuelve a consultar el resumen y sus catálogos. */
   function refresh() { clearReadCache(); setLoading(true); setError(''); setRevision((value) => value + 1) }
 
+  if (directCreate) {
+    return <section className="assignments-page">
+      {confirmationDialog}
+      {creationError && <p className="assignments-error" role="alert">{creationError}</p>}
+      {loadingOptions || !opciones
+        ? <LoadingIndicator />
+        : <AsignacionCreateForm
+            opciones={opciones}
+            onCreate={save}
+            onClose={() => navigate('/app/asignaciones')}
+            initialDate={initialDate}
+          />}
+    </section>
+  }
+
   return <section className="assignments-page">
+    {confirmationDialog}
     <header className="assignments-heading"><div><h1>Instancias</h1><p>Organiza actividades, establecimientos y participantes.</p></div>
       {canCreate && !creating && <button type="button" className="assignments-primary" disabled={loading || loadingOptions || !!error} onClick={() => void openCreate()}>{loadingOptions ? 'Cargando opciones…' : '+ Crear instancia'}</button>}
     </header>
-    {notice && <p className="assignments-success" role="status">{notice}</p>}
     {creationError && <p className="assignments-error" role="alert">{creationError}</p>}
     {creating && opciones ? <AsignacionCreateForm opciones={opciones} onCreate={save} onClose={() => setCreating(false)} /> : <div className="assignments-panel">
       <div className="assignments-panel-heading"><div><h2>Actividades registradas</h2><p>{loading ? 'Cargando…' : `${filtered.length} de ${items.length} instancias`}</p></div>
@@ -159,7 +214,7 @@ export default function AsignacionesPage() {
       {catalogError && <p className="assignments-warning" role="alert">{catalogError}</p>}
       <div className="assignments-filters">
         {upcomingOnly && <label><input type="checkbox" checked={upcomingOnly} onChange={e => setUpcomingOnly(e.target.checked)} /> Solo próximas actividades</label>}
-        <label>Buscar<input type="search" placeholder="Actividad, colegio o lugar…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
+        <label>Buscar<input type="search" placeholder="Actividad, persona, colegio o curso…" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
         <label>Tipo de actividad<select value={tipoId} onChange={(event) => setTipoId(event.target.value)}><option value="">Todos los tipos</option>{catalogos?.tipos_actividad.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Estado<select value={estadoId} onChange={(event) => setEstadoId(event.target.value)}><option value="">Todos los estados</option><option value="POR_REASIGNAR">Por reasignar</option>{catalogos?.estados.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
         <label>Colegio<select value={colegioId} onChange={(event) => setColegioId(event.target.value)}><option value="">Todos los colegios</option>{colegiosFiltro.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>

@@ -29,13 +29,15 @@ ramo_id: item.ramo_id, espacio_reflexion_id: item.espacio_reflexion_id,
 const normalizar = (key: string, value: unknown) => {
   if ((key === 'hora_inicio' || key === 'hora_fin') && typeof value === 'string') return value.length === 5 ? value + ':00' : value
   if (key === 'contactos') return (value as AsignacionPayload['contactos']).map((item) => item.contacto_colegio_id).sort().join(',')
+  if (key === 'participantes') return (value as AsignacionPayload['participantes'])
+    .map((item) => `${item.usuario_id}:${item.tipo_participacion_id}`).sort().join(',')
   return value
 }
 /** Describe los campos modificados para confirmar la edición antes de enviarla. */
 export function cambiosEdicion(original: AsignacionPayload, nuevo: AsignacionPayload): AsignacionCambios {
   const changes: Record<string, unknown> = {}
   for (const key of Object.keys(original) as Array<keyof AsignacionPayload>) {
-    if (key === 'participantes' || key === 'tipo_actividad_id') continue
+    if (key === 'tipo_actividad_id') continue
     if (normalizar(key, original[key]) !== normalizar(key, nuevo[key])) changes[key] = nuevo[key]
   }
   if ('colegio_id' in changes) {

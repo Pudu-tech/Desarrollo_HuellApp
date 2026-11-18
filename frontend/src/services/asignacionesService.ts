@@ -22,7 +22,7 @@ export const getAsignacionesResumen = (fresh = false) => recursoRequest<{ items:
 export const getAsignacion = (id: string, fresh = false) => recursoRequest<AsignacionDetail>(`/asignaciones/${encodeURIComponent(id)}`, 'GET', undefined, fresh)
 export const deleteAsignacion = (id: string) => recursoRequest<void>(`/asignaciones/${encodeURIComponent(id)}`, 'DELETE')
 export const createAsignacion = (payload: AsignacionPayload) => recursoRequest<AsignacionDetail>('/asignaciones', 'POST', payload)
-export type AsignacionCambios = Partial<Omit<AsignacionPayload, 'tipo_actividad_id' | 'participantes'>>
+export type AsignacionCambios = Partial<Omit<AsignacionPayload, 'tipo_actividad_id'>>
 export const updateAsignacion = (id: string, cambios: AsignacionCambios) => recursoRequest<AsignacionDetail>(`/asignaciones/${encodeURIComponent(id)}`, 'PATCH', cambios)
 export const getOpcionesEdicion = () => recursoRequest<OpcionesCreacion>('/catalogos/asignaciones/edicion')
 export const getMonitoresReasignacion = () => recursoRequest<Array<{ id: string; nombres: string; apellido_paterno: string; apellido_materno: string | null }>>('/catalogos/asignaciones/reasignacion/participantes')
@@ -34,5 +34,5 @@ export const getColegioEdicion = (id: string) => recursoRequest<OpcionesColegio>
 export const getEspaciosEdicion = (id: string) => recursoRequest<OpcionesEspacios>(`/catalogos/asignaciones/edicion/ramos/${encodeURIComponent(id)}/espacios`)
 export const getCatalogosAsignaciones = () => recursoRequest<CatalogosAsignacion>('/catalogos/asignaciones')
 export const getOpcionesCreacion = () => recursoRequest<OpcionesCreacion>('/catalogos/asignaciones/creacion')
-export const getOpcionesColegio = (id: string) => recursoRequest<OpcionesColegio>(`/catalogos/asignaciones/colegios/${encodeURIComponent(id)}`)
+export const getOpcionesColegio = (id: string) => recursoRequest<OpcionesColegio>(`/catalogos/asignaciones/colegios/${encodeURIComponent(id)}`, 'GET', undefined, true)
 export const getOpcionesEspacios = (id: string) => recursoRequest<OpcionesEspacios>(`/catalogos/asignaciones/ramos/${encodeURIComponent(id)}/espacios`)

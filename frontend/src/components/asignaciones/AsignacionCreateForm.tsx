@@ -16,7 +16,7 @@
  */
 import LoadingIndicator from '../LoadingIndicator'
 
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { getOpcionesColegio, getOpcionesEspacios, getColegioEdicion, getEspaciosEdicion } from '../../services/asignacionesService'
 import type { AsignacionDetail, AsignacionPayload, OpcionesCreacion } from '../../types/asignaciones'
@@ -60,22 +60,30 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
   const ramos = opciones.ramos.filter((item) => curso && item.nivel_ids.includes(curso.nivel_curso_id))
   const espacioOptions = tipo?.codigo === 'ESPACIO_REFLEXION' ? espacios.data?.reflexion : espacios.data?.encuentro
 
-  /** Mantiene el coordinador responsable sincronizado con el colegio elegido. */
-  useEffect(() => {
-    if (!escolar || !form.colegio_id || !colegio.data) return
-    const options = colegio.data.coordinadores
-    if (user?.role_code === 'COORDINADOR') {
-      if (form.coordinador_id !== user.id) setForm((previous) => ({ ...previous, coordinador_id: user.id }))
-      return
-    }
-    if (options.length === 1) {
-      if (form.coordinador_id !== options[0].id) setForm((previous) => ({ ...previous, coordinador_id: options[0].id }))
-      return
-    }
-    if (form.coordinador_id && !options.some((item) => item.id === form.coordinador_id)) {
-      setForm((previous) => ({ ...previous, coordinador_id: null }))
-    }
-  }, [colegio.data, escolar, form.colegio_id, form.coordinador_id, user?.id, user?.role_code])
+  const coordinadores = colegio.data?.coordinadores ?? []
+  const coordinadorId = colegio.data
+    ? user?.role_code === 'COORDINADOR' ? user.id
+      : coordinadores.length === 1 ? coordinadores[0].id
+        : coordinadores.find((item) => item.id === form.coordinador_id)?.id ?? null
+    : form.coordinador_id
+  const coordinador = coordinadores.find((item) => item.id === coordinadorId)
+  const limitarMonitores = !editing && (
+    user?.role_code === 'COORDINADOR'
+    || (user?.role_code === 'DIRECTIVA' && escolar && !!form.colegio_id
+      && (!colegio.data || coordinadores.length > 0))
+  )
+  const monitorIds = new Set(coordinador?.monitor_ids)
+  const usuarios = limitarMonitores
+    ? opciones.participantes.filter((item) => (
+      (item.role_code === 'MONITOR' && monitorIds.has(item.id))
+      || (user?.role_code === 'COORDINADOR' && item.id === user.id)
+    ))
+    : opciones.participantes
+  const filas = limitarMonitores ? participantes.map((item) => (
+    item.usuario_id && !usuarios.some((user) => user.id === item.usuario_id)
+      ? { ...item, usuario_id: '' }
+      : item
+  )) : participantes
 
   /** Actualiza un campo y limpia el error de validación de la edición anterior. */
   function change<K extends keyof AsignacionPayload>(key: K, value: AsignacionPayload[K]) {
@@ -91,13 +99,13 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
     event.preventDefault()
     if (submitting.current) return
     const payload: AsignacionPayload = {
-      ...form, lugar: form.lugar?.trim() || null, observacion: form.observacion?.trim() || null,
-      participantes: participantes.map(({ usuario_id, tipo_participacion_id }) => ({ usuario_id, tipo_participacion_id })),
+      ...form, coordinador_id: coordinadorId, lugar: form.lugar?.trim() || null, observacion: form.observacion?.trim() || null,
+      participantes: filas.map(({ usuario_id, tipo_participacion_id }) => ({ usuario_id, tipo_participacion_id })),
     }
     const validation = validarAsignacion(payload, tipo?.codigo ?? '')
     if (validation) { setError(validation); return }
     if (colegio.loading || espacios.loading || colegio.error || espacios.error) { setError('Espera a que se carguen correctamente las opciones dependientes.'); return }
-    if (!editing && payload.participantes.some((item) => !opciones.participantes.some((user) => user.id === item.usuario_id)
+    if (payload.participantes.some((item) => !usuarios.some((user) => user.id === item.usuario_id)
       || !opciones.tipos_participacion.some((role) => role.id === item.tipo_participacion_id))) { setError('Uno de los participantes o tipos no está disponible.'); return }
     if (escolar && (!opciones.colegios.some((item) => item.id === payload.colegio_id)
       || payload.contactos.some((item) => !colegio.data?.contactos.some((contacto) => contacto.id === item.contacto_colegio_id))
@@ -108,20 +116,24 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
     setError('')
     try {
       if (!await confirm({ title: editing ? '¿Guardar cambios?' : '¿Crear instancia?', confirmLabel: editing ? 'Sí, guardar cambios' : 'Sí, crear instancia',
-        message: editing ? <>Si cambian fecha, horario o contexto, los participantes deberán responder nuevamente y recibirán otra invitación. Las observaciones no solicitan reconfirmación.</> : <>Vas a crear <strong>{tipo?.nombre}</strong> para el {payload.fecha.split('-').reverse().join('/')} de {payload.hora_inicio} a {payload.hora_fin}, con {payload.participantes.length} participante(s).</> })) return
+        message: editing ? <>En instancias pendientes o confirmadas, los cambios de fecha, horario, contexto o participantes pueden solicitar una nueva confirmación. Si la instancia está No realizada, se guardará como corrección administrativa sin reabrirla ni reenviar invitaciones.</> : <>Vas a crear <strong>{tipo?.nombre}</strong> para el {payload.fecha.split('-').reverse().join('/')} de {payload.hora_inicio} a {payload.hora_fin}, con {payload.participantes.length} participante(s).</> })) return
       setWorking(true)
       await onCreate(payload)
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No fue posible crear la instancia.')
+      await confirm({
+        title: editing ? 'No se pudieron guardar los cambios' : 'No se pudo crear la instancia',
+        message: cause instanceof Error ? cause.message : 'Ocurrió un error al procesar la solicitud.',
+        confirmLabel: 'Entendido',
+        acknowledgeOnly: true,
+      })
     } finally { submitting.current = false; setWorking(false) }
   }
 
   return <div className="assignments-editor">
     {confirmationDialog}
-    <div className="assignments-panel-heading"><div><h2>{editing ? 'Editar instancia' : 'Nueva instancia'}</h2><p>{editing ? 'Actualiza las condiciones de la actividad. El tipo y los participantes se conservan.' : 'Completa los datos de la actividad y las personas que participarán.'}</p></div>
+    <div className="assignments-panel-heading"><div><h2>{editing ? 'Editar instancia' : 'Nueva instancia'}</h2><p>{editing ? 'Actualiza los datos y participantes de la instancia. El tipo de actividad se conserva.' : 'Completa los datos de la actividad y las personas que participarán.'}</p></div>
       <button type="button" className="assignments-secondary" disabled={working} onClick={onClose}>Volver al listado</button>
     </div>
-    {error && <p className="assignments-error" role="alert">{error}</p>}
     <form onSubmit={(event) => void save(event)}>
       <fieldset className="assignments-fieldset" disabled={working}>
         <section className="assignments-form-section"><h3>Actividad y horario</h3>
@@ -142,7 +154,7 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
               setForm((previous) => ({ ...previous, colegio_id: event.target.value || null, coordinador_id: null, curso_colegio_id: null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null, contactos: [] }))
               setError('')
             }}><option value="">Seleccionar colegio</option>{opciones.colegios.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>
-            {user?.role_code !== 'COORDINADOR' && colegio.data?.coordinadores.length ? <label>Coordinador responsable<select required value={form.coordinador_id ?? ''} disabled={colegio.data.coordinadores.length === 1} onChange={(event) => change('coordinador_id', event.target.value || null)}><option value="">Seleccionar coordinador</option>{colegio.data.coordinadores.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label> : null}
+            {user?.role_code !== 'COORDINADOR' && coordinadores.length > 0 && <label>Coordinador responsable<select required value={coordinadorId ?? ''} disabled={coordinadores.length === 1} onChange={(event) => change('coordinador_id', event.target.value || null)}><option value="">Seleccionar coordinador</option>{coordinadores.map((item) => <option key={item.id} value={item.id}>{item.nombre}</option>)}</select></label>}
             <label>Curso{!academica && ' (opcional)'}<select required={academica} disabled={!form.colegio_id || colegio.loading || !!colegio.error} value={form.curso_colegio_id ?? ''} onChange={(event) => {
               setForm((previous) => ({ ...previous, curso_colegio_id: event.target.value || null, ramo_id: null, espacio_reflexion_id: null, espacio_encuentro_id: null }))
               setError('')
@@ -178,11 +190,16 @@ export default function AsignacionCreateForm({ opciones, onCreate, onClose, init
           {espacios.data && !espacioOptions?.length && <p className="assignments-warning">No hay espacios activos disponibles para este ramo y actividad.</p>}
         </section>}
         {tipo && !escolar && <section className="assignments-form-section"><h3>Lugar</h3><label>Lugar de la actividad<input required maxLength={250} value={form.lugar ?? ''} onChange={(event) => change('lugar', event.target.value)} /></label></section>}
-        {!editing && <AsignacionParticipantes rows={participantes} usuarios={opciones.participantes} tipos={opciones.tipos_participacion} onChange={setParticipantes}
-          onAdd={() => setParticipantes((previous) => [...previous, { key: nextRow.current++, usuario_id: '', tipo_participacion_id: '' }])} />}
-        {editing && <p className="assignments-warning">Se conservan los {participantes.length} participantes registrados. Cambiar condiciones volverá sus respuestas a Pendiente.</p>}
+        {limitarMonitores && user?.role_code === 'COORDINADOR' && !form.colegio_id && <p>Selecciona un colegio para ver tus monitores asignados.</p>}
+        {limitarMonitores && user?.role_code === 'DIRECTIVA' && coordinadores.length > 1 && !coordinador && <p>Selecciona un coordinador para ver sus monitores.</p>}
+        {limitarMonitores && coordinador && !usuarios.some((item) => item.role_code === 'MONITOR') && <p className="assignments-warning">Este coordinador no tiene monitores activos asignados en el colegio.</p>}
+        <AsignacionParticipantes rows={filas} usuarios={usuarios} tipos={opciones.tipos_participacion} onChange={setParticipantes}
+          soloMonitores={limitarMonitores && user?.role_code === 'DIRECTIVA'}
+          onAdd={() => setParticipantes((previous) => [...previous, { key: nextRow.current++, usuario_id: '', tipo_participacion_id: '' }])} />
+        {editing && <p className="assignments-warning">Los cambios de participantes conservan el historial anterior. En instancias pendientes o confirmadas puede solicitarse una nueva respuesta; en una instancia No realizada la edición es administrativa y no envía nuevas invitaciones.</p>}
         <section className="assignments-form-section"><h3>Observaciones</h3><label>Observación (opcional)<textarea maxLength={2000} rows={3} value={form.observacion ?? ''} onChange={(event) => change('observacion', event.target.value)} /></label></section>
       </fieldset>
+      {error && <p className="assignments-error" role="alert">{error}</p>}
       <div className="assignments-editor-actions">
         <button className="assignments-primary" type="submit" disabled={working || colegio.loading || espacios.loading || !!colegio.error || !!espacios.error}>{working ? 'Guardando…' : editing ? 'Guardar cambios' : 'Crear instancia'}</button>
         <button className="assignments-secondary" type="button" disabled={working} onClick={onClose}>Cancelar</button>

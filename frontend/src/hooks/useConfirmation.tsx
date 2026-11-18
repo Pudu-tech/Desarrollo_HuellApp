@@ -21,6 +21,8 @@ interface Confirmation {
   title: string
   message: ReactNode
   confirmLabel: string
+  acknowledgeOnly?: boolean
+  variant?: 'success'
 }
 
 export function useConfirmation() {
@@ -41,7 +43,7 @@ export function useConfirmation() {
     resolve?.(approved)
   }
 
-  const confirmationDialog = request && <ConfirmationDialog title={request.title} confirmLabel={request.confirmLabel}
-    onCancel={() => settle(false)} onConfirm={() => settle(true)}>{request.message}</ConfirmationDialog>
+  const confirmationDialog = request && <ConfirmationDialog title={request.title} confirmLabel={request.confirmLabel} variant={request.variant}
+    onCancel={request.acknowledgeOnly ? undefined : () => settle(false)} onConfirm={() => settle(true)}>{request.message}</ConfirmationDialog>
   return { confirm, confirmationDialog }
 }

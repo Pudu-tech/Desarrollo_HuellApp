@@ -129,9 +129,28 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
                     continue
                 raise
             allowed.append(item)
-        users = _datos(db.table("usuarios").select("id,nombres,apellido_paterno,apellido_materno,email,roles!inner(codigo)")
-                       .eq("activo", True).is_("deleted_at", "null")
-                       .in_("roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"]).order("nombres")) if filtrar_tipos else []
+        users_query = (
+            db.table("usuarios")
+            .select("id,nombres,apellido_paterno,apellido_materno,email,roles!inner(codigo)")
+            .eq("activo", True)
+            .is_("deleted_at", "null")
+            .in_("roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"])
+            .order("nombres")
+        )
+        users = _datos(users_query)
+
+        # Un coordinador no recibe el padrón completo de personas: solo él y
+        # los monitores que administra en alguno de sus colegios vigentes.
+        # La pertenencia al colegio concreto vuelve a validarse al guardar.
+        if actor.role_code == "COORDINADOR":
+            relaciones = _datos(
+                db.table("coordinador_monitor_colegio")
+                .select("monitor_id")
+                .eq("coordinador_id", str(actor.id))
+                .eq("activo", True)
+            )
+            permitidos = {str(actor.id), *(str(item["monitor_id"]) for item in relaciones)}
+            users = [user for user in users if str(user.get("id")) in permitidos]
         colegios_query = (
             db.table("colegios")
             .select("id,nombre")
@@ -217,6 +236,24 @@ def listar_recursos_colegio_asignacion(
             nombre = " ".join(filter(None, [user.get("nombres"), user.get("apellido_paterno"), user.get("apellido_materno")])).strip()
             coordinadores.append({"id": user.get("id"), "nombre": nombre or "Coordinador"})
         coordinadores.sort(key=lambda item: item["nombre"].casefold())
+        coordinadores_visibles = [
+            item for item in coordinadores
+            if _actor.role_code == "DIRECTIVA"
+            or (_actor.role_code == "COORDINADOR" and str(item["id"]) == str(_actor.id))
+        ]
+        if coordinadores_visibles:
+            monitores_por_coordinador = {str(item["id"]): [] for item in coordinadores_visibles}
+            relaciones = _datos(
+                db.table("coordinador_monitor_colegio")
+                .select("coordinador_id,monitor_id")
+                .eq("colegio_id", str(colegio_id))
+                .eq("activo", True)
+                .in_("coordinador_id", list(monitores_por_coordinador))
+            )
+            for relacion in relaciones:
+                monitores_por_coordinador[str(relacion["coordinador_id"])].append(relacion["monitor_id"])
+            for coordinador in coordinadores_visibles:
+                coordinador["monitor_ids"] = monitores_por_coordinador[str(coordinador["id"])]
         return OpcionesColegioAsignacion.model_validate({
             "cursos": recursos("cursos_colegio", "id,nombre_mostrado,nivel_curso_id,anio", "nombre_mostrado"),
             "contactos": recursos("contactos_colegio", "id,nombre,apellido_paterno,apellido_materno,cargo", "nombre"),

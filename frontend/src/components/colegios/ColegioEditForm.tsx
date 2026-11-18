@@ -247,7 +247,17 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
       </>}
       </div>
       <div id="school-panel-coordinadores" role="tabpanel" aria-labelledby="school-tab-coordinadores" hidden={section !== 'coordinadores'} tabIndex={0}>
-        {visited.includes('coordinadores') && <ColegioCoordinadores
+        {section === 'coordinadores' && <ColegioCoordinadores
+          colegioId={current.id}
+          colegioNombre={current.nombre}
+          colegioActivo={current.activo}
+          permissions={permissions}
+          onWorkingChange={setChildWorking}
+        />}
+      </div>
+      <div id="school-panel-monitores" role="tabpanel" aria-labelledby="school-tab-monitores" hidden={section !== 'monitores'} tabIndex={0}>
+        {section === 'monitores' && <ColegioCoordinadores
+          section="monitores"
           colegioId={current.id}
           colegioNombre={current.nombre}
           colegioActivo={current.activo}

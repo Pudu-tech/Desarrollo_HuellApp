@@ -85,7 +85,7 @@ export interface OpcionesCreacion {
   ramos: Array<OpcionNombre & { nivel_curso_id: string | null; nivel_ids: string[] }>
 }
 export interface OpcionesColegio {
-  coordinadores: OpcionNombre[]
+  coordinadores: Array<OpcionNombre & { monitor_ids: string[] }>
   cursos: Array<{ id: string; nombre_mostrado: string; nivel_curso_id: string; anio: number }>
   contactos: Array<OpcionNombre & { apellido_paterno: string | null; apellido_materno: string | null; cargo: string | null }>
 }

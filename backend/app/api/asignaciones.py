@@ -112,6 +112,7 @@ from datetime import date
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from postgrest.exceptions import APIError
 from pydantic import ValidationError
 
 from app.core.security import require_permission
@@ -257,14 +258,19 @@ def _nombre_usuario(user: dict) -> str:
 
 
 def _monitores_referencia(participants: list[dict]) -> list[dict]:
-    """Devuelve únicamente usuarios con rol MONITOR entre los participantes activos."""
+    """Proyecta los participantes activos que la UI presenta en la columna Monitor.
+
+    La participación en una instancia es la fuente de verdad para este listado.
+    No se filtra por el rol actual de la cuenta del usuario, porque existen
+    participaciones históricas (por ejemplo, RELATOR) que deben seguir
+    apareciendo en el resumen aunque su clasificación haya cambiado.
+    """
     result: dict[str, dict] = {}
     for part in participants:
         if not part.get("activo") or part.get("deleted_at"):
             continue
         user = part.get("usuario") or {}
-        role = user.get("roles") or {}
-        if role.get("codigo") != "MONITOR" or not user.get("id"):
+        if not user.get("id"):
             continue
         result[str(user["id"])] = {"id": user["id"], "nombre": _nombre_usuario(user)}
     return sorted(result.values(), key=lambda item: item["nombre"].casefold())
@@ -420,6 +426,14 @@ def _normalizar_asistencia_db(
 # ============================================================
 # PERMISOS
 # ============================================================
+
+
+def _validar_error_solapamiento(exc: Exception) -> None:
+    if isinstance(exc, APIError) and exc.message == "ASSIGNMENT_SCHEDULE_CONFLICT":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Uno de los participantes ya tiene otra instancia asignada en ese horario.",
+        ) from exc
 
 
 def _usuario_tiene_permiso(
@@ -787,6 +801,7 @@ def _validar_participantes(
     supabase,
     *,
     payload: AsignacionCreate,
+    coordinador_responsable: UUID | None = None,
 ) -> None:
     """
     Valida participantes de una instancia nueva.
@@ -844,6 +859,19 @@ def _validar_participantes(
                     "Uno de los usuarios seleccionados "
                     "no puede ser participante."
                 ),
+            )
+
+        if coordinador_responsable is not None and payload.colegio_id is not None:
+            if rol != "MONITOR":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Selecciona un monitor asignado al coordinador responsable de este colegio.",
+                )
+            _validar_monitor_coordinador(
+                supabase,
+                coordinador_id=coordinador_responsable,
+                colegio_id=payload.colegio_id,
+                monitor_id=participante.usuario_id,
             )
 
         tipo_response = (
@@ -1556,6 +1584,60 @@ def _validar_scope_creacion_coordinador(
         )
 
 
+def _validar_participantes_edicion_coordinador(
+    supabase,
+    *,
+    coordinador_id: UUID,
+    colegio_id: UUID | None,
+    participantes: list,
+) -> None:
+    """
+    Restringe la edición de participantes de un Coordinador a su propio
+    alcance operativo. Puede mantenerse a sí mismo como participante y solo
+    puede seleccionar monitores asociados a él dentro del colegio de la
+    instancia.
+    """
+
+    if colegio_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="El coordinador solo puede editar participantes en instancias asociadas a uno de sus colegios.",
+        )
+
+    _validar_colegio_coordinador(
+        supabase,
+        coordinador_id=coordinador_id,
+        colegio_id=colegio_id,
+    )
+
+    for participante in participantes:
+        if str(participante.usuario_id) == str(coordinador_id):
+            continue
+
+        usuario = (
+            supabase.table("usuarios")
+            .select("id,roles!inner(codigo)")
+            .eq("id", str(participante.usuario_id))
+            .eq("activo", True)
+            .is_("deleted_at", "null")
+            .limit(1)
+            .execute()
+        )
+        role_code = (usuario.data[0].get("roles") or {}).get("codigo") if usuario.data else None
+        if role_code != "MONITOR":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Un coordinador solo puede asignarse a sí mismo o a monitores bajo su coordinación.",
+            )
+
+        _validar_monitor_coordinador(
+            supabase,
+            coordinador_id=coordinador_id,
+            colegio_id=colegio_id,
+            monitor_id=participante.usuario_id,
+        )
+
+
 # ============================================================
 # HELPERS PATCH INSTANCIA
 # ============================================================
@@ -1692,17 +1774,17 @@ def _validar_reglas_edicion_asignacion(
         estado_id=asignacion_actual.estado_id,
     )
 
-    if estado_codigo in {
-        "CANCELADA",
-        "NO_REALIZADA",
-    }:
+    if estado_codigo == "CANCELADA":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Una instancia {estado_codigo} no puede modificarse "
+                "Una instancia CANCELADA no puede modificarse "
                 "mediante el flujo normal."
             ),
         )
+
+    # NO_REALIZADA admite correcciones administrativas. La RPC completa
+    # conserva ese estado y evita generar nuevas invitaciones.
 
     if not payload.model_fields_set:
         raise HTTPException(
@@ -2116,6 +2198,18 @@ def actualizar_asignacion(
             supabase,
             estado_resultante=estado_resultante,
         )
+        _validar_participantes(
+            supabase,
+            payload=payload_validado,
+        )
+
+        if current_user.role_code == "COORDINADOR" and "participantes" in payload.model_fields_set:
+            _validar_participantes_edicion_coordinador(
+                supabase,
+                coordinador_id=current_user.id,
+                colegio_id=target_colegio,
+                participantes=payload_validado.participantes,
+            )
 
         request_id_raw = getattr(
             request.state,
@@ -2144,7 +2238,7 @@ def actualizar_asignacion(
         }
 
         for campo in payload.model_fields_set:
-            if campo == "contactos":
+            if campo in {"contactos", "participantes"}:
                 continue
 
             valor = getattr(payload, campo)
@@ -2187,17 +2281,34 @@ def actualizar_asignacion(
             else []
         )
 
+        reemplazar_participantes = (
+            "participantes" in payload.model_fields_set
+        )
+        participantes = (
+            [
+                {
+                    "usuario_id": str(participante.usuario_id),
+                    "tipo_participacion_id": str(participante.tipo_participacion_id),
+                }
+                for participante in payload_validado.participantes
+            ]
+            if reemplazar_participantes
+            else []
+        )
+
         campos_modificados = sorted(
             payload.model_fields_set
         )
 
         response = supabase.rpc(
-            "actualizar_asignacion_atomica",
+            "actualizar_asignacion_completa_atomica",
             {
                 "p_asignacion_id": str(asignacion_id),
                 "p_cambios": cambios,
                 "p_reemplazar_contactos": reemplazar_contactos,
                 "p_contactos": contactos,
+                "p_reemplazar_participantes": reemplazar_participantes,
+                "p_participantes": participantes,
                 "p_expected_updated_at": (
                     asignacion_actual.updated_at.isoformat()
                 ),
@@ -2247,6 +2358,18 @@ def actualizar_asignacion(
                     ),
                 )
 
+            if error_code == "INVALID_PARTICIPANTS":
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="La selección de participantes no es válida.",
+                )
+
+            if error_code == "PARTICIPANT_UPDATE_FAILED":
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="No fue posible aplicar todos los cambios de participantes. Vuelva a cargar la instancia.",
+                )
+
             if error_code == "ASSIGNMENT_CHANGED":
                 raise HTTPException(
                     status_code=status.HTTP_409_CONFLICT,
@@ -2292,6 +2415,12 @@ def actualizar_asignacion(
         raise
 
     except Exception as exc:
+        _validar_error_solapamiento(exc)
+        if isinstance(exc, APIError) and exc.code == "PGRST202" and "actualizar_asignacion_completa_atomica" in str(exc):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="La función de edición no está disponible en la base de datos. Aplica la migración 063 en Supabase.",
+            ) from exc
         if "ASSIGNMENT_RECONFIRMATION_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "Solo se pueden cambiar las condiciones de actividades futuras y abiertas, sin asistencia informada.") from exc
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
@@ -2592,11 +2721,7 @@ def reabrir_asignacion(
         raise
 
     except Exception as exc:
-        if "ASSIGNMENT_SCHEDULE_CONFLICT" in str(exc):
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Uno de los participantes ya tiene otra instancia asignada en ese horario.",
-            ) from exc
+        _validar_error_solapamiento(exc)
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
         if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):
@@ -2833,7 +2958,8 @@ def agregar_participante(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        _validar_error_solapamiento(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible agregar el participante.",
@@ -3427,7 +3553,8 @@ def reasignar_participante(
     except HTTPException:
         raise
 
-    except Exception:
+    except Exception as exc:
+        _validar_error_solapamiento(exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="No fue posible reasignar el participante.",
@@ -3553,6 +3680,7 @@ def crear_asignacion(
         _validar_participantes(
             supabase,
             payload=payload,
+            coordinador_responsable=coordinador_responsable if current_user.role_code == "DIRECTIVA" else None,
         )
 
         _validar_contactos(
@@ -3726,6 +3854,7 @@ def crear_asignacion(
         raise
 
     except Exception as exc:
+        _validar_error_solapamiento(exc)
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
         if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):

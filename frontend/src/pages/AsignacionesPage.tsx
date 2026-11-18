@@ -17,7 +17,7 @@
 import SortableHeader from '../components/common/SortableHeader'
 import ExportButton from '../components/common/ExportButton'
 import { recursoRequest } from '../services/recursosService'
-import { assignmentView, assignmentsExportTable, assignmentAttendanceText, mergeAssignmentCatalogs, mergeAssignmentSnapshot } from '../utils/assignmentsExport'
+import { assignmentsExportTable, assignmentAttendanceText, mergeAssignmentCatalogs, mergeAssignmentSnapshot } from '../utils/assignmentsExport'
 import { useListSort } from '../hooks/useListSort'
 import LoadingIndicator from '../components/LoadingIndicator'
 import { clearReadCache } from '../services/readCache'
@@ -152,7 +152,6 @@ export default function AsignacionesPage() {
   }), [items, tipoId, estadoId, colegioId, coordinadorId, monitorId, cursoId, desde, hasta, palabras, tipos, colegios, upcomingOnly, estados])
   const ordered = sorting.order(filtered, { fecha: r => `${r.fecha} ${r.hora_inicio}`, actividad: r => tipos.get(r.tipo_actividad_id)?.nombre, colegio: r => colegios.get(r.colegio_id ?? '') ?? r.lugar, coordinadores: r => r.coordinadores?.map((person) => person.nombre).join(', '), monitores: r => r.monitores?.map((person) => person.nombre).join(', '), participantes: r => r.asignados_a?.join(', ') })
   const filters = { search, tipoId, estadoId, colegioId, desde, hasta, upcomingOnly }
-  const { filtered, ordered } = assignmentView(items, catalogos, filters, sorting.sort)
 
   async function prepareExport() {
     const query = new URLSearchParams()

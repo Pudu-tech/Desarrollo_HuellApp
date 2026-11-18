@@ -1,10 +1,10 @@
-# Exportación de consultas — incremento 1: Usuarios
+# Exportación de consultas — base común y Usuarios
 
 ## Alcance y fuentes
 
 Decisión de Matías, 15-11-2026: avanzar una vista a la vez, en orden Usuarios → Instancias → Asistencia. Descargar únicamente las columnas del listado, manteniendo orden y diseño adaptado a XLSX/PDF. Botón Exportar sobre el extremo derecho de la tabla, selector de formato y corte único preparado por el servidor.
 
-Relacionado con https://github.com/Pudu-tech/Desarrollo_HuellApp/issues/63 y el borrador CA-10. Este cambio no publica/actualiza issues ni acredita aceptación de Fundación Huella. Instancias y Asistencia se implementarán en los incrementos siguientes; sus filtros todavía no se exportan.
+Relacionado con https://github.com/Pudu-tech/Desarrollo_HuellApp/issues/63 y el borrador CA-10. Este cambio no publica/actualiza issues ni acredita aceptación de Fundación Huella. Instancias se incorpora mediante INC-02, documentado en exportacion_instancias.md, y Asistencia mediante INC-03, documentado en exportacion_asistencias.md. Las secciones de comportamiento que siguen describen Usuarios.
 
 Antes: Usuarios listaba datos de GET /users y no permitía descargar archivos. Después: Exportar ofrece Excel (.xlsx) y PDF con RUT, nombre, correo, teléfono, rol y estado. No incluye Acciones, UUID, fotografías ni objetos internos. Se reutilizan el nombre completo y el comparador de la vista.
 
@@ -12,7 +12,7 @@ Antes: Usuarios listaba datos de GET /users y no permitía descargar archivos. D
 
 Corrección de Matías: las acciones del listado comparten un mismo div y una fila alineada; no reservar una línea adicional ni un espacio vacío para Exportar. Actualizar conserva el estilo secundario blanco y Exportar usa teal sólido; Crear mantiene su tratamiento propio. En pantallas estrechas se admite envolver la fila para evitar desbordes.
 
-Exportar abre un desplegable anclado debajo del botón, con únicamente Excel (.xlsx) y PDF. No abre un modal ni oscurece el contenido. Se cierra al elegir, pulsar Escape, salir con Tab o hacer clic fuera. Soporta flechas, Inicio/Fin, foco visible y retorno al botón al cerrar o terminar la generación. Los errores aparecen junto al control y las confirmaciones se anuncian sin ocupar una fila vacía. Durante la descarga se muestra Preparando… y se bloquean doble envío, actualización y cambios de orden. Este componente y su contenedor de acciones se reutilizarán en Instancias y Asistencia.
+Exportar abre un desplegable anclado debajo del botón, con únicamente Excel (.xlsx) y PDF. No abre un modal ni oscurece el contenido. Se cierra al elegir, pulsar Escape, salir con Tab o hacer clic fuera. Soporta flechas, Inicio/Fin, foco visible y retorno al botón al cerrar o terminar la generación. Los errores aparecen junto al control y las confirmaciones se anuncian sin ocupar una fila vacía. Durante la descarga se muestra Preparando… y se bloquean doble envío, actualización y cambios de orden. Este componente y su contenedor de acciones se reutilizan en Instancias y Asistencia.
 
 ## Decisión técnica vigente
 
@@ -32,7 +32,7 @@ Matías eligió reemplazar la RPC por una única consulta de datos desde FastAPI
 
 ## Formatos
 
-Diseño tabular con colores Huella, bordes, estados y encabezados. PDF A4 horizontal, texto seleccionable, fuente Noto Sans local, encabezados repetidos y número de página. XLSX con hoja Usuarios, encabezado fijo, filtro, ajuste de texto y hoja Consulta con fecha del corte, zona America/Santiago, orden y total.
+Diseño tabular con colores Huella, bordes, estados y encabezados. PDF A4 horizontal, texto seleccionable, fuente Noto Sans local, encabezados repetidos y número de página. XLSX con hoja Usuarios, encabezado fijo, filtro, ajuste de texto y hoja Consulta con fecha del corte, zona America/Santiago, orden y total. En INC-02 los generadores admiten nombre de archivo, filtros y anchos opcionales por vista; los valores predeterminados de Usuarios se conservan.
 
 RUT, teléfonos y valores ingresados se escriben como cadenas explícitas; nunca como fórmulas, macros o hipervínculos. Se conservan ceros iniciales, signo + y tildes. Los archivos no contienen controles de la interfaz. Cada formato adapta tamaños y paginación; no es una captura de pantalla del navegador.
 

@@ -17,6 +17,7 @@
 .assignments-page { max-width: 1250px; margin: 0 auto; color: #1f2937; }
 .assignments-heading, .assignments-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .assignments-heading { margin-bottom: 24px; }
+.assignments-export-refresh { min-height:44px; border-radius:10px; }
 .assignments-heading h1 { margin: 0 0 5px; font-size: 27px; letter-spacing: -.5px; }
 .assignments-heading p, .assignments-panel-heading p { margin: 0; color: #64748b; font-size: 14px; }
 .assignments-panel, .assignments-editor { padding: 24px; background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; }

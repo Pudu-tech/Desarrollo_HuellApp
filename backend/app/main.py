@@ -52,6 +52,7 @@ from app.api.notification_dispatch import router as notification_dispatch_router
 from app.api.salas import router as salas_router
 from app.api.users import router as users_router
 from app.api.user_exports import router as user_exports_router
+from app.api.assignment_exports import router as assignment_exports_router
 from app.core.config import get_settings
 from app.middleware.request_id import RequestIdMiddleware
 
@@ -103,6 +104,7 @@ app.include_router(auth_router)
 # Registra los endpoints relacionados con administración de usuarios.
 app.include_router(users_router)
 app.include_router(user_exports_router)
+app.include_router(assignment_exports_router)
 
 # Registra los endpoints de consulta de auditoría.
 app.include_router(audit_router)

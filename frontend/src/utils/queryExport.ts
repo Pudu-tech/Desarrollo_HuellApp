@@ -6,6 +6,9 @@ export interface ExportTable {
   order: string
   columns: string[]
   rows: string[][]
+  fileName?: string
+  filters?: string
+  columnWidths?: number[]
 }
 
 const teal = '246474'
@@ -15,7 +18,7 @@ export async function createXlsx(table: ExportTable): Promise<Blob> {
   const { default: ExcelJS } = await import('exceljs')
   const book = new ExcelJS.Workbook()
   const sheet = book.addWorksheet(table.title)
-  sheet.columns = table.columns.map((header, i) => ({ header, key: String(i), width: [18, 36, 38, 20, 22, 16][i] ?? 25 }))
+  sheet.columns = table.columns.map((header, i) => ({ header, key: String(i), width: (table.columnWidths ?? [18, 36, 38, 20, 22, 16])[i] ?? 25 }))
   // Strings explícitos: ExcelJS nunca recibe objetos formula/hyperlink de texto libre.
   for (const values of table.rows) sheet.addRow(values.map(String))
   sheet.eachRow((row, index) => {
@@ -30,13 +33,14 @@ export async function createXlsx(table: ExportTable): Promise<Blob> {
         cell.font = { name: 'Arial', size: 11, color: { argb: cell.value === 'Activo' ? 'FF067647' : 'FFB42318' } }
       }
     })
-    if (index > 1) row.height = Math.max(32, ...table.rows[index - 2].map((value, i) => Math.ceil(value.length / (sheet.getColumn(i + 1).width ?? 25)) * 16))
+    if (index > 1) row.height = Math.max(32, ...table.rows[index - 2].map((value, i) => value.split('\n').reduce((lines, line) => lines + Math.max(1, Math.ceil(line.length / (sheet.getColumn(i + 1).width ?? 25))), 0) * 16))
   })
   sheet.views = [{ state: 'frozen', ySplit: 1 }]
   sheet.autoFilter = { from: 'A1', to: { row: 1, column: table.columns.length } }
   const info = book.addWorksheet('Consulta')
   info.columns = [{ width: 25 }, { width: 70 }]
   info.addRows([['Vista', table.title], ['Corte del servidor', timestamp(table.generatedAt)], ['Zona horaria', 'America/Santiago'], ['Orden', table.order], ['Registros', table.rows.length]])
+  if (table.filters) { info.addRow(['Filtros', table.filters]); info.getRow(info.rowCount).alignment = { wrapText: true } }
   const buffer = await book.xlsx.writeBuffer()
   return new Blob([new Uint8Array(buffer)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }
@@ -64,8 +68,14 @@ export async function createPdf(table: ExportTable): Promise<Blob> {
   doc.setFont('NotoSans', 'normal').setFontSize(9)
   doc.text(`Corte: ${timestamp(table.generatedAt)} · America/Santiago · ${table.rows.length} registros`, 14, 25)
   doc.text(`Orden: ${table.order}`, 14, 31)
+  let startY = 37
+  if (table.filters) {
+    const lines = doc.splitTextToSize(`Filtros: ${table.filters}`, 269)
+    doc.text(lines, 14, 37)
+    startY = 41 + lines.length * 4
+  }
   autoTable(doc, {
-    head: [table.columns], body: table.rows, startY: 37, margin: { top: 15, bottom: 16, left: 14, right: 14 },
+    head: [table.columns], body: table.rows, startY, margin: { top: 15, bottom: 16, left: 14, right: 14 },
     styles: { font: 'NotoSans', fontSize: 9, cellPadding: 3, overflow: 'linebreak', textColor: '#2D3142', lineColor: '#D9E6E9', lineWidth: 0.15 },
     headStyles: { fillColor: '#F1F7F7', textColor: '#' + teal, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: '#FFFFFF' }, rowPageBreak: 'avoid', showHead: 'everyPage',
@@ -87,7 +97,7 @@ export async function downloadTable(table: ExportTable, format: ExportFormat) {
   const url = URL.createObjectURL(blob)
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = `huellapp_usuarios_${table.generatedAt.replace(/[^0-9]/g, '').slice(0, 14)}.${format}`
+  anchor.download = `huellapp_${table.fileName ?? 'usuarios'}_${table.generatedAt.replace(/[^0-9]/g, '').slice(0, 14)}.${format}`
   document.body.append(anchor)
   anchor.click()
   anchor.remove()

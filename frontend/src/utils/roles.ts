@@ -52,6 +52,7 @@ export const MONITOR_ROLES: RoleCode[] = [
 export function isRoleCode(
   value: string,
 ): value is RoleCode {
+  // Validación pura: las pruebas cubren códigos exactos y rechazan variantes de mayúsculas o espacios.
   return [
     'SUPERADMIN',
     'DIRECTIVA',

@@ -22,6 +22,7 @@ const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true })
 
 /** Orden estable sin mutar la fuente; los valores vacíos siempre quedan al final. */
 export function sortList<T>(items: readonly T[], value: (item: T) => SortValue, direction: SortDirection): T[] {
+  // Contrato probado en testing/unit: no mutar la entrada y dejar vacíos al final en ambos sentidos.
   const compare = (a: SortValue, b: SortValue) => {
     const missingA = a == null || a === '' || (typeof a === 'number' && Number.isNaN(a))
     const missingB = b == null || b === '' || (typeof b === 'number' && Number.isNaN(b))
@@ -36,4 +37,7 @@ export function sortList<T>(items: readonly T[], value: (item: T) => SortValue, 
 }
 
 /** Convierte fechas a tiempo numérico; sortList trata las fechas inválidas como vacías. */
-export const dateSortValue = (value: string | null | undefined) => value ? Date.parse(value) : null
+export const dateSortValue = (value: string | null | undefined): number | null => {
+  // Los tests usan fechas con zona explícita: null indica ausencia y NaN una fecha inválida.
+  return value ? Date.parse(value) : null
+}

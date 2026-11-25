@@ -11,6 +11,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+# Vitest: reportes y artefactos generados por las pruebas.
+.vitest/
 *.local
 
 # Editor directories and files

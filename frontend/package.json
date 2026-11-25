@@ -7,7 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest --config testing/vitest.config.ts",
+    "test:run": "vitest run --config testing/vitest.config.ts",
+    "test:txt": "node testing/run-tests.mjs",
+    "test:types": "tsc --project testing/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.117.0",
@@ -30,7 +34,8 @@
     "globals": "^17.12.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.69.0",
-    "vite": "^8.3.0"
+    "vite": "^8.3.0",
+    "vitest": "^5.1.2"
   },
   "overrides": {
     "exceljs": {

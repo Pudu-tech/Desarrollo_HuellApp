@@ -118,7 +118,7 @@ export default function LoginCarousel() {
               src={slide.image}
               alt={slide.alt}
               style={{ objectPosition: slide.position }}
-              fetchPriority={index === 0 ? 'high' : 'auto'}
+              fetchPriority={index === 0 ? 'high' : 'low'}
               decoding="async"
               draggable={false}
             />

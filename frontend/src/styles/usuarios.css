@@ -313,6 +313,11 @@
   font-size: 14px;
 }
 
+.users-field-hint {
+  color: var(--huella-gray-600);
+  font-size: 13px;
+}
+
 .users-create-form > div:not(.users-form-actions),
 .users-basic-form > div,
 .users-email-form > div {

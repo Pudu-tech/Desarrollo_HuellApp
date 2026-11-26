@@ -30,12 +30,15 @@ SECURITY:
 - El UUID no contiene información personal ni sensible.
 """
 
+import logging
 from uuid import uuid4
 from time import perf_counter
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import JSONResponse, Response
+
+logger = logging.getLogger(__name__)
 
 
 class RequestIdMiddleware(BaseHTTPMiddleware):
@@ -69,7 +72,15 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
 
         # Continúa con el procesamiento normal de FastAPI.
         started = perf_counter()
-        response = await call_next(request)
+        try:
+            response = await call_next(request)
+        except Exception:
+            # CORS todavía debe decorar esta respuesta para que el navegador pueda leerla.
+            logger.exception("Error interno en la solicitud %s", request_id)
+            response = JSONResponse(
+                status_code=500,
+                content={"detail": "Ocurrió un error interno. Reintenta en unos momentos."},
+            )
 
         # Devuelve el identificador para facilitar soporte y trazabilidad.
         response.headers["X-Request-ID"] = str(request_id)

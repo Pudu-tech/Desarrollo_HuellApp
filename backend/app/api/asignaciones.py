@@ -1333,6 +1333,10 @@ def _validar_acceso_monitor_asignacion(
 # SCOPE COORDINADOR
 # ============================================================
 
+AVISO_CREACION_COORDINADOR = (
+    "Contacta a tu Directiva para que te asigne un colegio con al menos un monitor activo."
+)
+
 
 def _scope_coordinador(supabase, *, coordinador_id: UUID) -> dict[str, set[str]]:
     """Devuelve los monitores visibles del coordinador agrupados por colegio."""
@@ -3591,11 +3595,10 @@ def crear_asignacion(
     supabase = get_supabase_client()
 
     try:
-        if current_user.role_code == "COORDINADOR" and payload.colegio_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="El coordinador solo puede crear instancias asociadas a uno de sus colegios.",
-            )
+        if current_user.role_code == "COORDINADOR":
+            scope = _scope_coordinador(supabase, coordinador_id=current_user.id)
+            if str(payload.colegio_id) not in scope:
+                raise HTTPException(403, AVISO_CREACION_COORDINADOR)
 
         coordinador_responsable = _resolver_coordinador_responsable(
             supabase,
@@ -3804,6 +3807,8 @@ def crear_asignacion(
 
     except Exception as exc:
         _validar_error_solapamiento(exc)
+        if "COORDINATOR_CREATION_SCOPE_REQUIRED" in str(exc):
+            raise HTTPException(403, AVISO_CREACION_COORDINADOR) from exc
         if "ASSIGNMENT_ACADEMIC_UNAVAILABLE" in str(exc):
             raise HTTPException(409, "La asignatura o el espacio no está disponible para el nivel del curso. Actualiza las opciones.") from exc
         if "ASSIGNMENT_RESOURCE_UNAVAILABLE" in str(exc):

@@ -74,6 +74,7 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_creacion_filtra_tipos_y_proyecta_usuarios(self):
         user_id = str(uuid4())
+        school_id = str(uuid4())
         db = BaseSimulada({
             "tipos_actividad": [{"id": str(uuid4()), "nombre": "Reunión", "codigo": "REUNION"},
                                 {"id": str(uuid4()), "nombre": "Capacitación", "codigo": "CAPACITACION"}],
@@ -83,12 +84,17 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
         def permiso(_db, *, role_code, tipo_codigo):
             if tipo_codigo == "CAPACITACION":
                 raise HTTPException(403, "Sin permiso")
-        with patch.object(api, "get_supabase_client", return_value=db), patch.object(api, "_validar_permiso_tipo_actividad", side_effect=permiso):
-            result = api.listar_opciones_creacion(SimpleNamespace(role_code="COORDINADOR"))
+        with (
+            patch.object(api, "get_supabase_client", return_value=db),
+            patch.object(api, "_validar_permiso_tipo_actividad", side_effect=permiso),
+            patch.object(api, "_scope_coordinador", return_value={school_id: {user_id}}),
+        ):
+            result = api.listar_opciones_creacion(SimpleNamespace(id=uuid4(), role_code="COORDINADOR"))
         self.assertEqual([item.codigo for item in result.tipos_actividad], ["REUNION"])
         self.assertEqual(str(result.participantes[0].id), user_id)
         self.assertEqual(result.participantes[0].email, "persona@example.org")
         self.assertIn(("in", "roles.codigo", ["DIRECTIVA", "COORDINADOR", "MONITOR"]), db.queries["usuarios"].calls)
+        self.assertIn(("in", "id", [school_id]), db.queries["colegios"].calls)
         for table in ("usuarios", "colegios", "ramos"):
             self.assertIn(("eq", "activo", True), db.queries[table].calls)
             self.assertIn(("is", "deleted_at", "null"), db.queries[table].calls)
@@ -96,8 +102,11 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
     async def test_recursos_se_restringen_al_colegio_activo(self):
         school = uuid4()
         db = BaseSimulada({})
-        with patch.object(api, "get_supabase_client", return_value=db), patch.object(api, "_obtener_colegio_activo") as validate:
-            result = api.listar_recursos_colegio_asignacion(school, SimpleNamespace())
+        with (
+            patch.object(api, "get_supabase_client", return_value=db),
+            patch.object(api, "_obtener_colegio_activo") as validate,
+        ):
+            result = api.listar_recursos_colegio_asignacion(school, SimpleNamespace(role_code="DIRECTIVA"))
         validate.assert_called_once_with(db, colegio_id=school)
         self.assertEqual(result.contactos, [])
         for table in ("cursos_colegio", "contactos_colegio"):
@@ -123,10 +132,30 @@ class CatalogosAsignacionTests(unittest.IsolatedAsyncioTestCase):
     def test_permisos_no_dependen_del_cliente(self):
         for route in api.router.routes:
             dependency = route.dependant.dependencies[0].call
+            if route.path.endswith("/estado-creacion"):
+                self.assertIs(dependency, api.get_current_user)
+                continue
             captured = dict(zip(dependency.__code__.co_freevars,
                                 (cell.cell_contents for cell in dependency.__closure__)))
             expected = "VIEW_ASSIGNMENTS" if route.path == "/catalogos/asignaciones" else "REASSIGN_ASSIGNMENT" if any(path in route.path for path in ("/reasignacion", "/gestion-participantes")) else "UPDATE_ASSIGNMENT" if "/edicion" in route.path else "CREATE_ASSIGNMENT"
             self.assertEqual(captured["permission_code"], expected)
+
+    def test_coordinador_sin_monitores_recibe_aviso_y_no_puede_abrir_creacion(self):
+        school_id, coordinator_id = uuid4(), uuid4()
+        db = BaseSimulada({
+            "usuario_colegio": [{"colegio_id": school_id}],
+            "colegios": [{"id": school_id}],
+        })
+        actor = SimpleNamespace(id=coordinator_id, role_code="COORDINADOR", effective_permissions={"CREATE_ASSIGNMENT"})
+        with patch.object(api, "get_supabase_client", return_value=db):
+            self.assertEqual(api.estado_creacion(actor), {
+                "permitido": False,
+                "aviso": api.AVISO_CREACION_COORDINADOR,
+            })
+            with self.assertRaises(HTTPException) as error:
+                api.listar_opciones_creacion(actor)
+        self.assertEqual(error.exception.status_code, 403)
+        self.assertEqual(error.exception.detail, api.AVISO_CREACION_COORDINADOR)
 
     def test_agregar_ofrece_personas_activas_sin_exponer_correo(self):
         db = BaseSimulada({'usuarios': [{'id': str(uuid4()), 'nombres': 'Ana', 'email': 'private@example.org'}]})

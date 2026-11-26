@@ -233,7 +233,8 @@ function UserCreateForm({
           name="rut"
           type="text"
           autoComplete="off"
-          placeholder="12345678-9"
+          placeholder="12.345.678-5"
+          aria-describedby="user-rut-hint"
           value={form.rut}
           onChange={(event) => {
             updateField(
@@ -244,6 +245,9 @@ function UserCreateForm({
           disabled={loading}
           required
         />
+        <small id="user-rut-hint" className="users-field-hint">
+          Ingresa el RUT con puntos y guion.
+        </small>
       </div>
 
 

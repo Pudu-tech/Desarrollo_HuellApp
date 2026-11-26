@@ -67,6 +67,7 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
   const [comunas, setComunas] = useState<ComunaItem[]>([])
   const [loadingComunas, setLoadingComunas] = useState(true)
   const [comunasError, setComunasError] = useState<string | null>(null)
+  const [comunasRevision, setComunasRevision] = useState(0)
   const [working, setWorking] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -101,11 +102,11 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
   useEffect(() => {
     let active = true
     void (form.region_id ? getComunas(form.region_id) : Promise.resolve([]))
-      .then((items) => { if (active) setComunas(items) })
-      .catch(() => { if (active) setComunasError('No se pudieron cargar las comunas. Intenta seleccionar nuevamente la región.') })
+      .then((items) => { if (active) { setComunas(items); setComunasError(null) } })
+      .catch(() => { if (active) setComunasError('No se pudieron cargar las comunas.') })
       .finally(() => { if (active) setLoadingComunas(false) })
     return () => { active = false }
-  }, [form.region_id])
+  }, [form.region_id, comunasRevision])
 
   const change = <K extends keyof ColegioFormValues>(key: K, value: ColegioFormValues[K]) => {
     setForm((previous) => ({ ...previous, [key]: value }))
@@ -209,7 +210,13 @@ function ColegioEditForm({ colegio, regiones, dependencias, onSave, onToggleStat
               setLoadingComunas(!!nextRegion)
             }}
           />
-          {comunasError && <p className="schools-error" role="alert">{comunasError}</p>}
+          {comunasError && <div role="alert">
+            <p className="schools-error">{comunasError}</p>
+            <button type="button" className="schools-secondary" disabled={busy || loadingComunas} onClick={() => {
+              setLoadingComunas(true)
+              setComunasRevision((value) => value + 1)
+            }}>Reintentar comunas</button>
+          </div>}
         </fieldset>
         <div className="schools-editor-actions">
           {canEdit && <button className="schools-primary" type="submit" disabled={busy || loadingComunas || !!comunasError}>{working ? 'Procesando...' : 'Guardar cambios'}</button>}

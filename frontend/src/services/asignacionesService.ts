@@ -33,6 +33,6 @@ export const reassignParticipante = (assignment: string, participant: string, us
 export const getColegioEdicion = (id: string) => recursoRequest<OpcionesColegio>(`/catalogos/asignaciones/edicion/colegios/${encodeURIComponent(id)}`)
 export const getEspaciosEdicion = (id: string) => recursoRequest<OpcionesEspacios>(`/catalogos/asignaciones/edicion/ramos/${encodeURIComponent(id)}/espacios`)
 export const getCatalogosAsignaciones = () => recursoRequest<CatalogosAsignacion>('/catalogos/asignaciones')
-export const getOpcionesCreacion = () => recursoRequest<OpcionesCreacion>('/catalogos/asignaciones/creacion')
+export const getOpcionesCreacion = () => recursoRequest<OpcionesCreacion>('/catalogos/asignaciones/creacion', 'GET', undefined, true)
 export const getOpcionesColegio = (id: string) => recursoRequest<OpcionesColegio>(`/catalogos/asignaciones/colegios/${encodeURIComponent(id)}`, 'GET', undefined, true)
 export const getOpcionesEspacios = (id: string) => recursoRequest<OpcionesEspacios>(`/catalogos/asignaciones/ramos/${encodeURIComponent(id)}/espacios`)

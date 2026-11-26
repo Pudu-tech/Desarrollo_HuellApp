@@ -13,6 +13,7 @@ SECURITY
 - Las RPC vuelven a validar actor, rol objetivo, colegio y permisos.
 """
 
+from concurrent.futures import ThreadPoolExecutor
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -26,6 +27,7 @@ from app.schemas.coordinacion import (
     CoordinadorColegioItem,
     MonitorCoordinadorAsignacionRequest,
     MonitorCoordinadorItem,
+    PanelMonitores,
     UsuarioCoordinacionItem,
 )
 
@@ -47,20 +49,28 @@ def _rpc_context(request: Request) -> dict:
     }
 
 
-def _obtener_colegio(supabase, colegio_id: UUID) -> dict:
+def _obtener_colegio(supabase, colegio_id: UUID, *, coordinador_id: UUID | None = None) -> dict:
     """Valida que el colegio exista y no esté eliminado."""
 
-    response = (
+    fields = "id,nombre,activo"
+    if coordinador_id is not None:
+        fields += ",coordinacion:usuario_colegio!colegio_id(id)"
+    query = (
         supabase.table("colegios")
-        .select("id,nombre,activo")
+        .select(fields)
         .eq("id", str(colegio_id))
         .is_("deleted_at", "null")
         .limit(1)
-        .execute()
     )
+    if coordinador_id is not None:
+        query = query.eq("coordinacion.usuario_id", str(coordinador_id)).eq("coordinacion.activo", True)
+    response = query.execute()
     if not response.data:
         raise HTTPException(status_code=404, detail="Colegio no encontrado.")
-    return response.data[0]
+    colegio = response.data[0]
+    if coordinador_id is not None and not colegio["coordinacion"]:
+        raise HTTPException(status_code=403, detail="El coordinador no está asignado a este colegio.")
+    return colegio
 
 
 
@@ -70,16 +80,14 @@ def _listar_usuarios_activos_por_rol(supabase, role_code: str) -> list[UsuarioCo
 
     response = (
         supabase.table("usuarios")
-        .select("id,nombres,apellido_paterno,apellido_materno,email,activo,deleted_at,roles(codigo)")
+        .select("id,nombres,apellido_paterno,apellido_materno,email,roles!inner(codigo)")
+        .eq("roles.codigo", role_code)
         .eq("activo", True)
         .is_("deleted_at", "null")
         .execute()
     )
     items: list[UsuarioCoordinacionItem] = []
     for row in response.data or []:
-        role = row.get("roles") or {}
-        if role.get("codigo") != role_code:
-            continue
         items.append(
             UsuarioCoordinacionItem(
                 id=row["id"],
@@ -108,23 +116,27 @@ def _validar_coordinador_en_colegio(supabase, coordinador_id: UUID, colegio_id: 
     if not response.data:
         raise HTTPException(status_code=403, detail="El coordinador no está asignado a este colegio.")
 
-def _otros_colegios_coordinador(supabase, coordinador_id: UUID, colegio_id: UUID) -> list[ColegioReferencia]:
+def _otros_colegios_coordinadores(
+    supabase, coordinador_ids: list[UUID], colegio_id: UUID,
+) -> dict[str, list[ColegioReferencia]]:
     """Lista otros colegios activos del coordinador para informar excepciones."""
 
+    if not coordinador_ids:
+        return {}
     response = (
         supabase.table("usuario_colegio")
-        .select("colegio_id,colegios!colegio_id(id,nombre,activo,deleted_at)")
-        .eq("usuario_id", str(coordinador_id))
+        .select("usuario_id,colegios!colegio_id(id,nombre,activo,deleted_at)")
+        .in_("usuario_id", [str(coordinador_id) for coordinador_id in coordinador_ids])
         .eq("activo", True)
         .neq("colegio_id", str(colegio_id))
         .execute()
     )
 
-    colegios: list[ColegioReferencia] = []
+    colegios: dict[str, list[ColegioReferencia]] = {}
     for item in response.data or []:
         colegio = item.get("colegios") or {}
         if colegio.get("activo") is True and colegio.get("deleted_at") is None:
-            colegios.append(
+            colegios.setdefault(str(item["usuario_id"]), []).append(
                 ColegioReferencia(
                     id=colegio["id"],
                     nombre=colegio["nombre"],
@@ -157,7 +169,7 @@ def _obtener_coordinador_item(supabase, colegio_id: UUID, coordinador_id: UUID) 
         apellido_materno=user.get("apellido_materno"),
         email=user["email"],
         activo=row["activo"],
-        otros_colegios=_otros_colegios_coordinador(supabase, coordinador_id, colegio_id),
+        otros_colegios=_otros_colegios_coordinadores(supabase, [coordinador_id], colegio_id).get(str(coordinador_id), []),
     )
 
 
@@ -308,10 +320,12 @@ def listar_coordinadores_colegio(
                 apellido_materno=user.get("apellido_materno"),
                 email=user["email"],
                 activo=row["activo"],
-                otros_colegios=_otros_colegios_coordinador(supabase, UUID(user["id"]), colegio_id),
             )
         )
 
+    otros_colegios = _otros_colegios_coordinadores(supabase, [item.coordinador_id for item in items], colegio_id)
+    for item in items:
+        item.otros_colegios = otros_colegios.get(str(item.coordinador_id), [])
     items.sort(key=lambda item: (item.apellido_paterno.lower(), item.nombres.lower()))
     return items
 
@@ -386,20 +400,29 @@ def listar_monitores_coordinador(
     if incluir_inactivos and actor.role_code not in {"SUPERADMIN", "DIRECTIVA"}:
         raise HTTPException(status_code=403, detail="No puede consultar asociaciones inactivas.")
 
+    return _consultar_monitores(supabase, colegio_id, coordinador_id, incluir_inactivos=incluir_inactivos)
+
+
+def _consultar_monitores(
+    supabase, colegio_id: UUID, coordinador_id: UUID, *,
+    incluir_inactivos: bool = False, monitor_id: UUID | None = None,
+) -> list[MonitorCoordinadorItem]:
     query = (
         supabase.table("coordinador_monitor_colegio")
-        .select("id,monitor_id,activo,monitor:usuarios!monitor_id(id,nombres,apellido_paterno,apellido_materno,email,deleted_at)")
+        .select("id,monitor_id,activo,monitor:usuarios!fk_cmc_monitor(id,nombres,apellido_paterno,apellido_materno,email,deleted_at)")
         .eq("colegio_id", str(colegio_id))
         .eq("coordinador_id", str(coordinador_id))
     )
     if not incluir_inactivos:
         query = query.eq("activo", True)
+    if monitor_id is not None:
+        query = query.eq("monitor_id", str(monitor_id))
 
     response = query.execute()
     items: list[MonitorCoordinadorItem] = []
     for row in response.data or []:
         monitor = row.get("monitor") or {}
-        if monitor.get("deleted_at") is not None:
+        if not monitor or monitor.get("deleted_at") is not None:
             continue
         items.append(
             MonitorCoordinadorItem(
@@ -415,6 +438,29 @@ def listar_monitores_coordinador(
 
     items.sort(key=lambda item: (item.apellido_paterno.lower(), item.nombres.lower()))
     return items
+
+
+@router.get("/{coordinador_id}/monitores/panel", response_model=PanelMonitores)
+def panel_monitores(
+    colegio_id: UUID,
+    coordinador_id: UUID,
+    actor: AuthenticatedUser = Depends(require_permission("VIEW_COORDINATOR_MONITORS")),
+) -> PanelMonitores:
+    """Carga asignados y candidatos mediante una sola petición autenticada."""
+    if actor.role_code == "COORDINADOR" and actor.id != coordinador_id:
+        raise HTTPException(status_code=403, detail="Solo puede consultar sus propios monitores.")
+    supabase = get_supabase_client()
+    puede_gestionar = "MANAGE_COORDINATOR_MONITORS" in actor.effective_permissions
+    if puede_gestionar or actor.role_code == "COORDINADOR":
+        _obtener_colegio(supabase, colegio_id, coordinador_id=coordinador_id)
+    else:
+        _obtener_colegio(supabase, colegio_id)
+    if not puede_gestionar:
+        return PanelMonitores(asignados=_consultar_monitores(supabase, colegio_id, coordinador_id), candidatos=[])
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        asignados = executor.submit(_consultar_monitores, supabase, colegio_id, coordinador_id)
+        candidatos = executor.submit(_listar_usuarios_activos_por_rol, supabase, "MONITOR")
+        return PanelMonitores(asignados=asignados.result(), candidatos=candidatos.result())
 
 
 @router.get("/{coordinador_id}/monitores/candidatos", response_model=list[UsuarioCoordinacionItem])
@@ -450,15 +496,11 @@ def asignar_monitor_coordinador(
         actor=actor,
     )
 
-    items = listar_monitores_coordinador(
-        colegio_id=colegio_id,
-        coordinador_id=coordinador_id,
-        incluir_inactivos=True,
-        actor=actor,
+    items = _consultar_monitores(
+        get_supabase_client(), colegio_id, coordinador_id, monitor_id=payload.monitor_id,
     )
-    for item in items:
-        if item.monitor_id == payload.monitor_id:
-            return item
+    if items:
+        return items[0]
     raise HTTPException(status_code=500, detail="No fue posible recuperar el monitor asignado.")
 
 

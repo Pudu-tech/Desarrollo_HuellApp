@@ -43,7 +43,11 @@ export async function cachedFetch(url: string, init: RequestInit = {}): Promise<
   const existing = pending.get(url)
   if (existing) return (await existing).clone()
   const revision = generation
-  const request = fetch(url, init).then((response) => {
+  const request = fetch(url, init).then(async (response) => {
+    if (response.status === 503 && /\/(?:auth\/permissions|catalogos\/comunas)(?:\?|$)/.test(url)) {
+      await new Promise((resolve) => setTimeout(resolve, 350))
+      if (generation === revision && !init.signal?.aborted) response = await fetch(url, init)
+    }
     if (response.ok && generation === revision) {
       if (entries.size >= 100) entries.delete(entries.keys().next().value!)
       const ttl = url.includes('/auth/permissions') ? 30_000

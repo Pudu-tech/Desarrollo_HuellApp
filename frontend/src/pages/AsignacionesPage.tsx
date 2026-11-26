@@ -24,6 +24,7 @@ import { clearReadCache } from '../services/readCache'
 
 import { useEffect, useMemo, useState } from 'react'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
+import { useEstadoCreacionCoordinador } from '../hooks/useEstadoCreacionCoordinador'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import AsignacionCreateForm from '../components/asignaciones/DeferredAsignacionForm'
 import { useConfirmation } from '../hooks/useConfirmation'
@@ -65,7 +66,9 @@ export default function AsignacionesPage() {
   const [upcomingOnly, setUpcomingOnly] = useState(params.get('proximas') === '1')
   const [hasta, setHasta] = useState('')
   const sorting = useListSort<string>('fecha')
+  const estadoCreacion = useEstadoCreacionCoordinador()
   const canCreate = permissions.includes('CREATE_ASSIGNMENT')
+    && (user?.role_code !== 'COORDINADOR' || estadoCreacion?.permitido === true)
   useVisibleRefresh(async (isActive) => {
     try {
       const data = await getAsignacionesResumen(true)
@@ -77,9 +80,6 @@ export default function AsignacionesPage() {
   useEffect(() => {
     if (!directCreate) return
     let active = true
-    setCreating(true)
-    setLoadingOptions(true)
-    setCreationError('')
     void getOpcionesCreacion().then((data) => {
       if (!active) return
       if (!data.tipos_actividad.length) throw new Error('No hay tipos de actividad disponibles para tus permisos.')
@@ -184,10 +184,14 @@ export default function AsignacionesPage() {
   function refresh() { clearReadCache(); setLoading(true); setError(''); setRevision((value) => value + 1) }
 
   if (directCreate) {
+    const blocked = estadoCreacion?.permitido === false
     return <section className="assignments-page">
       {confirmationDialog}
-      {creationError && <p className="assignments-error" role="alert">{creationError}</p>}
-      {loadingOptions || !opciones
+      {estadoCreacion?.aviso && <p className="assignments-warning" role="status">{estadoCreacion.aviso}</p>}
+      {creationError && !estadoCreacion?.aviso && <p className="assignments-error" role="alert">{creationError}</p>}
+      {blocked || creationError
+        ? <Link className="assignments-secondary" to="/app/asignaciones">Volver a instancias</Link>
+        : loadingOptions || !opciones
         ? <LoadingIndicator />
         : <AsignacionCreateForm
             opciones={opciones}
@@ -203,8 +207,9 @@ export default function AsignacionesPage() {
     <header className="assignments-heading"><div><h1>Instancias</h1><p>Organiza actividades, establecimientos y participantes.</p></div>
       {canCreate && !creating && <button type="button" className="assignments-primary" disabled={loading || loadingOptions || exportBusy || !!error} onClick={() => void openCreate()}>{loadingOptions ? 'Cargando opciones…' : '+ Crear instancia'}</button>}
     </header>
-    {creationError && <p className="assignments-error" role="alert">{creationError}</p>}
-    {creating && opciones ? <AsignacionCreateForm opciones={opciones} onCreate={save} onClose={() => setCreating(false)} /> : <div className="assignments-panel">
+    {estadoCreacion?.aviso && <p className="assignments-warning" role="status">{estadoCreacion.aviso}</p>}
+    {creationError && !estadoCreacion?.aviso && <p className="assignments-error" role="alert">{creationError}</p>}
+    {canCreate && creating && opciones ? <AsignacionCreateForm opciones={opciones} onCreate={save} onClose={() => setCreating(false)} /> : <div className="assignments-panel">
       <div className="assignments-panel-heading"><div><h2>Actividades registradas</h2><p>{loading ? 'Cargando…' : `${filtered.length} de ${items.length} instancias`}</p></div>
         <div className="query-table-actions">
           <button type="button" className="assignments-secondary assignments-export-refresh" disabled={loading || loadingOptions || exportBusy} onClick={refresh}>Actualizar</button>

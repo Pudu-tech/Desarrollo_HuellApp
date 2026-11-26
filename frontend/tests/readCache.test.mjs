@@ -21,7 +21,7 @@ import ts from 'typescript'
 
 async function harness() {
   const calls = []
-  const context = vm.createContext({ Headers, Date, fetch: async (url, init) => {
+  const context = vm.createContext({ Headers, Date, setTimeout, fetch: async (url, init) => {
     calls.push({ url, init })
     return new Response(JSON.stringify({ version: calls.length }), { status: 200 })
   } })
@@ -33,6 +33,19 @@ async function harness() {
   return { ...module.namespace, calls, context }
 }
 const headers = { Authorization: 'Bearer user-a' }
+
+test('Un 503 temporal se reintenta una vez y las lecturas simultáneas comparten el resultado', async () => {
+  const { cachedFetch, context } = await harness()
+  let reads = 0
+  context.fetch = async () => new Response('{}', { status: ++reads === 1 ? 503 : 200 })
+  const [permissions, duplicate] = await Promise.all([
+    cachedFetch('/auth/permissions', { headers }),
+    cachedFetch('/auth/permissions', { headers }),
+  ])
+  assert.equal(permissions.status, 200)
+  assert.equal(duplicate.status, 200)
+  assert.equal(reads, 2)
+})
 
 test('Cada exportación solicita un corte nuevo y no reutiliza respuestas en caché', async () => {
   const { cachedFetch, calls } = await harness()

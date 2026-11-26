@@ -686,6 +686,21 @@
   align-items: end;
 }
 
+.schools-monitors-group {
+  display: grid;
+  gap: 10px;
+}
+
+.schools-monitors-group + .schools-monitors-group {
+  border-top: 1px solid var(--huella-gray-300);
+  padding-top: 14px;
+}
+
+.schools-monitors-group h5 {
+  margin: 0;
+  font-size: 14px;
+}
+
 .schools-coordination-assign label {
   display: grid;
   gap: 7px;

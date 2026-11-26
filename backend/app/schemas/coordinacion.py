@@ -73,3 +73,8 @@ class UsuarioCoordinacionItem(BaseModel):
     apellido_paterno: str
     apellido_materno: str | None = None
     email: str
+
+
+class PanelMonitores(BaseModel):
+    asignados: list[MonitorCoordinadorItem]
+    candidatos: list[UsuarioCoordinacionItem]

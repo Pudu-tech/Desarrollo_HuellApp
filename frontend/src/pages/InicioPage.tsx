@@ -22,7 +22,9 @@ import { getAsignacionesResumen } from '../services/asignacionesService'
 import { recursoRequest } from '../services/recursosService'
 import type { ParticipacionPropia } from '../services/participacionesService'
 import { useVisibleRefresh } from '../hooks/useVisibleRefresh'
+import { useEstadoCreacionCoordinador } from '../hooks/useEstadoCreacionCoordinador'
 import LoadingIndicator from '../components/LoadingIndicator'
+import '../styles/asignaciones.css'
 import '../styles/inicio.css'
 import { useProfilePhoto, updateProfilePhoto } from '../hooks/useProfilePhoto'
 
@@ -64,7 +66,8 @@ export default function InicioPage() {
   const hasManagementStats = isDirectiva || isCoordinador
   const isSuperadmin = user?.role_code === 'SUPERADMIN'
   const hasPersonalCalendar = !isSuperadmin
-  const canCreateFromCalendar = user?.role_code === 'DIRECTIVA' || user?.role_code === 'COORDINADOR'
+  const estadoCreacion = useEstadoCreacionCoordinador()
+  const canCreateFromCalendar = isDirectiva || estadoCreacion?.permitido === true
   const sorting = useListSort<string>('fecha')
   const [items, setItems] = useState<Activity[] | null>(null)
   const [personalItems, setPersonalItems] = useState<ParticipacionPropia[] | null>(null)
@@ -78,18 +81,19 @@ export default function InicioPage() {
     return recursoRequest<ParticipacionPropia[]>('/mi-participacion', 'GET', undefined, fresh)
   }
 
-  /** Obtiene el resumen global solo cuando el rol necesita información de equipo. */
-  async function read(fresh = false): Promise<Activity[]> {
+  /** Carga las actividades visibles y las participaciones propias del inicio. */
+  async function readHome(fresh = false): Promise<[Activity[], ParticipacionPropia[]]> {
     if (isMonitor) {
       const rows = await readPersonal(fresh)
-      return rows.map((r) => ({
+      const activities = rows.map((r) => ({
         id: r.asignacion_id, fecha: r.fecha, hora: r.hora_inicio.slice(0, 5), nombre: r.actividad,
         lugar: r.colegio || r.lugar || 'Por definir', estado: r.asignacion_estado,
         admiteRespuesta: r.admite_respuesta, asistencia: {},
       }))
+      return [activities, rows]
     }
-    const data = await getAsignacionesResumen(fresh)
-    return data.items.map((r) => ({
+    const [data, ownRows] = await Promise.all([getAsignacionesResumen(fresh), readPersonal(fresh)])
+    const activities = data.items.map((r) => ({
       id: r.id, fecha: r.fecha, hora: r.hora_inicio.slice(0, 5),
       nombre: data.catalogos.tipos_actividad.find((t) => t.id === r.tipo_actividad_id)?.nombre || 'Actividad',
       lugar: data.catalogos.colegios.find((c) => c.id === r.colegio_id)?.nombre || r.lugar || 'Por definir',
@@ -97,11 +101,12 @@ export default function InicioPage() {
       asistencia: r.asistencia_resumen || {},
       asignadosA: r.asignados_a || [],
     }))
+    return [activities, ownRows]
   }
 
   useEffect(() => {
     let active = true
-    Promise.all([read(), readPersonal()]).then(([rows, ownRows]) => {
+    void readHome().then(([rows, ownRows]) => {
       if (active) { setItems(rows); setPersonalItems(ownRows); setError('') }
     }).catch((cause: unknown) => { if (active) setError(cause instanceof Error ? cause.message : 'No fue posible cargar el inicio.') })
     return () => { active = false }
@@ -111,7 +116,7 @@ export default function InicioPage() {
 
   useVisibleRefresh(async (active) => {
     try {
-      const [rows, ownRows] = await Promise.all([read(true), readPersonal(true)])
+      const [rows, ownRows] = await readHome(true)
       if (active()) { setItems(rows); setPersonalItems(ownRows); setError('') }
     } catch { /* Conserva los datos durante fallos transitorios. */ }
   }, items !== null && personalItems !== null, 30000)
@@ -205,6 +210,7 @@ export default function InicioPage() {
 
   /** Abre el formulario existente de creación con la fecha elegida precargada. */
   function createInstanceForDate(date: string) {
+    if (!canCreateFromCalendar) return
     navigate(`/app/asignaciones?crear=1&fecha=${encodeURIComponent(date)}`)
   }
 
@@ -219,8 +225,9 @@ export default function InicioPage() {
       <span className="home-today">{new Intl.DateTimeFormat('es-CL', { dateStyle: 'long', timeZone: 'America/Santiago' }).format(new Date())}</span>
     </header>
 
-    {error && <div role="alert" className="home-error">{error} <button onClick={() => void Promise.all([read(true), readPersonal(true)]).then(([rows, ownRows]) => { setItems(rows); setPersonalItems(ownRows); setError('') }).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No fue posible cargar el inicio.'))}>Reintentar</button></div>}
+    {error && <div role="alert" className="home-error">{error} <button onClick={() => void readHome(true).then(([rows, ownRows]) => { setItems(rows); setPersonalItems(ownRows); setError('') }).catch((cause: unknown) => setError(cause instanceof Error ? cause.message : 'No fue posible cargar el inicio.'))}>Reintentar</button></div>}
 
+    {estadoCreacion?.aviso && <p className="assignments-warning" role="status">{estadoCreacion.aviso}</p>}
     {!items || !personalItems ? !error && <LoadingIndicator /> : <>
       <div className="home-stats">{stats.map(([label, value], index) => <Link to={statsLinks[index]} key={label}><span>{label}</span><strong>{value}</strong></Link>)}</div>
 

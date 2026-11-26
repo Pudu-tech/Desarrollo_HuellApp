@@ -115,7 +115,7 @@ class UserCreate(BaseModel):
     rut: str = Field(
         min_length=3,
         max_length=12,
-        description="RUT chileno sin puntos y con guion.",
+        description="RUT chileno con guion y puntos opcionales.",
     )
 
     nombres: str = Field(
@@ -184,7 +184,8 @@ class UserCreate(BaseModel):
 
         if not is_valid_chilean_rut(normalized):
             raise ValueError(
-                "El RUT ingresado no es válido."
+                "Revisa el dígito verificador del RUT y sepáralo con un guion. "
+                "Los puntos son opcionales (12.345.678-5 o 12345678-5)."
             )
 
         return normalized

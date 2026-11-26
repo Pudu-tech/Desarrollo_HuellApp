@@ -16,6 +16,7 @@
  */
 
 import { supabase } from './supabase'
+import { cachedFetch } from './readCache'
 import type {
   CoordinadorColegioItem,
   MonitorCoordinadorItem,
@@ -47,7 +48,7 @@ async function accessToken(): Promise<string> {
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await accessToken()
-  const send = () => fetch(`${apiUrl}${path}`, {
+  const send = () => cachedFetch(`${apiUrl}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -56,10 +57,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       ...options.headers,
     },
   })
-  let response = await send()
+  const sendWithNetworkError = () => send().catch(() => {
+    throw new Error('No fue posible conectar con el servidor. Reintenta la operación.')
+  })
+  let response = await sendWithNetworkError()
   if (response.status === 503 && (options.method ?? 'GET') === 'GET') {
     await new Promise<void>((resolve) => setTimeout(resolve, 400))
-    response = await send()
+    response = await sendWithNetworkError()
   }
 
   if (!response.ok) {
@@ -88,9 +92,6 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 export const getCoordinatorCandidates = (colegioId: string) =>
   request<UsuarioCoordinacionItem[]>(`/colegios/${encodeURIComponent(colegioId)}/coordinadores/candidatos`)
 
-export const getMonitorCandidates = (colegioId: string, coordinadorId: string) =>
-  request<UsuarioCoordinacionItem[]>(`/colegios/${encodeURIComponent(colegioId)}/coordinadores/${encodeURIComponent(coordinadorId)}/monitores/candidatos`)
-
 export const getSchoolCoordinators = (colegioId: string) =>
   request<CoordinadorColegioItem[]>(`/colegios/${encodeURIComponent(colegioId)}/coordinadores`)
 
@@ -111,8 +112,11 @@ export const unassignSchoolCoordinator = (colegioId: string, coordinadorId: stri
     method: 'DELETE',
   })
 
-export const getCoordinatorMonitors = (colegioId: string, coordinadorId: string) =>
-  request<MonitorCoordinadorItem[]>(`/colegios/${encodeURIComponent(colegioId)}/coordinadores/${encodeURIComponent(coordinadorId)}/monitores`)
+export const getCoordinatorMonitorPanel = (colegioId: string, coordinadorId: string, fresh = false) =>
+  request<{ asignados: MonitorCoordinadorItem[]; candidatos: UsuarioCoordinacionItem[] }>(
+    `/colegios/${encodeURIComponent(colegioId)}/coordinadores/${encodeURIComponent(coordinadorId)}/monitores/panel`,
+    fresh ? { cache: 'reload' } : undefined,
+  )
 
 export const assignCoordinatorMonitor = (colegioId: string, coordinadorId: string, monitorId: string) =>
   request<MonitorCoordinadorItem>(`/colegios/${encodeURIComponent(colegioId)}/coordinadores/${encodeURIComponent(coordinadorId)}/monitores`, {

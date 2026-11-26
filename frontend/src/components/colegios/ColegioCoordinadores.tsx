@@ -20,8 +20,7 @@ import {
   assignCoordinatorMonitor,
   assignSchoolCoordinator,
   getCoordinatorCandidates,
-  getCoordinatorMonitors,
-  getMonitorCandidates,
+  getCoordinatorMonitorPanel,
   getSchoolCoordinators,
   unassignCoordinatorMonitor,
   unassignSchoolCoordinator,
@@ -47,6 +46,17 @@ interface Props {
 const fullName = (item: { nombres: string; apellido_paterno: string; apellido_materno?: string | null }) =>
   [item.nombres, item.apellido_paterno, item.apellido_materno].filter(Boolean).join(' ')
 
+const FLEXIBLE_MONITORS_KEY = 'huellapp:asignaciones-flexibles'
+
+function readFlexibleMonitors(): string[] {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(FLEXIBLE_MONITORS_KEY) ?? '[]')
+    return Array.isArray(saved) ? saved.filter((id): id is string => typeof id === 'string') : []
+  } catch {
+    return []
+  }
+}
+
 export default function ColegioCoordinadores({
   section = 'coordinadores',
   colegioId,
@@ -60,7 +70,8 @@ export default function ColegioCoordinadores({
   const [coordinatorCandidates, setCoordinatorCandidates] = useState<UsuarioCoordinacionItem[]>([])
   const [monitorCandidatesByCoordinator, setMonitorCandidatesByCoordinator] = useState<Record<string, UsuarioCoordinacionItem[]>>({})
   const [selectedCoordinatorId, setSelectedCoordinatorId] = useState('')
-  const [selectedMonitorId, setSelectedMonitorId] = useState('')
+  const [monitorSelection, setMonitorSelection] = useState({ regular: '', flexible: '' })
+  const [flexibleRelations, setFlexibleRelations] = useState(readFlexibleMonitors)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [monitorsByCoordinator, setMonitorsByCoordinator] = useState<Record<string, MonitorCoordinadorItem[]>>({})
   const [monitorErrors, setMonitorErrors] = useState<Record<string, string | null>>({})
@@ -85,20 +96,17 @@ export default function ColegioCoordinadores({
 
   useEffect(() => { onWorkingChange?.(working) }, [working, onWorkingChange])
 
-  const loadMonitors = useCallback(async (coordinatorId: string) => {
+  const loadMonitors = useCallback(async (coordinatorId: string, fresh = false) => {
     setMonitorErrors((previous) => ({ ...previous, [coordinatorId]: null }))
     try {
-      const [items, candidates] = await Promise.all([
-        getCoordinatorMonitors(colegioId, coordinatorId),
-        canManageMonitors ? getMonitorCandidates(colegioId, coordinatorId) : Promise.resolve([]),
-      ])
-      setMonitorsByCoordinator((previous) => ({ ...previous, [coordinatorId]: items }))
-      setMonitorCandidatesByCoordinator((previous) => ({ ...previous, [coordinatorId]: candidates }))
+      const { asignados, candidatos } = await getCoordinatorMonitorPanel(colegioId, coordinatorId, fresh)
+      setMonitorsByCoordinator((previous) => ({ ...previous, [coordinatorId]: asignados }))
+      setMonitorCandidatesByCoordinator((previous) => ({ ...previous, [coordinatorId]: candidatos }))
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : 'No fue posible cargar los monitores.'
       setMonitorErrors((previous) => ({ ...previous, [coordinatorId]: message }))
     }
-  }, [colegioId, canManageMonitors])
+  }, [colegioId])
 
   useEffect(() => {
     let active = true
@@ -124,7 +132,7 @@ export default function ColegioCoordinadores({
 
   const selectMonitorCoordinator = (coordinatorId: string) => {
     setExpandedId(coordinatorId || null)
-    setSelectedMonitorId('')
+    setMonitorSelection({ regular: '', flexible: '' })
     setError(null)
     setSuccess(null)
     if (coordinatorId && !monitorsByCoordinator[coordinatorId]) void loadMonitors(coordinatorId)
@@ -183,19 +191,31 @@ export default function ColegioCoordinadores({
     }
   }
 
-  const assignMonitor = async (coordinatorId: string) => {
-    if (!selectedMonitorId || working) return
+  function markFlexible(relationId: string, flexible: boolean) {
+    const updated = new Set(readFlexibleMonitors())
+    if (flexible) updated.add(relationId)
+    else updated.delete(relationId)
+    const relations = [...updated]
+    setFlexibleRelations(relations)
+    try {
+      localStorage.setItem(FLEXIBLE_MONITORS_KEY, JSON.stringify(relations))
+    } catch { /* La etiqueta sigue visible durante esta sesión. */ }
+  }
+
+  const assignMonitor = async (coordinatorId: string, monitorId: string, flexible: boolean) => {
+    if (!monitorId || working) return
     setWorking(true)
     setError(null)
     setSuccess(null)
     try {
-      const created = await assignCoordinatorMonitor(colegioId, coordinatorId, selectedMonitorId)
+      const created = await assignCoordinatorMonitor(colegioId, coordinatorId, monitorId)
       setMonitorsByCoordinator((previous) => ({
         ...previous,
-        [coordinatorId]: [...(previous[coordinatorId] ?? []).filter((item) => item.monitor_id !== created.monitor_id), created]
+        [coordinatorId]: [...(previous[coordinatorId] ?? []).filter((item) => item.monitor_id !== monitorId), created]
           .sort((a, b) => fullName(a).localeCompare(fullName(b), 'es')),
       }))
-      setSelectedMonitorId('')
+      markFlexible(created.relation_id, flexible)
+      setMonitorSelection({ regular: '', flexible: '' })
       setSuccess(`${fullName(created)} fue asignado al coordinador.`)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'No fue posible asignar el monitor.')
@@ -216,6 +236,7 @@ export default function ColegioCoordinadores({
     setSuccess(null)
     try {
       await unassignCoordinatorMonitor(colegioId, coordinatorId, monitor.monitor_id)
+      markFlexible(monitor.relation_id, false)
       setMonitorsByCoordinator((previous) => ({
         ...previous,
         [coordinatorId]: (previous[coordinatorId] ?? []).filter((item) => item.monitor_id !== monitor.monitor_id),
@@ -307,28 +328,40 @@ export default function ColegioCoordinadores({
 
             {expanded && monitorError && <div className="schools-coordinator-monitors">
               <p className="schools-error" role="alert">{monitorError}</p>
-              <button className="schools-secondary" type="button" onClick={() => { void loadMonitors(coordinator.coordinador_id) }}>Reintentar carga</button>
+              <button className="schools-secondary" type="button" onClick={() => { void loadMonitors(coordinator.coordinador_id, true) }}>Reintentar carga</button>
             </div>}
             {expanded && !monitorsByCoordinator[coordinator.coordinador_id] && !monitorError && <LoadingIndicator />}
             {expanded && monitorsByCoordinator[coordinator.coordinador_id] && !monitorError && <div className="schools-coordinator-monitors">
               <div className="schools-coordinator-monitors-heading">
-                <div><h4>Monitores asignados</h4><p>Esta relación aplica únicamente dentro de {colegioNombre}.</p></div>
+                <h4>Monitores asignados</h4>
                 <span>{assignedMonitors.length} monitor{assignedMonitors.length === 1 ? '' : 'es'}</span>
               </div>
 
-              {canManageMonitors && colegioActivo && <div className="schools-monitor-assign">
-                <select aria-label="Monitor a asignar" value={selectedMonitorId} disabled={working} onChange={(event) => setSelectedMonitorId(event.target.value)}>
-                  <option value="">Selecciona un monitor</option>
-                  {availableMonitors.map((user) => <option key={user.id} value={user.id}>{fullName(user)} · {user.email}</option>)}
-                </select>
-                <button className="schools-primary" type="button" disabled={!selectedMonitorId || working} onClick={() => { void assignMonitor(coordinator.coordinador_id) }}>+ Asignar monitor</button>
-              </div>}
-
-              {!assignedMonitors.length ? <p className="schools-coordinator-empty">Este coordinador todavía no tiene monitores asignados en este colegio.</p> :
-                <div className="schools-monitor-list">{assignedMonitors.map((monitor) => <div className="schools-monitor-row" key={monitor.monitor_id}>
-                  <div><strong>{fullName(monitor)}</strong><span>{monitor.email}</span></div>
-                  {canManageMonitors && <button className="schools-danger-link" type="button" disabled={working} onClick={() => { void unassignMonitor(coordinator.coordinador_id, monitor) }}>Quitar monitor</button>}
-                </div>)}</div>}
+              {(['regular', 'flexible'] as const).map((group) => {
+                const flexible = group === 'flexible'
+                const monitors = assignedMonitors.filter((monitor) => flexibleRelations.includes(monitor.relation_id) === flexible)
+                const selected = monitorSelection[group]
+                return <section className="schools-monitors-group" key={group}>
+                  <h5>{flexible ? 'Monitores flexibles asignados' : 'Monitores asignados al colegio'}</h5>
+                  {monitors.length === 0 ? <p className="schools-coordinator-empty">
+                    {flexible ? 'Todavía no hay monitores flexibles asignados.' : 'Todavía no hay monitores asignados en este grupo.'}
+                  </p> : <div className="schools-monitor-list">{monitors.map((monitor) => <div className="schools-monitor-row" key={monitor.relation_id}>
+                    <div><strong>{fullName(monitor)}</strong><span>{monitor.email}</span></div>
+                    {canManageMonitors && <div className="schools-coordinator-actions">
+                      <button className="schools-danger-link" type="button" disabled={working} onClick={() => { void unassignMonitor(coordinator.coordinador_id, monitor) }}>Quitar monitor</button>
+                    </div>}
+                  </div>)}</div>}
+                  {canManageMonitors && colegioActivo && <div className="schools-monitor-assign">
+                    <select aria-label={flexible ? 'Monitor flexible a asignar' : 'Monitor a asignar'} value={selected} disabled={working} onChange={(event) => setMonitorSelection({ ...monitorSelection, [group]: event.target.value })}>
+                      <option value="">Selecciona un monitor</option>
+                      {availableMonitors.map((user) => <option key={user.id} value={user.id}>{fullName(user)} · {user.email}</option>)}
+                    </select>
+                    <button className="schools-primary" type="button" disabled={!selected || working} onClick={() => { void assignMonitor(coordinator.coordinador_id, selected, flexible) }}>
+                      {flexible ? '+ Asignar monitor flexible' : '+ Asignar monitor'}
+                    </button>
+                  </div>}
+                </section>
+              })}
             </div>}
           </article>
         })}

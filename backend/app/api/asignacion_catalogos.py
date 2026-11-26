@@ -25,7 +25,7 @@ las instancias históricas sigan siendo comprensibles.
 from uuid import UUID
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import APIRouter, Depends, HTTPException
-from app.core.security import require_permission
+from app.core.security import get_current_user, require_permission
 from app.core.supabase import get_supabase_client
 from app.schemas.auth import AuthenticatedUser
 from app.schemas.asignacion_catalogos import (
@@ -33,7 +33,9 @@ from app.schemas.asignacion_catalogos import (
     OpcionesColegioAsignacion, OpcionesEspaciosAsignacion,
 )
 from app.api.asignaciones import (
+    AVISO_CREACION_COORDINADOR,
     _obtener_colegio_activo,
+    _scope_coordinador,
     _validar_colegio_coordinador,
     _validar_ramo_activo,
     _validar_permiso_tipo_actividad,
@@ -92,6 +94,17 @@ def listar_opciones_creacion(
     return _opciones_formulario(actor, filtrar_tipos=True)
 
 
+@router.get("/estado-creacion")
+def estado_creacion(actor: AuthenticatedUser = Depends(get_current_user)):
+    """Informa si al coordinador le falta un colegio con monitores activos."""
+    aviso = None
+    if actor.role_code == "COORDINADOR" and not _scope_coordinador(
+        get_supabase_client(), coordinador_id=actor.id,
+    ):
+        aviso = AVISO_CREACION_COORDINADOR
+    return {"aviso": aviso, "permitido": aviso is None and "CREATE_ASSIGNMENT" in actor.effective_permissions}
+
+
 @router.get('/reasignacion/participantes')
 def opciones_reasignacion(_actor: AuthenticatedUser = Depends(require_permission('REASSIGN_ASSIGNMENT'))):
     """Lista monitores activos disponibles para una reasignación autorizada."""
@@ -116,6 +129,12 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
     """Ofrece actividades permitidas y participantes activos, excluyendo SUPERADMIN."""
     try:
         db = get_supabase_client()
+        scope = None
+        if actor.role_code == "COORDINADOR" and filtrar_tipos:
+            scope = _scope_coordinador(db, coordinador_id=actor.id)
+            if not scope:
+                raise HTTPException(403, AVISO_CREACION_COORDINADOR)
+
         types = _datos(db.table("tipos_actividad").select("id,codigo,nombre").eq("activo", True).order("nombre"))
         allowed = []
         for item in types:
@@ -141,7 +160,10 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
 
         # En creación solo se ofrecen monitores. La edición permite además al
         # propio coordinador para conservar participaciones existentes.
-        if actor.role_code == "COORDINADOR":
+        if scope is not None:
+            monitor_ids = set().union(*scope.values())
+            users = [user for user in users if str(user["id"]) in monitor_ids]
+        elif actor.role_code == "COORDINADOR":
             relaciones = _datos(
                 db.table("coordinador_monitor_colegio")
                 .select("monitor_id")
@@ -161,7 +183,9 @@ def _opciones_formulario(actor: AuthenticatedUser, filtrar_tipos: bool) -> Opcio
             .is_("deleted_at", "null")
             .order("nombre")
         )
-        if actor.role_code == "COORDINADOR":
+        if scope is not None:
+            colegios_query = colegios_query.in_("id", sorted(scope))
+        elif actor.role_code == "COORDINADOR":
             relaciones = _datos(
                 db.table("usuario_colegio")
                 .select("colegio_id")
